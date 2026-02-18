@@ -1,12 +1,14 @@
+// app/dashboard/_components/Sidebar/DashboardSidebar.jsx
+
 import {
   Calendar,
   Home,
-  Inbox,
   Search,
   Settings,
   Users,
   BarChart3,
-  FileText,
+  Video,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -23,36 +25,33 @@ import Image from "next/image";
 
 const navItems = [
   {
-    title: "Dashboard",
+    title: "Profile",
     url: "/dashboard",
     icon: Home,
   },
   {
-    title: "Analytics",
-    url: "/dashboard/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "Users",
-    url: "/dashboard/users",
+    title: "My Requests",
+    url: "/dashboard/my-requests",
     icon: Users,
   },
   {
-    title: "Inbox",
-    url: "/dashboard/inbox",
-    icon: Inbox,
+    title: "Video Bookings",
+    url: "/dashboard/my-video-bookings",
+    icon: Video,
   },
   {
-    title: "Calendar",
-    url: "/dashboard/calendar",
-    icon: Calendar,
+    title: "Subscriptions",
+    url: "/dashboard/my-subscriptions",
+    icon: CreditCard,
   },
   {
-    title: "Documents",
-    url: "/dashboard/documents",
-    icon: FileText,
+    title: "Payments",
+    url: "/dashboard/payments",
+    icon: CreditCard,
   },
+ 
 ];
+
 
 const secondaryItems = [
   {
@@ -68,9 +67,9 @@ const secondaryItems = [
 ];
 
 export function DashboardSidebar() {
-  return (
+ return (
     <Sidebar className="border-r">
-      <SidebarContent>
+      <SidebarContent className="bg-linear-to-br from-white/10  to-purple-400 dark:bg-linear-to-br dark:from-purple-950/30 dark:to-blue-950/30">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/" className="text-lg font-semibold">
             <Image
@@ -87,10 +86,10 @@ export function DashboardSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.title} className="p-3">
                   <SidebarMenuButton asChild>
                     <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className="h-4 w-4 text-purple-700" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -105,10 +104,10 @@ export function DashboardSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {secondaryItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.title} className="p-3">
                   <SidebarMenuButton asChild>
                     <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className="h-4 w-4 text-purple-700" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>

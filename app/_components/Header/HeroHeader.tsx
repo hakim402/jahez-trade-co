@@ -9,15 +9,15 @@ import { ThemeToggle } from "../Theme/theme-toggle";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 const menuItems = [
-  { name: "Features", href: "#link" },
-  { name: "Pricing", href: "#link" },
-  { name: "About", href: "#link" },
+  { name: "Home", href: "/" },
+  { name: "About", href: "/about" },
+  { name: "Contact", href: "/contact" },
 ];
 const menuItemsSecondary = [
-  { name: "Dashboard", href: "/dashboard" },
-  { name: "Features", href: "#link" },
-  { name: "Pricing", href: "#link" },
-  { name: "About", href: "#link" },
+  { name: "Home", href: "/" },
+  { name: "About", href: "/about" },
+  { name: "Contact", href: "/contact" },
+  { name: "Profile", href: "/dashboard" },
 ];
 
 export const HeroHeader = () => {
@@ -67,17 +67,32 @@ export const HeroHeader = () => {
               </Button>
 
               <div className="m-auto hidden size-fit lg:block">
-                <ul className="flex gap-1">
-                  {menuItems.map((item, index) => (
-                    <li key={index}>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={item.href} className="text-base">
-                          <span>{item.name}</span>
-                        </Link>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
+                <SignedOut>
+                  <ul className="flex gap-1">
+                    {menuItems.map((item, index) => (
+                      <li key={index}>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={item.href} className="text-base">
+                            <span>{item.name}</span>
+                          </Link>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </SignedOut>
+                <SignedIn>
+                  <ul className="flex gap-1">
+                    {menuItemsSecondary.map((item, index) => (
+                      <li key={index}>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={item.href} className="text-base">
+                            <span>{item.name}</span>
+                          </Link>
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </SignedIn>
               </div>
             </div>
 
@@ -121,23 +136,23 @@ export const HeroHeader = () => {
                     size="sm"
                     className={cn(isScrolled && "lg:hidden")}
                   >
-                    <Link href="/auth/sign-in">
+                    <Link href="/sign-in">
                       <span>Login</span>
                     </Link>
                   </Button>
                   <Button
                     asChild
                     size="sm"
-                    className={cn(isScrolled && "lg:hidden")}
+                    className={`${cn(isScrolled && "lg:hidden")} bg-color`}
                   >
-                    <Link href="/auth/sign-up">
+                    <Link href="/sign-up">
                       <span>Sign Up</span>
                     </Link>
                   </Button>
                   <Button
                     asChild
                     size="sm"
-                    className={cn(isScrolled ? "lg:inline-flex" : "hidden")}
+                    className={`${cn(isScrolled ? "lg:inline-flex" : "hidden")} bg-color`}
                   >
                     <Link href="#">
                       <span>Get Started</span>

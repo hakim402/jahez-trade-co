@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -46,8 +47,6 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.13 0.028 261.692);
   --popover: oklch(1 0 0);
@@ -77,6 +76,8 @@
   --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
   --sidebar-border: oklch(0.928 0.006 264.531);
   --sidebar-ring: oklch(0.707 0.022 261.325);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.13 0.028 261.692);
 }
 
 .dark {
@@ -116,13 +117,15 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    @apply bg-background text-foreground;
+    @apply bg-background text-foreground;
   }
 }
-
-
 
 /* ---------------------- */
 /* DASHBOARD SIDEBAR CSS */
@@ -151,9 +154,18 @@
   }
 }
 
+/* CUSTOME VARIANTS */
 
+.bg-color{
+  background-color: #e81cff !important;
+}
 
-.letter{
-  color: red;
-  background-color: blue;
+.text-color{
+  color: #e81cff !important;
+}
+
+.text-gradient {
+   background: -webkit-linear-gradient(#40c9ff, #e81cff) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }

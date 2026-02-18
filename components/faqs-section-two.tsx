@@ -4,78 +4,91 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import Link from 'next/link'
 
 export default function FAQs() {
-    const faqItems = [
-        {
-            id: 'item-1',
-            question: 'How long does shipping take?',
-            answer: 'Standard shipping takes 3-5 business days, depending on your location. Express shipping options are available at checkout for 1-2 business day delivery.',
-        },
-        {
-            id: 'item-2',
-            question: 'What payment methods do you accept?',
-            answer: 'We accept all major credit cards (Visa, Mastercard, American Express), PayPal, Apple Pay, and Google Pay. For enterprise customers, we also offer invoicing options.',
-        },
-        {
-            id: 'item-3',
-            question: 'Can I change or cancel my order?',
-            answer: 'You can modify or cancel your order within 1 hour of placing it. After this window, please contact our customer support team who will assist you with any changes.',
-        },
-        {
-            id: 'item-4',
-            question: 'Do you ship internationally?',
-            answer: "Yes, we ship to over 50 countries worldwide. International shipping typically takes 7-14 business days. Additional customs fees may apply depending on your country's import regulations.",
-        },
-        {
-            id: 'item-5',
-            question: 'What is your return policy?',
-            answer: 'We offer a 30-day return policy for most items. Products must be in original condition with tags attached. Some specialty items may have different return terms, which will be noted on the product page.',
-        },
-    ]
+  const faqItems = [
+    {
+      id: 'item-1',
+      question: 'How does the product sourcing process work?',
+      answer:
+        'Simply upload a product image or paste a product link, add your requirements, and submit your request. Our team researches suppliers, negotiates pricing, and sends you a detailed quote within 24 hours.',
+    },
+    {
+      id: 'item-2',
+      question: 'How long does it take to receive a price quote?',
+      answer:
+        'You will receive a transparent price quote within 24 hours after submitting your product request.',
+    },
+    {
+      id: 'item-3',
+      question: 'What subscription plans do you offer?',
+      answer:
+        'We offer three plans: Basic, Advanced, and VIP. Each plan is designed to filter serious buyers and provide different levels of service, from basic sourcing to full customization and live factory calls.',
+    },
+    {
+      id: 'item-4',
+      question: 'Can I customize my products (branding, packaging, quality)?',
+      answer:
+        'Yes. With the Advanced and VIP plans, you can request branding, packaging customization, quality checks, and product photography based on your needs.',
+    },
+    {
+      id: 'item-5',
+      question: 'Do you offer live video calls with markets or factories?',
+      answer:
+        'Yes. The VIP plan includes live video calls and remote market or factory visits so you can see your products in real time before placing an order.',
+    },
+    {
+      id: 'item-6',
+      question: 'How do I pay for subscriptions and services?',
+      answer:
+        'All payments are handled securely online. You can subscribe to a plan or pay for video call bookings directly through the platform.',
+    },
+    {
+      id: 'item-7',
+      question: 'What happens after I approve the quote?',
+      answer:
+        'Once you approve the quote, production and shipping will start based on your requirements. Our team will coordinate with suppliers and keep you updated.',
+    },
+  ]
 
-    return (
-        <section className="py-16 md:py-24">
-            <div className="mx-auto max-w-5xl px-6">
-                <div className="grid gap-8 md:grid-cols-5 md:gap-12">
-                    <div className="md:col-span-2">
-                        <h2 className="text-foreground text-4xl font-semibold">FAQs</h2>
-                        <p className="text-muted-foreground mt-4 text-balance text-lg">Your questions answered</p>
-                        <p className="text-muted-foreground mt-6 hidden md:block">
-                            Can't find what you're looking for? Contact our{' '}
-                            <Link
-                                href="#"
-                                className="text-primary font-medium hover:underline">
-                                customer support team
-                            </Link>
-                        </p>
-                    </div>
+  return (
+    <section className="py-16 md:py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="grid gap-8 md:grid-cols-5 md:gap-12">
+          <div className="md:col-span-2">
+            <h2 className="text-foreground text-4xl font-semibold">FAQs</h2>
+            <p className="text-muted-foreground mt-4 text-balance text-lg">
+              Everything you need to know about our sourcing process
+            </p>
+            <p className="text-muted-foreground mt-6 hidden md:block">
+              Can't find what you're looking for? Contact our{' '}
+              <Link href="#" className="text-primary font-medium hover:underline">
+                support team
+              </Link>
+            </p>
+          </div>
 
-                    <div className="md:col-span-3">
-                        <Accordion
-                            type="single"
-                            collapsible>
-                            {faqItems.map((item) => (
-                                <AccordionItem
-                                    key={item.id}
-                                    value={item.id}>
-                                    <AccordionTrigger className="cursor-pointer text-base hover:no-underline">{item.question}</AccordionTrigger>
-                                    <AccordionContent>
-                                        <p className="text-base">{item.answer}</p>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                    </div>
+          <div className="md:col-span-3">
+            <Accordion type="single" collapsible>
+              {faqItems.map((item) => (
+                <AccordionItem key={item.id} value={item.id}>
+                  <AccordionTrigger className="cursor-pointer text-base hover:no-underline">
+                    {item.question}
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-base">{item.answer}</p>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
 
-                    <p className="text-muted-foreground mt-6 md:hidden">
-                        Can't find what you're looking for? Contact our{' '}
-                        <Link
-                            href="#"
-                            className="text-primary font-medium hover:underline">
-                            customer support team
-                        </Link>
-                    </p>
-                </div>
-            </div>
-        </section>
-    )
+          <p className="text-muted-foreground mt-6 md:hidden">
+            Can't find what you're looking for? Contact our{' '}
+            <Link href="#" className="text-primary font-medium hover:underline">
+              support team
+            </Link>
+          </p>
+        </div>
+      </div>
+    </section>
+  )
 }

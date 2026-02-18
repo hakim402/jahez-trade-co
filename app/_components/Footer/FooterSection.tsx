@@ -31,7 +31,7 @@ const links = [
 export default function FooterSection() {
   return (
     <footer className="py-16 bg-linear-to-b to-muted from-background">
-      <div className="mx-auto max-w-5xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         <Link href="/" aria-label="go home" className="mx-auto block size-fit">
           <Image src="/logo/skillora.jpg" alt="Logo" width={120} height={100} />
         </Link>
@@ -176,7 +176,7 @@ export default function FooterSection() {
         </div>
         <span className="text-muted-foreground block text-center text-sm">
           {" "}
-          © {new Date().getFullYear()} Skillora, All rights reserved
+          © {new Date().getFullYear()} AsiTradeX, All rights reserved
         </span>
       </div>
     </footer>

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Skillora",
-  description: "Skillora - Your Personal Skill Tracker",
+  title: "AsiTradeX - Your Personal Products Tracker",
+  description: "AsiTradeX is a cutting-edge web application designed to help you effortlessly track and manage your favorite products. With real-time updates, personalized notifications, and an intuitive interface, AsiTradeX ensures you never miss out on the best deals and product releases. Stay organized and informed with AsiTradeX, your ultimate product tracking companion.",
 };
 
 export default function RootLayout({
@@ -32,6 +33,7 @@ export default function RootLayout({
         <ClerkProvider>
           <ThemeProvider>
             {children}
+            <Toaster />
           </ThemeProvider>
         </ClerkProvider>
       </body>

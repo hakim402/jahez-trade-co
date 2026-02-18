@@ -1,8 +1,24 @@
-import React from "react";
-import { DashboardSidebar } from "./_components/Sidebar/DashboardSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
+import { DashboardSidebar } from "../dashboard/_components/Sidebar/DashboardSidebar";
 
-function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const user = await prisma.user.findUnique({
+    where: { clerkId: userId },
+    select: { role: true, fullName: true, avatarUrl: true },
+  });
+
+  if (!user || user.role !== "CLIENT") redirect("/admin");
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -16,5 +32,3 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-export default DashboardLayout;

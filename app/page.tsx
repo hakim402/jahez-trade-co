@@ -1,13 +1,13 @@
-import Image from "next/image";
+// app/page.tsx
+
 import { HeroHeader } from "./_components/Header/HeroHeader";
 import HeroSection from "./_components/Hero/HeroSection";
-import Features from "./_components/Features/features";
-import Integrations from "./_components/Integrations/integrations";
-import StatsSection from "./_components/Stats/StatsSections";
 import TeamSection from "./_components/Teams/TeamSection";
 import FooterSection from "./_components/Footer/FooterSection";
 import Pricing from "./_components/Pricing/Pricing";
 import FAQs from "@/components/faqs-section-two";
+import CTA from "./_components/CTA/CTA";
+import Features from "./_components/Features/features";
 
 
 export default function Home() {
@@ -16,11 +16,10 @@ export default function Home() {
       <HeroHeader />
       <HeroSection />
       <Features />
-      <Integrations />
       <Pricing />
-      <StatsSection />
       <TeamSection />
       <FAQs />
+      <CTA />
       <FooterSection />
     </div>
   );

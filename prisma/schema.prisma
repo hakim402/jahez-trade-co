@@ -1,12 +1,8 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
@@ -16,58 +12,275 @@ datasource db {
 
 
 // ------------------------------------------------
-// ---------------- USER MODEL --------------------
+// ---------- ENUMS -------------------------------
+// ------------------------------------------------
+enum UserRole {
+  ADMIN
+  CLIENT
+  STAFF
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PRO
+  VIP
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  TRIALING
+}
+
+enum RequestStatus {
+  SUBMITTED
+  IN_REVIEW
+  QUOTED
+  APPROVED
+  REJECTED
+  IN_PRODUCTION
+  SHIPPED
+  COMPLETED
+}
+
+enum BookingType {
+  MARKET
+  FACTORY
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+
+// ------------------------------------------------
+// ---------- USER MODEL --------------------------
 // ------------------------------------------------
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  memberships Membership[]
+  id                String         @id @default(cuid())
+  clerkId           String         @unique
+  email             String         @unique
+  fullName          String?
+  role              UserRole       @default(CLIENT)
+  stripeCustomerId  String?        @unique
+  phone             String?
+  avatarUrl         String?
+
+  subscriptions     Subscription[]
+  requests          ProductRequest[]
+  bookings          VideoBooking[]
+  payments          Payment[]
+  auditLogs         AuditLog[]
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([clerkId])
+  @@index([email])
+  @@index([role])
 }
 
-
-
 // ------------------------------------------------
-// ---------------- ORGANIZATIONS MODEL -----------
+// ---------- PLAN MODEL---------------------------
 // ------------------------------------------------
-model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
+model Plan {
+  id          String   @id @default(cuid())
+  name        String   @unique // matches SubscriptionPlan enum: BASIC, PRO, VIP
+  displayName String   // e.g., "Basic Plan"
+  description String?
+  price       Decimal  @db.Decimal(10,2) // monthly price in your currency
+  currency    String   @default("USD")
+  features    Json     // store array of features, e.g., ["Feature 1", "Feature 2"]
+  isPopular   Boolean  @default(false) // highlight most popular plan
+  stripePriceId String? // if you integrate Stripe recurring prices
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  members   Membership[]
+  @@index([name])
 }
 
+// ------------------------------------------------
+// ---------- SUBSCRIPTION MODEL-------------------
+// ------------------------------------------------
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  user                 User               @relation(fields: [userId], references: [id])
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus
+  stripeCustomerId     String
+  stripeSubscriptionId String             @unique
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  trialEndsAt          DateTime?
 
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
 
 // ------------------------------------------------
-// ---------------- MEMBERSHIP MODEL --------------
+// ---------- PRODUCT-REQUEST MODEL ---------------
 // ------------------------------------------------
-model Membership {
-  id             String   @id @default(cuid())
+model ProductRequest {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id])
+  productLink      String?
+  description      String?        @db.Text
+  quantity         Int
+  shippingCountry  String
+  customNotes      String?        @db.Text
+  adminNotes       String?        @db.Text
+  status           RequestStatus  @default(SUBMITTED)
+  quotedAt         DateTime?
+
+  files            FileUpload[]
+  quotes           Quote[]
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ------------------------------------------------
+// ---------- FILE-UPLOAD MODEL -------------------
+// ------------------------------------------------
+model FileUpload {
+  id          String   @id @default(cuid())
+  url         String
+  fileType    String
+  fileName    String?
+  fileSize    Int?
+  requestId   String?
+  request     ProductRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploadedAt  DateTime @default(now())
+}
+
+// ------------------------------------------------
+// ---------- QUOTE MODEL -------------------------
+// ------------------------------------------------
+model Quote {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  price       Decimal  @db.Decimal(10,2)
+  currency    String   @default("USD")
+  adminNotes  String?  @db.Text
+  quoteFileUrl String?
+  createdAt   DateTime @default(now())
+}
+
+// ------------------------------------------------
+// ---------- VIDEO-BOOKING MODEL -----------------
+// ------------------------------------------------
+model VideoBooking {
+  id             String        @id @default(cuid())
   userId         String
-  organizationId String
-  role           OrgRole  @default(MEMBER)
+  user           User          @relation(fields: [userId], references: [id])
+  type           BookingType
+  location       String        // could be enum later
+  scheduledAt    DateTime
+  durationMinutes Int          @default(30)
+  meetingLink    String?
+  status         BookingStatus @default(PENDING)
+  adminNotes     String?       @db.Text
+  slotId        String?     @unique
+  slot          AvailabilitySlot?
 
-  user           User         @relation(fields: [userId], references: [id])
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  payment        Payment?
 
-  @@unique([userId, organizationId])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([scheduledAt])
 }
 
+// ------------------------------------------------
+// ---------- AVAILABILITY-SLOT MODEL -----------------
+// ------------------------------------------------
+model AvailabilitySlot {
+  id            String      @id @default(cuid())
+  type          BookingType
+  location      String      // e.g., "Yiwu", "Guangzhou"
+  startTime     DateTime
+  endTime       DateTime?
+  durationMinutes Int       @default(30)
+  isAvailable   Boolean     @default(true)
 
+  // When booked, link to the VideoBooking
+  bookingId     String?     @unique
+  booking       VideoBooking? @relation(fields: [bookingId], references: [id])
 
-enum Role {
-  USER
-  ADMIN
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([type])
+  @@index([location])
+  @@index([startTime])
+  @@index([isAvailable])
 }
 
-enum OrgRole {
-  OWNER
-  MEMBER
+// ------------------------------------------------
+// ---------- PAYMENT MODEL -----------------------
+// ------------------------------------------------
+model Payment {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  amount           Decimal       @db.Decimal(10,2)
+  currency         String        @default("USD")
+  status           PaymentStatus
+  description      String?
+  stripeSessionId  String?       @unique
+  stripePaymentId  String?       @unique
+
+  // One-to-one with booking (optional)
+  bookingId        String?       @unique
+  booking          VideoBooking? @relation(fields: [bookingId], references: [id])
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+
+  @@index([userId])
+  @@index([stripeSessionId])
+}
+
+// ------------------------------------------------
+// ---------- AUDIT-LOG MODEL ---------------------
+// ------------------------------------------------
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     User     @relation(fields: [adminId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?    // optional structured diff
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([entity])
+  @@index([createdAt])
 }
