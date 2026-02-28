@@ -1,5 +1,6 @@
+// app/layout.tsx
+
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,25 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning>
+    <html suppressHydrationWarning>
       <body>
-        <ClerkProvider
-          appearance={{
-            cssLayerName: "clerk",
-            variables: {
-              colorBackground: "var(--primary-foreground)",
-              colorForeground: "var(--primary)",
-              colorInput: "var(--color-input)",
-              colorPrimary: "var(--indigo)",
-              colorText: "var(--foreground)",
-            },
-          }}
-        >
-          <ThemeProvider>
-            {children}
-            <Toaster />
-          </ThemeProvider>
-        </ClerkProvider>
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

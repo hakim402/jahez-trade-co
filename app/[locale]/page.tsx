@@ -1,4 +1,4 @@
-// app/page.tsx
+// app/[locale]/page.tsx
 
 import { Header } from "./_components/Header/Header";
 import HeroSection from "./_components/Hero/HomeHero";
