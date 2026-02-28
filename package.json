@@ -1,5 +1,5 @@
 {
-  "name": "asitradex",
+  "name": "mewan",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,7 +11,7 @@
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",
     "@prisma/adapter-pg": "^7.4.0",
-    "@prisma/client": "^7.4.0",
+    "@prisma/client": "^7.4.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -29,6 +29,7 @@
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.5",
+    "next-intl": "^4.8.3",
     "next-themes": "^0.4.6",
     "pg": "^8.18.0",
     "radix-ui": "^1.4.3",
@@ -40,6 +41,7 @@
     "sonner": "^2.0.7",
     "svix": "^1.84.1",
     "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
     "zod": "^4.3.6"
   },
@@ -51,7 +53,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.5",
-    "prisma": "^7.4.0",
+    "prisma": "^7.4.1",
     "shadcn": "^3.8.4",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
