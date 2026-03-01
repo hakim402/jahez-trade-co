@@ -16,6 +16,7 @@ import {
   FileText,
   Calendar,
   PackageSearch,
+  MessageSquareQuote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -33,7 +34,7 @@ const mainNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
   { icon: Users, label: "Customers", href: "/admin/users" },
   { icon: PackageSearch, label: "Product Requests", href: "/admin/product-requests" },
-  { icon: Wallet, label: "Revenue", href: "/admin/revenue" },
+  { icon: MessageSquareQuote, label: "Product Quotes", href: "/admin/product-quotes" },
   { icon: Calendar, label: "Calendar", href: "/admin/calendar" },
   { icon: FileText, label: "Reports", href: "/admin/reports" },
   { icon: MessageSquare, label: "Messages", href: "/admin/messages", badge: 3 },

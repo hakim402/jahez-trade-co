@@ -1,3 +1,4 @@
+// app/[locale]/admin/quotes/actions.ts
 'use server';
 
 import { prisma } from '@/lib/prisma';
@@ -7,9 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { Prisma, QuoteStatus } from '@prisma/client';
 
-// ----------------------------------------------------------------------
 // Validation schemas
-// ----------------------------------------------------------------------
 const getQuotesSchema = z.object({
   take: z.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
@@ -26,7 +25,7 @@ export type GetQuotesParams = z.infer<typeof getQuotesSchema>;
 export type GetQuotesReturn = {
   quotes: Array<{
     id: string;
-    price: Prisma.Decimal;
+    price: number; // ✅ changed from Decimal to number
     currency: string;
     status: QuoteStatus;
     adminNotes: string | null;
@@ -51,23 +50,17 @@ export type GetQuotesReturn = {
   total: number;
 };
 
-// ----------------------------------------------------------------------
-// List quotes (admin only)
-// ----------------------------------------------------------------------
 export async function getQuotes(
   rawParams: GetQuotesParams
 ): Promise<GetQuotesReturn> {
   await requireAdmin();
-
   const params = getQuotesSchema.parse(rawParams);
   const { take, cursor, requestId, supplierId, status, search, sortBy, sortOrder } = params;
 
   const where: Prisma.QuoteWhereInput = {};
-
   if (requestId) where.requestId = requestId;
   if (supplierId) where.supplierId = supplierId;
   if (status) where.status = status;
-
   if (search) {
     where.OR = [
       { adminNotes: { contains: search, mode: 'insensitive' } },
@@ -79,9 +72,7 @@ export async function getQuotes(
 
   const total = await prisma.quote.count({ where });
 
-  const orderBy: Prisma.QuoteOrderByWithRelationInput = {
-    [sortBy]: sortOrder,
-  };
+  const orderBy: Prisma.QuoteOrderByWithRelationInput = { [sortBy]: sortOrder };
 
   const quotes = await prisma.quote.findMany({
     take: take + 1,
@@ -103,20 +94,10 @@ export async function getQuotes(
           id: true,
           productLink: true,
           description: true,
-          user: {
-            select: {
-              fullName: true,
-              email: true,
-            },
-          },
+          user: { select: { fullName: true, email: true } },
         },
       },
-      supplier: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      supplier: { select: { id: true, name: true } },
     },
   });
 
@@ -126,8 +107,14 @@ export async function getQuotes(
     nextCursor = nextItem!.id;
   }
 
+  // Convert Decimal price to number for client
+  const quotesWithNumberPrice = quotes.map(q => ({
+    ...q,
+    price: Number(q.price),
+  }));
+
   return {
-    quotes: quotes as GetQuotesReturn['quotes'],
+    quotes: quotesWithNumberPrice as GetQuotesReturn['quotes'],
     nextCursor,
     total,
   };
@@ -141,7 +128,7 @@ const getQuoteByIdSchema = z.object({ id: z.string() });
 export type GetQuoteByIdReturn = {
   quote: {
     id: string;
-    price: Prisma.Decimal;
+    price: number; 
     currency: string;
     status: QuoteStatus;
     adminNotes: string | null;
@@ -173,7 +160,6 @@ export type GetQuoteByIdReturn = {
 
 export async function getQuoteById(rawParams: { id: string }): Promise<GetQuoteByIdReturn> {
   await requireAdmin();
-
   const { id } = getQuoteByIdSchema.parse(rawParams);
 
   const quote = await prisma.quote.findUnique({
@@ -194,14 +180,7 @@ export async function getQuoteById(rawParams: { id: string }): Promise<GetQuoteB
           description: true,
           quantity: true,
           shippingCountry: true,
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              phone: true,
-            },
-          },
+          user: { select: { id: true, fullName: true, email: true, phone: true } },
         },
       },
       supplier: {
@@ -217,7 +196,14 @@ export async function getQuoteById(rawParams: { id: string }): Promise<GetQuoteB
   });
 
   if (!quote) throw new Error('Quote not found');
-  return { quote };
+
+  // Convert Decimal price to number
+  const quoteWithNumberPrice = {
+    ...quote,
+    price: Number(quote.price),
+  };
+
+  return { quote: quoteWithNumberPrice as GetQuoteByIdReturn['quote'] };
 }
 
 // ----------------------------------------------------------------------
@@ -237,7 +223,6 @@ export type CreateQuoteInput = z.infer<typeof createQuoteSchema>;
 
 export async function createQuote(input: CreateQuoteInput) {
   await requireAdmin();
-
   const validated = createQuoteSchema.parse(input);
 
   const quote = await prisma.quote.create({
@@ -283,10 +268,8 @@ export type UpdateQuoteInput = z.infer<typeof updateQuoteSchema>;
 
 export async function updateQuote(input: UpdateQuoteInput) {
   await requireAdmin();
-
   const { id, ...data } = updateQuoteSchema.parse(input);
 
-  // Fetch old quote for audit
   const oldQuote = await prisma.quote.findUnique({
     where: { id },
     select: {
@@ -312,7 +295,6 @@ export async function updateQuote(input: UpdateQuoteInput) {
     changes: { before: oldQuote, after: updated },
   });
 
-  // Revalidate related paths
   revalidatePath(`/admin/quotes/${id}`);
   revalidatePath(`/admin/product-requests/${updated.requestId}`);
   revalidatePath('/admin/quotes');
@@ -328,10 +310,8 @@ const acceptQuoteSchema = z.object({ quoteId: z.string() });
 
 export async function acceptQuote(input: { quoteId: string }) {
   await requireAdmin();
-
   const { quoteId } = acceptQuoteSchema.parse(input);
 
-  // Fetch the quote to ensure it exists and get its requestId
   const quote = await prisma.quote.findUnique({
     where: { id: quoteId },
     select: { requestId: true, status: true },
@@ -339,7 +319,6 @@ export async function acceptQuote(input: { quoteId: string }) {
   if (!quote) throw new Error('Quote not found');
   if (quote.status === 'ACCEPTED') throw new Error('Quote already accepted');
 
-  // Use a transaction to update both quote status and request's acceptedQuoteId
   const [updatedQuote, updatedRequest] = await prisma.$transaction([
     prisma.quote.update({
       where: { id: quoteId },
@@ -347,7 +326,7 @@ export async function acceptQuote(input: { quoteId: string }) {
     }),
     prisma.productRequest.update({
       where: { id: quote.requestId },
-      data: { acceptedQuoteId: quoteId, status: 'APPROVED' }, // optionally update request status
+      data: { acceptedQuoteId: quoteId, status: 'APPROVED' },
     }),
   ]);
 
@@ -366,14 +345,44 @@ export async function acceptQuote(input: { quoteId: string }) {
   return { success: true };
 }
 
+// Get minimal request data for dropdown
+export async function getRequestOptions() {
+  await requireAdmin();
+  const requests = await prisma.productRequest.findMany({
+    take: 100, // limit for performance
+    select: {
+      id: true,
+      productLink: true,
+      description: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  return requests.map(req => ({
+    id: req.id,
+    label: req.productLink
+      ? req.productLink.slice(0, 30) + (req.productLink.length > 30 ? '...' : '')
+      : req.description?.slice(0, 30) || req.id.slice(0, 8),
+  }));
+}
+
+// Get minimal supplier data for dropdown
+export async function getSupplierOptions() {
+  await requireAdmin();
+  const suppliers = await prisma.supplier.findMany({
+    take: 100,
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  });
+  return suppliers;
+}
+
 // ----------------------------------------------------------------------
-// Delete a quote (only if not accepted? We'll allow admin to delete)
+// Delete a quote
 // ----------------------------------------------------------------------
 const deleteQuoteSchema = z.object({ quoteId: z.string() });
 
 export async function deleteQuote(input: { quoteId: string }) {
   await requireAdmin();
-
   const { quoteId } = deleteQuoteSchema.parse(input);
 
   const quote = await prisma.quote.findUnique({
