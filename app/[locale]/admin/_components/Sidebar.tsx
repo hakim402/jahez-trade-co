@@ -32,7 +32,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
   { icon: Users, label: "Customers", href: "/admin/users" },
-  { icon: PackageSearch, label: "Requests", href: "/admin/requests" },
+  { icon: PackageSearch, label: "Product Requests", href: "/admin/product-requests" },
   { icon: Wallet, label: "Revenue", href: "/admin/revenue" },
   { icon: Calendar, label: "Calendar", href: "/admin/calendar" },
   { icon: FileText, label: "Reports", href: "/admin/reports" },

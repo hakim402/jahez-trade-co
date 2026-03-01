@@ -24,7 +24,8 @@ export function BookingDialog({ children }: BookingDialogProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
         className={cn(
-          "max-w-3xl max-h-[90vh] overflow-y-auto",
+          "w-[95vw] sm:max-w-2xl lg:max-w-7xl",
+    "max-h-[95vh] overflow-y-auto",
           "bg-background/95 backdrop-blur-xl",
           "border border-border/50 shadow-2xl",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2",
