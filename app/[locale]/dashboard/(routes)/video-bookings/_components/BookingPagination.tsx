@@ -1,4 +1,3 @@
-// app/[locale]/admin/(routes)/product-requests/_components/RequestPagination.tsx
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
@@ -12,7 +11,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 
-interface RequestPaginationProps {
+interface BookingPaginationProps {
   pagination: {
     page: number
     pageSize: number
@@ -22,7 +21,7 @@ interface RequestPaginationProps {
   filters: any
 }
 
-export function RequestPagination({ pagination }: RequestPaginationProps) {
+export function BookingPagination({ pagination }: BookingPaginationProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()

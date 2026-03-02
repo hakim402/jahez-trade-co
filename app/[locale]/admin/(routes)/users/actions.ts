@@ -1,4 +1,3 @@
-// app/[locale]/admin/users/actions.ts
 'use server';
 
 import { prisma } from '@/lib/prisma';
@@ -10,16 +9,6 @@ import { Prisma } from '@prisma/client';
    VALIDATION SCHEMAS
    ============================================================================ */
 
-/**
- * Schema for validating and normalizing query parameters
- * used when listing users in the admin panel.
- *
- * Supports:
- * - Cursor-based pagination
- * - Search (email / full name)
- * - Role filtering
- * - Sorting configuration
- */
 const getUsersSchema = z.object({
   take: z.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
@@ -31,13 +20,6 @@ const getUsersSchema = z.object({
 
 export type GetUsersParams = z.infer<typeof getUsersSchema>;
 
-/**
- * Standardized return shape for the paginated users list.
- * Includes:
- * - Users data
- * - Cursor for next page
- * - Total count (for UI pagination controls)
- */
 export type GetUsersReturn = {
   users: Array<{
     id: string;
@@ -47,12 +29,13 @@ export type GetUsersReturn = {
     role: 'ADMIN' | 'CLIENT';
     phone: string | null;
     avatarUrl: string | null;
+    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
     _count: {
       requests: number;
-      bookings: number;
-      subscriptions: number;
+      clientBookings: number;      // bookings where user is client
+      // subscription is a single relation, so we don't include it in _count
     };
   }>;
   nextCursor: string | null;
@@ -61,24 +44,18 @@ export type GetUsersReturn = {
 
 /* ============================================================================
    GET USERS (Admin Only)
-   Cursor-based pagination with filtering and sorting.
-   This action is intentionally uncached.
    ============================================================================ */
 
 export async function getUsers(
   rawParams: GetUsersParams
 ): Promise<GetUsersReturn> {
-  // Ensure only ADMIN users can access this action
   await requireAdmin();
 
-  // Validate and normalize incoming parameters
   const params = getUsersSchema.parse(rawParams);
   const { take, cursor, search, role, sortBy, sortOrder } = params;
 
-  // Build dynamic Prisma where clause
-  const where: Prisma.UserWhereInput = {};
+  const where: Prisma.UserWhereInput = { isDeleted: false }; // exclude soft-deleted users
 
-  // Search by email or full name (case-insensitive)
   if (search) {
     where.OR = [
       { email: { contains: search, mode: 'insensitive' } },
@@ -86,20 +63,16 @@ export async function getUsers(
     ];
   }
 
-  // Filter by role if provided
   if (role) {
     where.role = role;
   }
 
-  // Total count for pagination UI
   const total = await prisma.user.count({ where });
 
-  // Dynamic sorting configuration
   const orderBy: Prisma.UserOrderByWithRelationInput = {
     [sortBy]: sortOrder,
   };
 
-  // Fetch one extra record to determine if next page exists
   const users = await prisma.user.findMany({
     take: take + 1,
     skip: cursor ? 1 : 0,
@@ -114,19 +87,19 @@ export async function getUsers(
       role: true,
       phone: true,
       avatarUrl: true,
+      isActive: true,
       createdAt: true,
       updatedAt: true,
       _count: {
         select: {
           requests: true,
-          bookings: true,
-          subscriptions: true,
+          clientBookings: true,    // renamed from bookings
+          // subscription is not a list, so excluded
         },
       },
     },
   });
 
-  // Determine next cursor
   let nextCursor: string | null = null;
   if (users.length > take) {
     const nextItem = users.pop();
@@ -142,8 +115,6 @@ export async function getUsers(
 
 /* ============================================================================
    GET SINGLE USER BY ID (Admin Only)
-   Includes related subscriptions, requests, and bookings.
-   Decimal fields are converted to plain numbers for safe serialization.
    ============================================================================ */
 
 const getUserByIdSchema = z.object({ id: z.string() });
@@ -157,9 +128,10 @@ export type GetUserByIdReturn = {
     role: 'ADMIN' | 'CLIENT';
     phone: string | null;
     avatarUrl: string | null;
+    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
-    subscriptions: Array<{
+    subscription: {
       id: string;
       clerkSubscriptionId: string;
       createdAt: Date;
@@ -170,11 +142,11 @@ export type GetUserByIdReturn = {
         plan?: {
           id: string;
           name: string;
-          amount: number; // Serialized as number for client safety
+          amount: number; // serialized
           currency: string;
         } | null;
       }>;
-    }>;
+    } | null;
     requests: Array<{
       id: string;
       status: string;
@@ -182,31 +154,28 @@ export type GetUserByIdReturn = {
       productLink: string | null;
       description: string | null;
     }>;
-    bookings: Array<{
+    clientBookings: Array<{
       id: string;
       status: string;
       scheduledAt: Date | null;
       createdAt: Date;
-      supplier: {
-        id: string;
-        name: string;
-      } | null;
+      type: string;
+      meetingProvider?: string | null;
     }>;
+    // Optionally include handled bookings if needed
+    // handledBookings: Array<{ ... }>;
   };
 };
 
 export async function getUserById(
   rawParams: { id: string }
 ): Promise<GetUserByIdReturn> {
-  // Ensure only ADMIN users can access this action
   await requireAdmin();
 
-  // Validate input
   const { id } = getUserByIdSchema.parse(rawParams);
 
-  // Fetch user with related data
   const user = await prisma.user.findUnique({
-    where: { id },
+    where: { id, isDeleted: false },
     select: {
       id: true,
       clerkId: true,
@@ -215,9 +184,10 @@ export async function getUserById(
       role: true,
       phone: true,
       avatarUrl: true,
+      isActive: true,
       createdAt: true,
       updatedAt: true,
-      subscriptions: {
+      subscription: {
         select: {
           id: true,
           clerkSubscriptionId: true,
@@ -250,22 +220,20 @@ export async function getUserById(
         orderBy: { createdAt: 'desc' },
         take: 10,
       },
-      bookings: {
+      clientBookings: {
         select: {
           id: true,
           status: true,
           scheduledAt: true,
           createdAt: true,
-          supplier: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+          type: true,
+          meetingProvider: true,
         },
         orderBy: { createdAt: 'desc' },
         take: 10,
       },
+      // If you need bookings handled by this user (as admin):
+      // handledBookings: { ... }
     },
   });
 
@@ -273,25 +241,23 @@ export async function getUserById(
     throw new Error('User not found');
   }
 
-  /**
-   * Convert Prisma Decimal fields into plain numbers
-   * to prevent serialization issues when sending data
-   * from Server Actions to Client Components.
-   */
+  // Convert Decimal to number
   const convertedUser = {
     ...user,
-    subscriptions: user.subscriptions.map(sub => ({
-      ...sub,
-      items: sub.items.map(item => ({
-        ...item,
-        plan: item.plan
-          ? {
-              ...item.plan,
-              amount: Number(item.plan.amount), // Decimal → number
-            }
-          : null,
-      })),
-    })),
+    subscription: user.subscription
+      ? {
+          ...user.subscription,
+          items: user.subscription.items.map((item) => ({
+            ...item,
+            plan: item.plan
+              ? {
+                  ...item.plan,
+                  amount: Number(item.plan.amount),
+                }
+              : null,
+          })),
+        }
+      : null,
   };
 
   return { user: convertedUser as GetUserByIdReturn['user'] };

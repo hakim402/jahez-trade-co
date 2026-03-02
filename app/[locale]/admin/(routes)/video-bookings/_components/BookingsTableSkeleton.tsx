@@ -1,4 +1,3 @@
-// app/[locale]/admin/(routes)/product-requests/_components/RequestsTableSkeleton.tsx
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -9,7 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-export function RequestsTableSkeleton() {
+export function BookingsTableSkeleton() {
   return (
     <div className="rounded-md border">
       <Table>
@@ -17,9 +16,9 @@ export function RequestsTableSkeleton() {
           <TableRow>
             <TableHead>ID</TableHead>
             <TableHead>Client</TableHead>
-            <TableHead>Product Link</TableHead>
-            <TableHead>Quantity</TableHead>
+            <TableHead>Type</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Scheduled</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -29,9 +28,9 @@ export function RequestsTableSkeleton() {
             <TableRow key={i}>
               <TableCell><Skeleton className="h-4 w-16" /></TableCell>
               <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-              <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-20" /></TableCell>
               <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+              <TableCell><Skeleton className="h-4 w-24" /></TableCell>
               <TableCell><Skeleton className="h-4 w-24" /></TableCell>
               <TableCell className="text-right"><Skeleton className="h-8 w-8 rounded-full ml-auto" /></TableCell>
             </TableRow>

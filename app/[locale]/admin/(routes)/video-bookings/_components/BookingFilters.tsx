@@ -1,4 +1,3 @@
-// app/[locale]/admin/(routes)/product-requests/_components/RequestFilters.tsx
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
@@ -20,33 +19,30 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { RequestStatus } from '@prisma/client'
+import { BookingStatus } from '@prisma/client'
 import { useState } from 'react'
 
-interface RequestFiltersProps {
+interface BookingFiltersProps {
   initialFilters: {
-    page?: number
-    pageSize?: number
     status?: string
     clientEmail?: string
-    createdAtFrom?: Date
-    createdAtTo?: Date
+    dateFrom?: Date
+    dateTo?: Date
   }
 }
 
-export function RequestFilters({ initialFilters }: RequestFiltersProps) {
+export function BookingFilters({ initialFilters }: BookingFiltersProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [status, setStatus] = useState(initialFilters.status || '')
   const [clientEmail, setClientEmail] = useState(initialFilters.clientEmail || '')
-  const [fromDate, setFromDate] = useState<Date | undefined>(initialFilters.createdAtFrom)
-  const [toDate, setToDate] = useState<Date | undefined>(initialFilters.createdAtTo)
+  const [fromDate, setFromDate] = useState<Date | undefined>(initialFilters.dateFrom)
+  const [toDate, setToDate] = useState<Date | undefined>(initialFilters.dateTo)
 
   const applyFilters = () => {
     const params = new URLSearchParams(searchParams)
-    // Reset to page 1 when filters change
     params.set('page', '1')
 
     if (status) params.set('status', status)
@@ -55,11 +51,11 @@ export function RequestFilters({ initialFilters }: RequestFiltersProps) {
     if (clientEmail) params.set('clientEmail', clientEmail)
     else params.delete('clientEmail')
 
-    if (fromDate) params.set('createdAtFrom', fromDate.toISOString())
-    else params.delete('createdAtFrom')
+    if (fromDate) params.set('dateFrom', fromDate.toISOString())
+    else params.delete('dateFrom')
 
-    if (toDate) params.set('createdAtTo', toDate.toISOString())
-    else params.delete('createdAtTo')
+    if (toDate) params.set('dateTo', toDate.toISOString())
+    else params.delete('dateTo')
 
     router.push(`${pathname}?${params.toString()}`)
   }
@@ -77,12 +73,12 @@ export function RequestFilters({ initialFilters }: RequestFiltersProps) {
       <div className="space-y-1">
         <label className="text-sm font-medium">Status</label>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value=" ">All</SelectItem>
-            {Object.values(RequestStatus).map((s) => (
+            {Object.values(BookingStatus).map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
               </SelectItem>
@@ -97,7 +93,7 @@ export function RequestFilters({ initialFilters }: RequestFiltersProps) {
           placeholder="Filter by email"
           value={clientEmail}
           onChange={(e) => setClientEmail(e.target.value)}
-          className="w-[220px]"
+          className="w-55"
         />
       </div>
 
@@ -108,7 +104,7 @@ export function RequestFilters({ initialFilters }: RequestFiltersProps) {
             <Button
               variant="outline"
               className={cn(
-                'w-[200px] justify-start text-left font-normal',
+                'w-50 justify-start text-left font-normal',
                 !fromDate && 'text-muted-foreground'
               )}
             >
@@ -134,7 +130,7 @@ export function RequestFilters({ initialFilters }: RequestFiltersProps) {
             <Button
               variant="outline"
               className={cn(
-                'w-[200px] justify-start text-left font-normal',
+                'w-50 justify-start text-left font-normal',
                 !toDate && 'text-muted-foreground'
               )}
             >

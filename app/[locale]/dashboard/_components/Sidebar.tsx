@@ -32,19 +32,16 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-  { icon: Users, label: "Customers", href: "/admin/users" },
-  { icon: PackageSearch, label: "Product Requests", href: "/admin/product-requests" },
-  { icon: MessageSquareQuote, label: "Product Quotes", href: "/admin/product-quotes" },
-  { icon: File, label: "files", href: "/admin/files" },
-  { icon: FileText, label: "Reports", href: "/admin/reports" },
-  { icon: MessageSquare, label: "Messages", href: "/admin/messages", badge: 3 },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: Users, label: "My Requests", href: "/dashboard/requests" },
+  { icon: PackageSearch, label: "Video Bookings", href: "/dashboard/video-bookings" },
+  { icon: MessageSquare, label: "Messages", href: "/dashoard/messages", badge: 3 },
 ];
 
 const bottomNavItems: NavItem[] = [
-  { icon: Bell, label: "Notifications", href: "/admin/notifications", badge: 5 },
-  { icon: Settings, label: "Settings", href: "/admin/settings" },
-  { icon: HelpCircle, label: "Help", href: "/admin/help" },
+  { icon: Bell, label: "Notifications", href: "/dashoard/notifications", badge: 5 },
+  { icon: Settings, label: "Settings", href: "/dashoard/settings" },
+  { icon: HelpCircle, label: "Help", href: "/dashoard/help" },
 ];
 
 export function Sidebar() {
@@ -57,8 +54,8 @@ export function Sidebar() {
 
   // Helper to check if a link is active
   const isActive = (href: string) => {
-    if (href === "/admin") {
-      return pathname === "/admin";
+    if (href === "/dashboard") {
+      return pathname === "/dashboard";
     }
     return pathname.startsWith(href);
   };

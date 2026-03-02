@@ -1,4 +1,3 @@
-// app/[locale]/admin/(routes)/product-requests/_components/ConfirmDialog.tsx
 'use client'
 
 import {

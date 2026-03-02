@@ -1,7 +1,7 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "client"
 }
 
@@ -39,22 +39,28 @@ enum QuoteStatus {
 enum BookingType {
   MARKET
   FACTORY
+  CUSTOM
 }
 
 enum BookingStatus {
-  REQUESTED      // User requested, waiting for admin scheduling
-  SCHEDULED      // Admin assigned slot + meeting link
+  REQUESTED
+  PROPOSED // Admin proposed time
+  CONFIRMED // Client accepted
+  REJECTED // Client rejected
+  RESCHEDULED
   COMPLETED
   CANCELED
+  NO_SHOW
 }
 
-enum SupplierStatus {
-  ACTIVE
-  INACTIVE
-  PENDING
+enum MeetingProvider {
+  ZOOM
+  GOOGLE_MEET
+  WHATSAPP
+  MICROSOFT_TEAMS
+  CUSTOM
 }
 
-// Clerk Billing Enums
 enum SubscriptionItemStatus {
   ACTIVE
   CANCELED
@@ -80,53 +86,103 @@ enum PaymentAttemptStatus {
 // USER MODEL
 // ------------------------------------------------
 model User {
-  id                String         @id @default(cuid())
-  clerkId           String         @unique
-  email             String         @unique
-  fullName          String?
-  role              UserRole       @default(CLIENT)
-  phone             String?
-  avatarUrl         String?
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  fullName  String?
+  role      UserRole @default(CLIENT)
+  phone     String?
+  avatarUrl String?
 
-  // Relations
-  subscriptions     Subscription[]  // top-level subscription containers
-  requests          ProductRequest[]
-  bookings          VideoBooking[]
-  auditLogs         AuditLog[]      @relation("audit_admin")
-  assignedRequests  ProductRequest[] @relation("assignedStaff")
-  chatSessions      ChatSession[]
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
 
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  // -------------------------
+  // Product Requests
+  // -------------------------
+  requests ProductRequest[]
 
-  @@index([clerkId])
-  @@index([email])
+  // -------------------------
+  // Quotes
+  // -------------------------
+  quotesCreated Quote[] @relation("AdminQuotes")
+
+  // -------------------------
+  // Video Bookings
+  // -------------------------
+  clientBookings  VideoBooking[] @relation("ClientBookings")
+  handledBookings VideoBooking[] @relation("AdminBookings")
+
+  // -------------------------
+  // Booking Status History
+  // -------------------------
+  bookingStatusChanges BookingStatusHistory[]
+
+  // -------------------------
+  // Request Status History
+  // -------------------------
+  requestStatusChanges RequestStatusHistory[]
+
+  // -------------------------
+  // Quote Status History
+  // -------------------------
+  quoteStatusChanges QuoteStatusHistory[]
+
+  // -------------------------
+  // Files
+  // -------------------------
+  uploadedFiles File[]
+
+  // -------------------------
+  // Notifications
+  // -------------------------
+  notifications Notification[]
+
+  // -------------------------
+  // Audit Logs
+  // -------------------------
+  adminAuditLogs AuditLog[] @relation("audit_admin")
+
+  // -------------------------
+  // Chat
+  // -------------------------
+  chatSessions ChatSession[]
+
+  // -------------------------
+  // Subscription (DO NOT TOUCH)
+  // -------------------------
+  subscription Subscription?
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  availabilitySlots AvailabilitySlot[]
+
   @@index([role])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------
 // SUBSCRIPTION MODEL (Top-level container)
 // ------------------------------------------------
-// Corresponds to 'subscription.created' and 'subscription.updated' events.
 model Subscription {
-  id                   String   @id @default(cuid())
-  clerkSubscriptionId  String   @unique
+  id                  String @id @default(cuid())
+  clerkSubscriptionId String @unique
 
   // The payer: either a User or an Organization (but not both)
-  userId               String?
-  user                 User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Items belonging to this subscription (e.g., one for free plan, one for paid plan)
-  items                SubscriptionItem[]
+  items SubscriptionItem[]
 
   // Payment attempts related to this subscription (for checkout payments)
-  paymentAttempts      PaymentAttempt[]
+  paymentAttempts PaymentAttempt[]
 
   // Raw webhook payload for debugging
-  lastSyncPayload      Json?
+  lastSyncPayload Json?
 
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId]) // Ensure only one subscription container per payer
   @@index([clerkSubscriptionId])
@@ -135,40 +191,39 @@ model Subscription {
 // ------------------------------------------------
 // SUBSCRIPTION ITEM MODEL (Link between Payer and Plan)
 // ------------------------------------------------
-// Corresponds to all 'subscriptionItem.*' events.
 model SubscriptionItem {
-  id                  String   @id @default(cuid())
-  clerkItemId         String   @unique
+  id          String @id @default(cuid())
+  clerkItemId String @unique
 
   // Link to the top-level subscription container
-  subscriptionId      String
-  subscription        Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   // Link to the Plan
-  planId              String?       
-  plan                Plan?          @relation(fields: [planId], references: [id])
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id])
 
   // Status from Clerk events
-  status              SubscriptionItemStatus
+  status SubscriptionItemStatus
 
   // Billing periods (from subscriptionItem.updated events)
-  currentPeriodStart  DateTime?
-  currentPeriodEnd    DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
 
   // Is this the default free plan? Clerk mentions default plan items have consistent ID.
-  isDefaultPlan       Boolean  @default(false)
+  isDefaultPlan Boolean @default(false)
 
   // For trials (from subscriptionItem.freeTrialEnding event)
-  trialEndsAt         DateTime?
+  trialEndsAt DateTime?
 
   // Payment attempts related to this item (for recurring charges)
-  paymentAttempts     PaymentAttempt[]
+  paymentAttempts PaymentAttempt[]
 
   // Raw webhook payload for debugging
-  lastSyncPayload     Json?
+  lastSyncPayload Json?
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clerkItemId])
   @@index([status])
@@ -177,37 +232,36 @@ model SubscriptionItem {
 // ------------------------------------------------
 // PAYMENT ATTEMPT MODEL (from Clerk billing)
 // ------------------------------------------------
-// Corresponds to 'paymentAttempt.created' and 'paymentAttempt.updated' events.
 model PaymentAttempt {
-  id                    String   @id @default(cuid())
-  clerkPaymentAttemptId String   @unique
+  id                    String @id @default(cuid())
+  clerkPaymentAttemptId String @unique
 
   // Type: checkout or recurring
-  type                  PaymentAttemptType
+  type PaymentAttemptType
 
   // Status: pending -> paid or failed
-  status                PaymentAttemptStatus
+  status PaymentAttemptStatus
 
   // Link to the subscription item for recurring payments (optional for checkout)
-  subscriptionItemId    String?
-  subscriptionItem      SubscriptionItem? @relation(fields: [subscriptionItemId], references: [id])
+  subscriptionItemId String?
+  subscriptionItem   SubscriptionItem? @relation(fields: [subscriptionItemId], references: [id])
 
   // For checkout payments, link directly to the top-level subscription
-  subscriptionId        String?
-  subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
 
   // Financial details (included in webhook)
-  amount                Decimal? @db.Decimal(10,2)
-  currency              String   @default("USD") // Non-nullable with default
+  amount   Decimal? @db.Decimal(10, 2)
+  currency String   @default("USD") // Non-nullable with default
 
   // Timestamp from the event
-  occurredAt            DateTime // when the attempt was created/updated in Clerk
+  occurredAt DateTime // when the attempt was created/updated in Clerk
 
   // Raw webhook payload
-  payload               Json?
+  payload Json?
 
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clerkPaymentAttemptId])
   @@index([status])
@@ -217,186 +271,182 @@ model PaymentAttempt {
 // PLAN MODEL (from Clerk billing)
 // ------------------------------------------------
 model Plan {
-  id               String   @id @default(cuid())
-  clerkPlanId      String   @unique // The ID from Clerk
-  name             String
-  amount           Decimal  @db.Decimal(10,2)
-  currency         String   @default("USD")
-  interval         String?  // e.g., "month", "year"
-  intervalCount    Int?     // e.g., 1, 3, 12
-  trialPeriodDays  Int?     // For free trials
-  isDefault        Boolean  @default(false) // If this is the default free plan
+  id              String  @id @default(cuid())
+  clerkPlanId     String  @unique // The ID from Clerk
+  name            String
+  amount          Decimal @db.Decimal(10, 2)
+  currency        String  @default("USD")
+  interval        String? // e.g., "month", "year"
+  intervalCount   Int? // e.g., 1, 3, 12
+  trialPeriodDays Int? // For free trials
+  isDefault       Boolean @default(false) // If this is the default free plan
 
   // Relations
   subscriptionItems SubscriptionItem[]
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clerkPlanId])
-}
-
-// ------------------------------------------------
-// SUPPLIER MODEL
-// ------------------------------------------------
-model Supplier {
-  id               String         @id @default(cuid())
-  name             String
-  type             BookingType
-  location         String
-  description      String?        @db.Text
-  contactPerson    String?
-  contactEmail     String?
-  contactPhone     String?
-  categories       Json?
-  rating           Float?         @default(0)
-  status           SupplierStatus @default(ACTIVE)
-  imageUrl         String?
-
-  // Relations
-  availabilitySlots AvailabilitySlot[]
-  videoBookings     VideoBooking[]
-  quotes            Quote[]
-
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-
-  @@index([type])
-  @@index([location])
-  @@index([status])
 }
 
 // ------------------------------------------------
 // VIDEO BOOKING (User Request)
 // ------------------------------------------------
 model VideoBooking {
-  id               String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  // Who requested
-  userId           String
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Client
+  clientId String
+  client   User   @relation("ClientBookings", fields: [clientId], references: [id])
 
-  // For which supplier
-  supplierId       String
-  supplier         Supplier      @relation(fields: [supplierId], references: [id])
+  type            BookingType
+  requestNotes    String?     @db.Text
+  durationMinutes Int         @default(30)
 
-  // Request details
-  requestedAt      DateTime      @default(now())
-  requestNotes     String?       @db.Text
-  durationMinutes  Int           @default(30)
+  status BookingStatus @default(REQUESTED)
 
-  // Scheduling (Admin controlled)
-  scheduledAt      DateTime?
-  meetingLink      String?
-  adminNotes       String?
-  status           BookingStatus @default(REQUESTED)
+  // Admin who handled it
+  handledById String?
+  handledBy   User?   @relation("AdminBookings", fields: [handledById], references: [id])
 
-  // Slot assigned (one-to-one)
-  slot             AvailabilitySlot?
+  // Scheduling
+  scheduledAt     DateTime?
+  meetingProvider MeetingProvider?
+  meetingLink     String?
+  meetingPassword String?
 
-  // AI Call data
-  transcriptUrl    String?
-  aiSummary        String?       @db.Text
+  // Client confirmation
+  clientConfirmedAt DateTime?
 
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  // AI Data
+  transcriptUrl String?
+  aiSummary     String? @db.Text
 
-  @@index([userId])
-  @@index([supplierId])
+  // Slot reference
+  slotId String?           @unique
+  slot   AvailabilitySlot? @relation(fields: [slotId], references: [id])
+
+  // Enterprise
+  isDeleted Boolean @default(false)
+
+  statusHistory BookingStatusHistory[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([handledById])
   @@index([status])
   @@index([scheduledAt])
+}
+
+// ------------------------------------------------
+// VIDEO BOOKING STATUS HISTORY
+// ------------------------------------------------
+model BookingStatusHistory {
+  id String @id @default(cuid())
+
+  bookingId String
+  booking   VideoBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  oldStatus BookingStatus
+  newStatus BookingStatus
+
+  changedById String
+  changedBy   User   @relation(fields: [changedById], references: [id])
+
+  changedAt DateTime @default(now())
+
+  @@index([bookingId])
 }
 
 // ------------------------------------------------
 // AVAILABILITY SLOT (Created by Admin)
 // ------------------------------------------------
 model AvailabilitySlot {
-  id              String        @id @default(cuid())
-
-  supplierId      String
-  supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
 
   startTime       DateTime
   endTime         DateTime
-  durationMinutes Int           @default(30)
+  durationMinutes Int
 
-  // This is the key: one slot = one booking max
-  bookingId       String?       @unique
-  booking         VideoBooking? @relation(fields: [bookingId], references: [id])
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  isBooked Boolean @default(false)
+  isActive Boolean @default(true)
 
-  @@index([supplierId])
+  booking VideoBooking?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([startTime])
+  @@index([createdById])
+  @@index([isBooked])
 }
 
 // ------------------------------------------------
 // PRODUCT REQUEST MODEL
 // ------------------------------------------------
 model ProductRequest {
-  id                 String         @id @default(cuid())
+  id String @id @default(cuid())
 
-  // Owner (Client)
-  userId             String
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId String
+  client   User   @relation(fields: [clientId], references: [id])
 
-  // Basic Request Info
-  productLink        String?
-  description        String?        @db.Text
-  quantity           Int
-  shippingCountry    String
-  customNotes        String?        @db.Text
+  productLink     String?
+  description     String? @db.Text
+  quantity        Int
+  shippingCountry String
+  customNotes     String? @db.Text
 
-  // Internal Workflow
-  adminNotes         String?        @db.Text
-  status             RequestStatus  @default(SUBMITTED)
-  quotedAt           DateTime?
+  status   RequestStatus @default(SUBMITTED)
+  priority Int           @default(0)
 
-  // Accepted Quote (ONLY ONE)
-  acceptedQuoteId    String?        @unique
-  acceptedQuote      Quote?         @relation("AcceptedQuote", fields: [acceptedQuoteId], references: [id])
+  acceptedQuoteId String? @unique
+  acceptedQuote   Quote?  @relation("AcceptedQuote", fields: [acceptedQuoteId], references: [id])
 
-  // AI Fields
-  parsedLinkData       Json?
-  aiDetectedCategory   String?
-  aiDetectedAttributes Json?
-  aiEstimatedPrice     Decimal?     @db.Decimal(10,2)
+  aiParsedData     Json?
+  aiEstimatedPrice Decimal? @db.Decimal(10, 2)
+  aiConfidence     Float?
+
+  isDeleted Boolean @default(false)
 
   // Relations
-  files              FileUpload[]
-  quotes             Quote[]
-  aiSuggestions      AISuggestion[]
+  files         File[]
+  quotes        Quote[]
+  statusHistory RequestStatusHistory[]
+  aiSuggestions AISuggestion[]
+  notifications Notification[]
 
-  // Staff Assignment
-  assignedStaffId    String?
-  assignedStaff      User?          @relation("assignedStaff", fields: [assignedStaffId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-
-  @@index([userId])
+  @@index([clientId])
   @@index([status])
-  @@index([assignedStaffId])
   @@index([createdAt])
+  @@index([isDeleted])
 }
 
 // ------------------------------------------------
-// FILE UPLOAD MODEL
+// PRODUCT REQUEST STATUS HISTORY MODEL
 // ------------------------------------------------
-model FileUpload {
-  id          String   @id @default(cuid())
-  url         String
-  fileType    String
-  fileName    String?
-  fileSize    Int?
+model RequestStatusHistory {
+  id String @id @default(cuid())
 
-  requestId   String
-  request     ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  request   ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  aiTags      Json?
+  oldStatus RequestStatus
+  newStatus RequestStatus
 
-  uploadedAt  DateTime @default(now())
+  changedById String
+  changedBy   User   @relation(fields: [changedById], references: [id])
+
+  changedAt DateTime @default(now())
 
   @@index([requestId])
 }
@@ -405,50 +455,104 @@ model FileUpload {
 // QUOTE MODEL
 // ------------------------------------------------
 model Quote {
-  id             String          @id @default(cuid())
+  id String @id @default(cuid())
 
-  requestId      String
-  request        ProductRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  request   ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  supplierId     String?
-  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  createdById String
+  createdBy   User   @relation("AdminQuotes", fields: [createdById], references: [id])
 
-  price          Decimal         @db.Decimal(10,2)
-  currency       String          @default("USD")
+  price    Decimal @db.Decimal(12, 2)
+  currency String  @default("USD")
 
-  status         QuoteStatus     @default(DRAFT)
+  status QuoteStatus @default(DRAFT)
 
-  adminNotes     String?         @db.Text
-  quoteFileUrl   String?
+  validUntil DateTime?
+  revision   Int       @default(1)
 
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  adminNotes String? @db.Text
 
-  // Back relation for accepted quote
-  acceptedFor    ProductRequest? @relation("AcceptedQuote")
+  isDeleted Boolean @default(false)
+
+  acceptedFor ProductRequest? @relation("AcceptedQuote")
+
+  // Relations 
+  files         File[]
+  statusHistory QuoteStatusHistory[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([requestId])
-  @@index([supplierId])
+  @@index([createdById])
   @@index([status])
-  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+// ------------------------------------------------
+// QUOTE STATUS HISTORY MODEL
+// ------------------------------------------------
+model QuoteStatusHistory {
+  id String @id @default(cuid())
+
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  oldStatus QuoteStatus
+  newStatus QuoteStatus
+
+  changedById String
+  changedBy   User   @relation(fields: [changedById], references: [id])
+
+  changedAt DateTime @default(now())
+
+  @@index([quoteId])
+}
+
+// ------------------------------------------------
+// FILE UPLOAD MODEL
+// ------------------------------------------------
+model File {
+  id String @id @default(cuid())
+
+  url      String
+  fileType String
+  fileName String?
+  fileSize Int?
+
+  requestId String?
+  quoteId   String?
+
+  request ProductRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  quote   Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
+  @@index([quoteId])
 }
 
 // ------------------------------------------------
 // AI SUGGESTION MODEL
 // ------------------------------------------------
 model AISuggestion {
-  id                   String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  requestId            String
-  request              ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  request   ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  estimatedPrice       Decimal  @db.Decimal(10,2)
-  currency             String   @default("USD")
-  confidence           Float?
+  estimatedPrice Decimal @db.Decimal(10, 2)
+  currency       String  @default("USD")
+  confidence     Float?
 
   suggestedSupplierIds Json?
 
-  createdAt            DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([requestId])
 }
@@ -460,10 +564,10 @@ model AuditLog {
   id        String   @id @default(cuid())
   adminId   String
   admin     User     @relation("audit_admin", fields: [adminId], references: [id])
-  action    String   // e.g., "UPDATE_REQUEST", "DELETE_QUOTE"
-  entity    String   // e.g., "ProductRequest", "Quote"
-  entityId  String?  // ID of the affected record
-  changes   Json?    // structured diff of before/after
+  action    String // e.g., "UPDATE_REQUEST", "DELETE_QUOTE"
+  entity    String // e.g., "ProductRequest", "Quote"
+  entityId  String? // ID of the affected record
+  changes   Json? // structured diff of before/after
   createdAt DateTime @default(now())
 
   @@index([adminId])
@@ -472,28 +576,61 @@ model AuditLog {
 }
 
 // ------------------------------------------------
+// NOTIFICATIONS  MODEL
+// ------------------------------------------------
+model Notification {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  title   String
+  message String @db.Text
+
+  isRead Boolean @default(false)
+  type   String
+
+  metadata Json?
+  // Relations
+
+  bookingId String?
+  booking   VideoBooking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  requestId String?
+  request   ProductRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  quoteId String?
+  quote   Quote?  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// ------------------------------------------------
 // CHAT SESSION MODEL (for AI chatbot / support chat)
 // ------------------------------------------------
 model ChatSession {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  startedAt DateTime @default(now())
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  startedAt DateTime  @default(now())
   endedAt   DateTime?
 
-  messages  ChatMessage[]
+  messages ChatMessage[]
 
   @@index([userId])
   @@index([startedAt])
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   sessionId String
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  role      String   // "user" or "assistant"
-  content   String   @db.Text
-  createdAt DateTime @default(now())
+  role      String // "user" or "assistant"
+  content   String      @db.Text
+  createdAt DateTime    @default(now())
 
   @@index([sessionId])
 }

@@ -1,4 +1,3 @@
-// app/[locale]/admin/(routes)/product-requests/_components/RequestsTable.tsx
 'use client'
 
 import { useState } from 'react'
@@ -17,53 +16,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'          // <-- updated
 import { Badge } from '@/components/ui/badge'
 import { MoreHorizontal, Eye, Trash2 } from 'lucide-react'
-import { updateRequestStatus, softDeleteRequest } from '../actions'
-import { RequestStatus, User, Quote, RequestStatusHistory } from '@prisma/client'
 import { toast } from 'sonner'
+import { softDeleteMyRequest } from '../actions'
 import { ConfirmDialog } from './ConfirmDialog'
 import { RequestDetailsDialog } from './RequestDetailsDialog'
 import { formatDate } from '@/lib/utils'
+import type { ClientRequestWithRelations } from './types'
 
-// Define the request type with all relations (same as in RequestDetailsDialog)
-type RequestWithRelations = {
-  id: string
-  clientId: string
-  client: Pick<User, 'id' | 'email' | 'fullName'>
-  productLink: string | null
-  description: string | null
-  quantity: number
-  shippingCountry: string
-  customNotes: string | null
-  status: RequestStatus
-  priority: number
-  acceptedQuoteId: string | null
-  acceptedQuote: Quote | null
-  aiParsedData: any | null
-  aiEstimatedPrice: number | null
-  aiConfidence: number | null
-  isDeleted: boolean
-  createdAt: Date
-  updatedAt: Date
-  quotes: (Quote & { createdBy: Pick<User, 'id' | 'email' | 'fullName'> })[]
-  files: any[]
-  statusHistory: (RequestStatusHistory & { changedBy: Pick<User, 'id' | 'email' | 'fullName'> })[]
-}
-
-interface RequestsTableProps {
-  requests: RequestWithRelations[]
-  onActionComplete: () => void
-}
-
-const statusColorMap: Record<RequestStatus, string> = {
+const statusColorMap: Record<string, string> = {
   SUBMITTED: 'bg-blue-100 text-blue-800',
   IN_REVIEW: 'bg-yellow-100 text-yellow-800',
   QUOTED: 'bg-purple-100 text-purple-800',
@@ -74,38 +36,25 @@ const statusColorMap: Record<RequestStatus, string> = {
   COMPLETED: 'bg-gray-100 text-gray-800',
 }
 
+interface RequestsTableProps {
+  requests: ClientRequestWithRelations[]
+  onActionComplete: () => void
+}
+
 export function RequestsTable({ requests, onActionComplete }: RequestsTableProps) {
-  const [selectedRequest, setSelectedRequest] = useState<RequestWithRelations | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<ClientRequestWithRelations | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [requestToDelete, setRequestToDelete] = useState<string | null>(null)
 
-  const handleStatusChange = async (requestId: string, newStatus: RequestStatus) => {
-    const result = await updateRequestStatus(requestId, newStatus)
-    if (result.success) {
-      toast.success('Status updated', {
-        description: 'Request status has been changed.',
-      })
-      onActionComplete()
-    } else {
-      toast.error('Error', {
-        description: result.error,
-      })
-    }
-  }
-
   const handleDelete = async () => {
     if (!requestToDelete) return
-    const result = await softDeleteRequest(requestToDelete)
+    const result = await softDeleteMyRequest(requestToDelete)
     if (result.success) {
-      toast.success('Request deleted', {
-        description: 'The request has been soft‑deleted.',
-      })
+      toast.success('Request deleted', { description: 'Your request has been deleted.' })
       onActionComplete()
     } else {
-      toast.error('Error', {
-        description: result.error,
-      })
+      toast.error('Error', { description: result.error })
     }
     setDeleteConfirmOpen(false)
     setRequestToDelete(null)
@@ -118,7 +67,6 @@ export function RequestsTable({ requests, onActionComplete }: RequestsTableProps
           <TableHeader>
             <TableRow>
               <TableHead>ID</TableHead>
-              <TableHead>Client</TableHead>
               <TableHead>Product Link</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Status</TableHead>
@@ -130,10 +78,6 @@ export function RequestsTable({ requests, onActionComplete }: RequestsTableProps
             {requests.map((request) => (
               <TableRow key={request.id}>
                 <TableCell className="font-mono text-xs">{request.id.slice(0, 8)}</TableCell>
-                <TableCell>
-                  <div className="font-medium">{request.client.fullName}</div>
-                  <div className="text-sm text-muted-foreground">{request.client.email}</div>
-                </TableCell>
                 <TableCell className="max-w-50 truncate">
                   <a
                     href={request.productLink || '#'}
@@ -167,34 +111,19 @@ export function RequestsTable({ requests, onActionComplete }: RequestsTableProps
                       >
                         <Eye className="mr-2 h-4 w-4" /> View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setRequestToDelete(request.id)
-                          setDeleteConfirmOpen(true)
-                        }}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
+                      {request.status === 'SUBMITTED' && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setRequestToDelete(request.id)
+                            setDeleteConfirmOpen(true)
+                          }}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-
-                  {/* Proper shadcn Select for status update */}
-                  <Select
-                    value={request.status}
-                    onValueChange={(value) => handleStatusChange(request.id, value as RequestStatus)}
-                  >
-                    <SelectTrigger className="ml-2 w-32.5">
-                      <SelectValue placeholder="Change status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(RequestStatus).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </TableCell>
               </TableRow>
             ))}
@@ -202,7 +131,6 @@ export function RequestsTable({ requests, onActionComplete }: RequestsTableProps
         </Table>
       </div>
 
-      {/* Dialogs */}
       <RequestDetailsDialog
         open={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
@@ -214,7 +142,7 @@ export function RequestsTable({ requests, onActionComplete }: RequestsTableProps
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title="Delete Request"
-        description="Are you sure you want to delete this request? This action can be reversed later (soft delete)."
+        description="Are you sure you want to delete this request? This action cannot be undone."
         onConfirm={handleDelete}
       />
     </>
