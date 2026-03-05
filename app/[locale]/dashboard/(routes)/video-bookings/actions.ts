@@ -62,8 +62,8 @@ async function getUserVideoBookingLimits(userId: string): Promise<{ planName: st
 
   // Map plan name to video booking limit – adjust to your exact plan names
   const limitMap: Record<string, number> = {
-    free: 10,   // basic plan: 3 video bookings allowed
-    pro: 5,     // pro plan: 5 video bookings allowed
+    free: 0,   // basic plan: 3 video bookings allowed
+    pro: 0,     // pro plan: 5 video bookings allowed
     vip: Infinity, // vip: unlimited
   }
   const planName = plan.name.toLowerCase()
@@ -76,7 +76,9 @@ async function getUserVideoBookingLimits(userId: string): Promise<{ planName: st
 // ------------------------------------------------------------------
 const createBookingSchema = z.object({
   requestNotes: z.string().optional(),
+  type: z.nativeEnum(BookingType).default('CUSTOM'),
   durationMinutes: z.number().int().positive().default(30),
+  preferredTime: z.date().optional(),
 })
 
 const getMyBookingsFilterSchema = z.object({
@@ -101,7 +103,7 @@ export async function createBooking(input: z.infer<typeof createBookingSchema>) 
     const clientId = await requireClient()
     const validated = createBookingSchema.parse(input)
 
-    // Check subscription limits
+    // Check subscription limits (unchanged)
     const { planName, limit } = await getUserVideoBookingLimits(clientId)
     if (limit === 0) {
       return { success: false, error: 'No active subscription or plan not recognized' }
@@ -122,9 +124,10 @@ export async function createBooking(input: z.infer<typeof createBookingSchema>) 
       const booking = await tx.videoBooking.create({
         data: {
           clientId,
-          type: 'CUSTOM', // default type; can be extended later
+          type: validated.type,                // <-- use validated.type
           requestNotes: validated.requestNotes,
           durationMinutes: validated.durationMinutes,
+          scheduledAt: validated.preferredTime,
           status: 'REQUESTED',
         },
       })
@@ -139,7 +142,7 @@ export async function createBooking(input: z.infer<typeof createBookingSchema>) 
         },
       })
 
-      // Notify all admins
+      // Notify all admins (unchanged)
       const adminIds = await getAllAdminIds()
       if (adminIds.length > 0) {
         await tx.notification.createMany({

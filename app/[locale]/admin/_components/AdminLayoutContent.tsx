@@ -1,3 +1,5 @@
+// app/[locale]/admin/_components/AdminLayoutContent.tsx
+
 'use client';
 
 import { SidebarProvider, useSidebar } from '@/context/sidebar-context';

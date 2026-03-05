@@ -1,370 +1,524 @@
 // app/api/webhooks/clerk/route.ts
-
 import { Webhook } from 'svix'
 import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma, SubscriptionItemStatus } from '@prisma/client'
 
-// ------------------------
-// Helpers
-// ------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VALID_ITEM_STATUSES = new Set<SubscriptionItemStatus>([
+  'ACTIVE', 'CANCELED', 'UPCOMING', 'ENDED', 'ABANDONED', 'INCOMPLETE', 'PAST_DUE',
+])
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function ensureUser(clerkUserId: string) {
-  let user = await prisma.user.findUnique({ where: { clerkId: clerkUserId } })
-  if (user) return user
+  const existing = await prisma.user.findUnique({ where: { clerkId: clerkUserId } })
+  if (existing) return existing
 
   return prisma.user.create({
     data: {
       clerkId: clerkUserId,
-      email: `pending-${clerkUserId}@placeholder.local`,
-      role: 'CLIENT',
+      email:   `pending-${clerkUserId}@placeholder.local`,
+      role:    'CLIENT',
     },
   })
 }
 
-// Ensure a subscription exists, optionally update its userId from payer info
-async function ensureSubscription(clerkSubscriptionId: string, payerUserId?: string | null) {
-  let subscription = await prisma.subscription.findUnique({
-    where: { clerkSubscriptionId }
-  })
+async function ensureSubscription(
+  clerkSubscriptionId: string,
+  payerClerkUserId?: string | null,
+) {
+  let sub = await prisma.subscription.findUnique({ where: { clerkSubscriptionId } })
 
-  if (!subscription) {
-    // Create stub subscription, possibly with userId if we have it
-    const data: any = {
+  if (!sub) {
+    const data: Prisma.SubscriptionCreateInput = {
       clerkSubscriptionId,
-      lastSyncPayload: { stub: true, source: 'webhook' }
+      lastSyncPayload: { stub: true, source: 'webhook' } as Prisma.InputJsonValue,
     }
-    if (payerUserId) {
-      const user = await ensureUser(payerUserId).catch(() => null)
-      if (user) data.userId = user.id
+    if (payerClerkUserId) {
+      const user = await ensureUser(payerClerkUserId).catch(() => null)
+      if (user) data.user = { connect: { id: user.id } }
     }
-    subscription = await prisma.subscription.create({ data })
-    console.log(`[ensureSubscription] Created stub for ${clerkSubscriptionId} ${payerUserId ? 'with user' : 'without user'}`)
-  } else if (payerUserId && !subscription.userId) {
-    // Subscription exists but has no user – try to link it
-    const user = await ensureUser(payerUserId).catch(() => null)
+    sub = await prisma.subscription.create({ data })
+    console.log(`[webhook] Created stub subscription ${clerkSubscriptionId}`)
+    return sub
+  }
+
+  // Link user if still missing
+  if (payerClerkUserId && !sub.userId) {
+    const user = await ensureUser(payerClerkUserId).catch(() => null)
     if (user) {
-      subscription = await prisma.subscription.update({
-        where: { id: subscription.id },
-        data: { userId: user.id }
+      sub = await prisma.subscription.update({
+        where: { id: sub.id },
+        data:  { userId: user.id },
       })
-      console.log(`[ensureSubscription] Linked subscription ${clerkSubscriptionId} to user ${payerUserId}`)
+      console.log(`[webhook] Linked subscription ${clerkSubscriptionId} → user ${payerClerkUserId}`)
     }
   }
 
-  return subscription
+  return sub
 }
 
-// Ensure a plan exists, mapping all possible fields
-async function ensurePlan(planData: any) {
-  if (!planData) return null
+/**
+ * FIX (Bug 3): Accept an optional `itemInterval` parameter.
+ * Clerk puts `interval` on the subscription item, NOT on the plan object.
+ * Also normalise empty-string currency to "USD".
+ */
+async function ensurePlan(
+  planData: Record<string, any> | null | undefined,
+  itemInterval?: string | null,   // ← comes from the item, not the plan
+) {
+  if (!planData?.id) return null
 
-  // Map Clerk field names to Prisma fields
+  // FIX: prefer itemInterval when planData.interval is missing/empty
+  const interval  = planData.interval   || itemInterval   || null
+  // FIX: Clerk sends "" for free plans — default to "USD"
+  const currency  = planData.currency   || 'USD'
+  const amount    = (planData.amount ?? 0) / 100
+
   const data = {
-    name: planData.name,
-    amount: planData.amount / 100,
-    currency: planData.currency || 'USD',
-    interval: planData.interval || null,
-    intervalCount: planData.interval_count ?? null,
+    name:            planData.name              ?? 'Unknown Plan',
+    amount,
+    currency,
+    interval,
+    intervalCount:   planData.interval_count    ?? null,
     trialPeriodDays: planData.trial_period_days ?? null,
+    isDefault:
+      planData.is_default ??
+      planData.name?.toLowerCase().includes('free') ??
+      false,
   }
 
   const plan = await prisma.plan.upsert({
-    where: { clerkPlanId: planData.id },
+    where:  { clerkPlanId: planData.id },
     update: data,
-    create: {
-      clerkPlanId: planData.id,
-      ...data,
-    },
+    create: { clerkPlanId: planData.id, ...data },
   })
   return plan.id
 }
 
-// ------------------------
-// Event Handlers
-// ------------------------
+function normaliseItemStatus(raw: string | null | undefined): SubscriptionItemStatus {
+  const upper = (raw ?? '').toUpperCase() as SubscriptionItemStatus
+  return VALID_ITEM_STATUSES.has(upper) ? upper : 'INCOMPLETE'
+}
 
-async function handleSubscription(data: any) {
-  try {
-    const { id: clerkSubscriptionId, user_id: clerkUserId } = data
+// ─────────────────────────────────────────────────────────────────────────────
+// USER HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
 
-    if (!clerkUserId) {
-      console.warn('Subscription event without user_id – skipping')
-      return
-    }
+async function handleUserCreatedOrUpdated(data: any) {
+  const {
+    id,
+    email_addresses,
+    first_name,
+    last_name,
+    image_url,
+    phone_numbers,
+    public_metadata,
+  } = data
 
-    const user = await ensureUser(clerkUserId)
+  const email    = email_addresses?.[0]?.email_address ?? `pending-${id}@placeholder.local`
+  const fullName = [first_name, last_name].filter(Boolean).join(' ') || null
+  const phone    = phone_numbers?.[0]?.phone_number ?? null
+  const role     = public_metadata?.role === 'ADMIN' ? 'ADMIN' : 'CLIENT'
 
-    await prisma.subscription.upsert({
-      where: { clerkSubscriptionId },
-      update: { userId: user.id, lastSyncPayload: data },
-      create: { clerkSubscriptionId, userId: user.id, lastSyncPayload: data },
+  await prisma.user.upsert({
+    where:  { clerkId: id },
+    update: { email, fullName, avatarUrl: image_url ?? null, phone, role },
+    create: { clerkId: id, email, fullName, avatarUrl: image_url ?? null, phone, role },
+  })
+  console.log(`[webhook] User upserted: ${id}`)
+}
+
+async function handleUserDeleted(data: any) {
+  const { id: clerkId } = data
+  const user = await prisma.user.findUnique({ where: { clerkId } })
+  if (!user) {
+    console.log(`[webhook] user.deleted – user ${clerkId} not found, skipping`)
+    return
+  }
+
+  await prisma.$transaction([
+    prisma.paymentAttempt.deleteMany({
+      where: { subscription: { userId: user.id } },
+    }),
+    prisma.paymentAttempt.deleteMany({
+      where: { subscriptionItem: { subscription: { userId: user.id } } },
+    }),
+    prisma.subscriptionItem.deleteMany({
+      where: { subscription: { userId: user.id } },
+    }),
+    prisma.subscription.deleteMany({ where: { userId: user.id } }),
+    prisma.user.delete({ where: { id: user.id } }),
+  ])
+  console.log(`[webhook] Deleted user ${clerkId} and all related data`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BILLING HANDLERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * FIX (Bug 1 + Bug 2):
+ *
+ * Bug 1 — user_id is nested under `payer.user_id`, not at the root level.
+ *   Old: const { user_id: clerkUserId } = data          // always undefined
+ *   New: const clerkUserId = data.payer?.user_id        // correctly resolved
+ *
+ * Bug 2 — subscription.created payload includes items[] but the old handler
+ *   never processed them, leaving SubscriptionItem empty for new users.
+ *   New: after upserting the Subscription we iterate data.items and call
+ *   upsertSubscriptionItem() for each one.
+ */
+async function handleSubscriptionEvent(data: any) {
+  const clerkSubscriptionId = data.id
+  // FIX (Bug 1): user_id is inside payer, not at the root
+  const clerkUserId: string | null = data.payer?.user_id ?? null
+
+  if (!clerkSubscriptionId) {
+    console.warn('[webhook] Subscription event missing id – skipping')
+    return
+  }
+
+  const user = clerkUserId ? await ensureUser(clerkUserId).catch(() => null) : null
+
+  await prisma.subscription.upsert({
+    where:  { clerkSubscriptionId },
+    update: {
+      ...(user && { userId: user.id }),
+      lastSyncPayload: data as Prisma.InputJsonValue,
+    },
+    create: {
+      clerkSubscriptionId,
+      ...(user && { userId: user.id }),
+      lastSyncPayload: data as Prisma.InputJsonValue,
+    },
+  })
+  console.log(`[webhook] Subscription synced: ${clerkSubscriptionId}`)
+
+  // FIX (Bug 2): Process embedded items[] so SubscriptionItem rows are created
+  // immediately on subscription.created — no need to wait for a separate
+  // subscriptionItem.* event that may arrive later or not at all for free plans.
+  const items: any[] = Array.isArray(data.items) ? data.items : []
+  for (const item of items) {
+    await upsertSubscriptionItem({
+      clerkItemId:        item.id,
+      clerkSubscriptionId,
+      clerkUserId,
+      planData:           item.plan   ?? null,
+      rawStatus:          item.status ?? null,
+      itemInterval:       item.interval ?? null,   // FIX (Bug 3): interval is on the item
+      period_start:       item.period_start ?? null,
+      period_end:         item.period_end   ?? null,
+      trial_ends_at:      item.trial_ends_at ?? null,
+      rawPayload:         item,
     })
-    console.log(`Subscription ${clerkSubscriptionId} synced for user ${clerkUserId}`)
-  } catch (error) {
-    console.error('Error in handleSubscription:', error)
   }
 }
 
-async function handleSubscriptionItem(data: any) {
-  try {
-    const {
-      id: clerkItemId,
-      subscription_id: clerkSubscriptionId,
-      plan: planData,
-      status,
-      period_start,
-      period_end,
-      trial_ends_at,
-      payer, // may contain user_id
-    } = data
+/**
+ * Shared upsert logic for a single SubscriptionItem.
+ * Used by both handleSubscriptionEvent (items embedded in subscription payload)
+ * and handleSubscriptionItemEvent (dedicated subscriptionItem.* events).
+ */
+async function upsertSubscriptionItem(params: {
+  clerkItemId:        string
+  clerkSubscriptionId: string
+  clerkUserId:        string | null
+  planData:           Record<string, any> | null
+  rawStatus:          string | null
+  itemInterval:       string | null   // FIX (Bug 3): from the item, not the plan
+  period_start:       number | string | null
+  period_end:         number | string | null
+  trial_ends_at:      number | string | null
+  rawPayload:         any
+}) {
+  const {
+    clerkItemId,
+    clerkSubscriptionId,
+    clerkUserId,
+    planData,
+    rawStatus,
+    itemInterval,
+    period_start,
+    period_end,
+    trial_ends_at,
+    rawPayload,
+  } = params
 
-    // Extract user ID from payer if available
-    const payerUserId = payer?.user_id
-
-    // Ensure parent subscription exists, possibly linking it to the user
-    const subscription = await ensureSubscription(clerkSubscriptionId, payerUserId)
-
-    // Upsert Plan
-    const planId = await ensurePlan(planData)
-
-    const isDefaultPlan = planData?.name?.toLowerCase().includes('free') || false
-    const normalizedStatus = status?.toUpperCase()
-
-    await prisma.subscriptionItem.upsert({
-      where: { clerkItemId },
-      update: {
-        subscriptionId: subscription.id,
-        planId,
-        status: normalizedStatus,
-        currentPeriodStart: period_start ? new Date(period_start) : null,
-        currentPeriodEnd: period_end ? new Date(period_end) : null,
-        trialEndsAt: trial_ends_at ? new Date(trial_ends_at) : null,
-        isDefaultPlan,
-        lastSyncPayload: data,
-      },
-      create: {
-        clerkItemId,
-        subscriptionId: subscription.id,
-        planId,
-        status: normalizedStatus,
-        currentPeriodStart: period_start ? new Date(period_start) : null,
-        currentPeriodEnd: period_end ? new Date(period_end) : null,
-        trialEndsAt: trial_ends_at ? new Date(trial_ends_at) : null,
-        isDefaultPlan,
-        lastSyncPayload: data,
-      },
-    })
-    console.log(`SubscriptionItem ${clerkItemId} synced`)
-  } catch (error) {
-    console.error('Error in handleSubscriptionItem:', error)
+  if (!clerkItemId) {
+    console.warn('[webhook] upsertSubscriptionItem called without clerkItemId – skipping')
+    return
   }
+
+  const status = normaliseItemStatus(rawStatus)
+
+  const [subscription, planId] = await Promise.all([
+    ensureSubscription(clerkSubscriptionId, clerkUserId),
+    // FIX (Bug 3): pass itemInterval so ensurePlan can store it correctly
+    ensurePlan(planData, itemInterval),
+  ])
+
+  const isDefaultPlan =
+    planData?.is_default ??
+    planData?.name?.toLowerCase().includes('free') ??
+    false
+
+  // Clerk timestamps can be epoch-ms numbers or ISO strings
+  const toDate = (v: number | string | null): Date | null => {
+    if (!v) return null
+    return typeof v === 'number' ? new Date(v) : new Date(v)
+  }
+
+  const shared = {
+    status,
+    currentPeriodStart: toDate(period_start),
+    currentPeriodEnd:   toDate(period_end),
+    trialEndsAt:        toDate(trial_ends_at),
+    isDefaultPlan,
+    lastSyncPayload:    rawPayload as Prisma.InputJsonValue,
+    subscription:       { connect: { id: subscription.id } },
+    ...(planId && { plan: { connect: { id: planId } } }),
+  }
+
+  await prisma.subscriptionItem.upsert({
+    where:  { clerkItemId },
+    update: shared,
+    create: { clerkItemId, ...shared },
+  })
+  console.log(`[webhook] SubscriptionItem synced: ${clerkItemId} → ${status}`)
 }
 
-async function handlePaymentAttempt(data: any) {
-  try {
-    const {
-      id: clerkPaymentAttemptId,
-      charge_type,
-      status,
-      currency,
-      created_at,
-      subscription_id: clerkSubscriptionId,
-      subscription_item_id,
-      subscription_items,
-      totals,
-      payer, // may contain user_id
-    } = data
+/**
+ * Handles dedicated subscriptionItem.* events.
+ * Delegates to the shared upsertSubscriptionItem() helper.
+ */
+async function handleSubscriptionItemEvent(eventType: string, data: any) {
+  const {
+    id:              clerkItemId,
+    subscription_id: clerkSubscriptionId,
+    plan:            planData,
+    status:          rawStatus,
+    period_start,
+    period_end,
+    trial_ends_at,
+    payer,
+    // FIX (Bug 3): interval is on the item object, not inside plan
+    interval:        itemInterval,
+  } = data
 
-    // Determine type
-    let type: 'CHECKOUT' | 'RECURRING' = 'CHECKOUT'
-    if (charge_type) {
-      const upper = charge_type.toUpperCase()
-      if (upper === 'CHECKOUT' || upper === 'RECURRING') {
-        type = upper
-      } else {
-        console.warn(`Unknown charge_type: ${charge_type}, defaulting to CHECKOUT`)
-      }
-    }
+  if (!clerkItemId) {
+    console.warn('[webhook] SubscriptionItem event missing id – skipping')
+    return
+  }
 
-    const normalizedStatus = status?.toUpperCase()
+  const payerClerkUserId = payer?.user_id ?? null
 
-    // Extract amount from totals.grand_total.amount (cents → dollars)
-    let amount: number | null = null
-    if (totals?.grand_total?.amount) {
-      amount = totals.grand_total.amount / 100
-    }
+  // Infer status from event type suffix when not present in payload
+  const inferredStatus = eventType.split('.')[1]?.toUpperCase()
+  const effectiveStatus = rawStatus ?? inferredStatus
 
-    // Extract user ID from payer if available
-    const payerUserId = payer?.user_id
+  await upsertSubscriptionItem({
+    clerkItemId,
+    clerkSubscriptionId,
+    clerkUserId:  payerClerkUserId,
+    planData,
+    rawStatus:    effectiveStatus,
+    itemInterval,   // FIX (Bug 3)
+    period_start,
+    period_end,
+    trial_ends_at,
+    rawPayload:   data,
+  })
+}
 
-    // Determine the subscription ID to link – try root first, then from first item
-    let targetClerkSubscriptionId = clerkSubscriptionId
-    if (!targetClerkSubscriptionId && subscription_items?.length > 0) {
-      targetClerkSubscriptionId = subscription_items[0]?.subscription_id
-    }
+/**
+ * paymentAttempt.created | paymentAttempt.updated
+ */
+async function handlePaymentAttemptEvent(data: any) {
+  const {
+    id:                    clerkPaymentAttemptId,
+    charge_type,
+    status:                rawStatus,
+    currency,
+    created_at,
+    subscription_id:       clerkSubscriptionId,
+    subscription_item_id,
+    subscription_items,
+    totals,
+    payer,
+  } = data
 
-    // Ensure the top-level subscription exists, possibly linking it to the user
-    let subscriptionDbId: string | null = null
-    if (targetClerkSubscriptionId) {
-      const sub = await ensureSubscription(targetClerkSubscriptionId, payerUserId)
-      subscriptionDbId = sub.id
-    }
+  if (!clerkPaymentAttemptId) {
+    console.warn('[webhook] PaymentAttempt event missing id – skipping')
+    return
+  }
 
-    // Determine the related subscription item
-    let subscriptionItemDbId: string | null = null
-    let targetClerkItemId: string | null = subscription_item_id || subscription_items?.[0]?.id || null
+  const type: 'CHECKOUT' | 'RECURRING' =
+    charge_type?.toUpperCase() === 'RECURRING' ? 'RECURRING' : 'CHECKOUT'
 
-    if (targetClerkItemId) {
-      const existingItem = await prisma.subscriptionItem.findUnique({
-        where: { clerkItemId: targetClerkItemId },
-        select: { id: true }
+  const upperStatus = (rawStatus ?? '').toUpperCase()
+  const status: 'PENDING' | 'PAID' | 'FAILED' =
+    upperStatus === 'PAID'   ? 'PAID'
+    : upperStatus === 'FAILED' ? 'FAILED'
+    : 'PENDING'
+
+  const amount: number | null =
+    typeof totals?.grand_total?.amount === 'number'
+      ? totals.grand_total.amount / 100
+      : null
+
+  // FIX (Bug 1 consistency): payer.user_id, not root user_id
+  const payerClerkUserId = payer?.user_id ?? null
+
+  const effectiveClerkSubId =
+    clerkSubscriptionId ?? subscription_items?.[0]?.subscription_id ?? null
+
+  let subscriptionDbId: string | null = null
+  if (effectiveClerkSubId) {
+    const sub = await ensureSubscription(effectiveClerkSubId, payerClerkUserId)
+    subscriptionDbId = sub.id
+  }
+
+  const targetClerkItemId: string | null =
+    subscription_item_id ?? subscription_items?.[0]?.id ?? null
+
+  let subscriptionItemDbId: string | null = null
+  if (targetClerkItemId) {
+    const existing = await prisma.subscriptionItem.findUnique({
+      where:  { clerkItemId: targetClerkItemId },
+      select: { id: true },
+    })
+
+    if (existing) {
+      subscriptionItemDbId = existing.id
+    } else if (subscriptionDbId) {
+      const firstItem  = subscription_items?.[0]
+      const stubPlanId = firstItem?.plan
+        ? await ensurePlan(firstItem.plan, firstItem.interval)  // FIX (Bug 3)
+        : null
+      const stubStatus = normaliseItemStatus(firstItem?.status)
+
+      const stub = await prisma.subscriptionItem.create({
+        data: {
+          clerkItemId:        targetClerkItemId,
+          subscriptionId:     subscriptionDbId,
+          status:             stubStatus,
+          isDefaultPlan:      false,
+          currentPeriodStart: firstItem?.period_start ? new Date(firstItem.period_start) : null,
+          currentPeriodEnd:   firstItem?.period_end   ? new Date(firstItem.period_end)   : null,
+          lastSyncPayload:    firstItem ?? ({} as Prisma.InputJsonValue),
+          ...(stubPlanId && { planId: stubPlanId }),
+        },
       })
-      if (existingItem) {
-        subscriptionItemDbId = existingItem.id
-      } else {
-        // Create stub item using data from the first item in array
-        const firstItem = subscription_items?.[0]
-        if (firstItem && subscriptionDbId) {
-          const planId = firstItem.plan ? await ensurePlan(firstItem.plan) : null
-          const itemStatus = firstItem.status?.toUpperCase() || 'PENDING'
-          const validStatus = ['ACTIVE', 'CANCELED', 'UPCOMING', 'ENDED', 'ABANDONED', 'INCOMPLETE', 'PAST_DUE'].includes(itemStatus) ? itemStatus : 'PENDING'
-
-          const newItem = await prisma.subscriptionItem.create({
-            data: {
-              clerkItemId: targetClerkItemId,
-              subscriptionId: subscriptionDbId,
-              planId,
-              status: validStatus,
-              currentPeriodStart: firstItem.period_start ? new Date(firstItem.period_start) : null,
-              currentPeriodEnd: firstItem.period_end ? new Date(firstItem.period_end) : null,
-              isDefaultPlan: false,
-              lastSyncPayload: firstItem,
-            }
-          })
-          subscriptionItemDbId = newItem.id
-          console.log(`[paymentAttempt] Created stub subscriptionItem for ${targetClerkItemId}`)
-        }
-      }
+      subscriptionItemDbId = stub.id
+      console.log(`[webhook] Created stub SubscriptionItem ${targetClerkItemId}`)
     }
-
-    await prisma.paymentAttempt.upsert({
-      where: { clerkPaymentAttemptId },
-      update: {
-        type,
-        status: normalizedStatus,
-        amount,
-        currency: currency || 'USD',
-        occurredAt: new Date(created_at),
-        payload: data,
-        subscriptionItemId: subscriptionItemDbId,
-        subscriptionId: subscriptionDbId,
-      },
-      create: {
-        clerkPaymentAttemptId,
-        type,
-        status: normalizedStatus,
-        amount,
-        currency: currency || 'USD',
-        occurredAt: new Date(created_at),
-        payload: data,
-        subscriptionItemId: subscriptionItemDbId,
-        subscriptionId: subscriptionDbId,
-      },
-    })
-    console.log(`PaymentAttempt ${clerkPaymentAttemptId} synced`)
-  } catch (error) {
-    console.error('Error in handlePaymentAttempt:', error)
   }
+
+  await prisma.paymentAttempt.upsert({
+    where:  { clerkPaymentAttemptId },
+    update: {
+      type,
+      status,
+      amount,
+      currency:           currency || 'USD',  // FIX (Bug 3): empty string fallback
+      occurredAt:         new Date(created_at),
+      payload:            data as Prisma.InputJsonValue,
+      subscriptionId:     subscriptionDbId,
+      subscriptionItemId: subscriptionItemDbId,
+    },
+    create: {
+      clerkPaymentAttemptId,
+      type,
+      status,
+      amount,
+      currency:           currency || 'USD',  // FIX (Bug 3): empty string fallback
+      occurredAt:         new Date(created_at),
+      payload:            data as Prisma.InputJsonValue,
+      subscriptionId:     subscriptionDbId,
+      subscriptionItemId: subscriptionItemDbId,
+    },
+  })
+  console.log(`[webhook] PaymentAttempt synced: ${clerkPaymentAttemptId} → ${status}`)
 }
 
-// ------------------------
-// Main Webhook Handler
-// ------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTE HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET
   if (!WEBHOOK_SECRET) {
-    console.error('CLERK_WEBHOOK_SECRET missing')
+    console.error('[webhook] CLERK_WEBHOOK_SECRET is not set')
     return new Response('Webhook secret not configured', { status: 500 })
   }
 
   const headerPayload = await headers()
-  const svixId = headerPayload.get('svix-id')
+  const svixId        = headerPayload.get('svix-id')
   const svixTimestamp = headerPayload.get('svix-timestamp')
   const svixSignature = headerPayload.get('svix-signature')
+
   if (!svixId || !svixTimestamp || !svixSignature) {
     return new Response('Missing svix headers', { status: 400 })
   }
 
   const payload = await req.json()
-  const body = JSON.stringify(payload)
-  const wh = new Webhook(WEBHOOK_SECRET)
+  const body    = JSON.stringify(payload)
+  const wh      = new Webhook(WEBHOOK_SECRET)
   let evt: WebhookEvent
 
   try {
     evt = wh.verify(body, {
-      'svix-id': svixId,
+      'svix-id':        svixId,
       'svix-timestamp': svixTimestamp,
       'svix-signature': svixSignature,
     }) as WebhookEvent
   } catch (err) {
-    console.error('Webhook verification failed:', err)
+    console.error('[webhook] Signature verification failed:', err)
     return new Response('Invalid signature', { status: 400 })
   }
 
   const { type: eventType, data } = evt
+  console.log(`[webhook] Received: ${eventType}`)
 
   try {
-    // ---------------- User Events ----------------
     if (eventType === 'user.created' || eventType === 'user.updated') {
-      const { id, email_addresses, first_name, last_name, image_url, phone_numbers } = data
-      const email = email_addresses?.[0]?.email_address ?? `pending-${id}@placeholder.local`
-      const fullName = [first_name, last_name].filter(Boolean).join(' ')
-      const phone = phone_numbers?.[0]?.phone_number
-
-      await prisma.user.upsert({
-        where: { clerkId: id },
-        update: { email, fullName, avatarUrl: image_url, phone },
-        create: { clerkId: id, email, fullName, avatarUrl: image_url, phone, role: 'CLIENT' },
-      })
-      console.log(`Processed user event: ${eventType} for ${id}`)
+      await handleUserCreatedOrUpdated(data as any)
     }
 
-    if (eventType === 'user.deleted') {
-      const { id } = data
-      const user = await prisma.user.findUnique({ where: { clerkId: id } })
-      if (user) {
-        await prisma.$transaction([
-          // Delete PaymentAttempts linked directly via subscription
-          prisma.paymentAttempt.deleteMany({ where: { subscription: { userId: user.id } } }),
-          // Delete PaymentAttempts linked via subscriptionItem (which belongs to the user's subscription)
-          prisma.paymentAttempt.deleteMany({ where: { subscriptionItem: { subscription: { userId: user.id } } } }),
-          // Now delete subscriptionItems (cascade not set, so manual)
-          prisma.subscriptionItem.deleteMany({ where: { subscription: { userId: user.id } } }),
-          // Delete subscriptions
-          prisma.subscription.deleteMany({ where: { userId: user.id } }),
-          // Finally delete the user
-          prisma.user.delete({ where: { id: user.id } }),
-        ])
-        console.log(`Deleted user ${id} and all related data (including payment attempts)`)
-      } else {
-        console.log(`User ${id} already deleted or not found`)
-      }
+    else if (eventType === 'user.deleted') {
+      await handleUserDeleted(data)
     }
 
-    // ---------------- Billing Events ----------------
-    if (eventType.startsWith('subscription.')) {
-      await handleSubscription(data)
+    else if (
+      eventType === 'subscription.created' ||
+      eventType === 'subscription.updated' ||
+      eventType === 'subscription.active'  ||
+      eventType === 'subscription.pastDue'
+    ) {
+      await handleSubscriptionEvent(data)
     }
-    if (eventType.startsWith('subscriptionItem.')) {
-      await handleSubscriptionItem(data)
+
+    else if (eventType.startsWith('subscriptionItem.')) {
+      await handleSubscriptionItemEvent(eventType, data)
     }
-    if (eventType.startsWith('paymentAttempt.')) {
-      await handlePaymentAttempt(data)
+
+    else if (eventType.startsWith('paymentAttempt.')) {
+      await handlePaymentAttemptEvent(data)
+    }
+
+    else {
+      console.log(`[webhook] Unhandled event type: ${eventType}`)
     }
   } catch (err) {
-    console.error(`Error processing ${eventType}:`, err)
-    // Always return 200 to acknowledge receipt
+    console.error(`[webhook] Error processing ${eventType}:`, err)
   }
 
   return new Response('Webhook processed', { status: 200 })

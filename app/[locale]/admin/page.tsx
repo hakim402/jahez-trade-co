@@ -1,4 +1,4 @@
-// app/admin/page.tsx
+// app/[locale]/admin/page.tsx
 
 import AdminDashboard from "./_components/AdminDashboard";
 

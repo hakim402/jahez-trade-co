@@ -1,493 +1,677 @@
-// app/[locale]/admin/(routes)/product-requests/actions.ts
 'use server'
 
-import { prisma } from '@/lib/prisma'
+import { prisma }       from '@/lib/prisma'
 import { requireAdmin } from '@/lib/admin-guard'
-import { z } from 'zod'
-import { RequestStatus, QuoteStatus, Prisma } from '@prisma/client'
+import { z }            from 'zod'
+import { Prisma, RequestStatus, QuoteStatus } from '@prisma/client'
+import { writeFile, mkdir, unlink } from 'fs/promises'
+import { existsSync }   from 'fs'
+import path             from 'path'
+import { revalidatePath } from 'next/cache'
 
-// ---------------------------
-// SCHEMAS
-// ---------------------------
-const getRequestsFilterSchema = z.object({
-  page: z.number().int().positive().default(1),
-  pageSize: z.number().int().positive().max(100).default(20),
-  status: z.nativeEnum(RequestStatus).optional(),
-  clientEmail: z.string().email().optional(),
-  createdAtFrom: z.date().optional(),
-  createdAtTo: z.date().optional(),
+type ActionResult<T> = { success: true; data: T } | { success: false; error: string }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'requests')
+
+async function ensureUploadDir() {
+  if (!existsSync(UPLOAD_DIR)) await mkdir(UPLOAD_DIR, { recursive: true })
+}
+
+function serializeRequest(r: any): any {
+  return {
+    ...r,
+    aiEstimatedPrice: r.aiEstimatedPrice ? r.aiEstimatedPrice.toString() : null,
+    quotes: r.quotes?.map((q: any) => ({
+      ...q,
+      price: q.price.toString(),
+      files: q.files ?? [],
+      statusHistory: q.statusHistory ?? [],
+    })) ?? [],
+    acceptedQuote: r.acceptedQuote
+      ? {
+          ...r.acceptedQuote,
+          price: r.acceptedQuote.price.toString(),
+          files: r.acceptedQuote.files ?? [],
+          statusHistory: r.acceptedQuote.statusHistory ?? [],
+        }
+      : null,
+    aiSuggestions: r.aiSuggestions?.map((s: any) => ({
+      ...s,
+      estimatedPrice: s.estimatedPrice.toString(),
+    })) ?? [],
+  }
+}
+
+const requestSelect = {
+  id: true, clientId: true, productLink: true, description: true,
+  quantity: true, shippingCountry: true, customNotes: true,
+  status: true, priority: true, acceptedQuoteId: true,
+  aiParsedData: true, aiEstimatedPrice: true, aiConfidence: true,
+  isDeleted: true, createdAt: true, updatedAt: true,
+  client: { select: { id: true, email: true, fullName: true, avatarUrl: true, phone: true } },
+  files: { select: { id: true, url: true, fileType: true, fileName: true, fileSize: true, requestId: true, quoteId: true, uploadedById: true, createdAt: true } },
+  quotes: {
+    where: { isDeleted: false },
+    orderBy: { revision: 'desc' as const },
+    select: {
+      id: true, requestId: true, createdById: true, price: true, currency: true,
+      status: true, validUntil: true, revision: true, adminNotes: true,
+      isDeleted: true, createdAt: true, updatedAt: true,
+      createdBy: { select: { id: true, email: true, fullName: true } },
+      files: { select: { id: true, url: true, fileType: true, fileName: true, fileSize: true, requestId: true, quoteId: true, uploadedById: true, createdAt: true } },
+      statusHistory: {
+        orderBy: { changedAt: 'desc' as const },
+        select: {
+          id: true, quoteId: true, oldStatus: true, newStatus: true, changedAt: true,
+          changedBy: { select: { id: true, email: true, fullName: true } },
+        },
+      },
+    },
+  },
+  statusHistory: {
+    orderBy: { changedAt: 'desc' as const },
+    select: {
+      id: true, requestId: true, oldStatus: true, newStatus: true, changedAt: true,
+      changedBy: { select: { id: true, email: true, fullName: true } },
+    },
+  },
+  aiSuggestions: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 5,
+    select: { id: true, requestId: true, estimatedPrice: true, currency: true, confidence: true, suggestedSupplierIds: true, createdAt: true },
+  },
+  acceptedQuote: {
+    select: {
+      id: true, requestId: true, createdById: true, price: true, currency: true,
+      status: true, validUntil: true, revision: true, adminNotes: true,
+      isDeleted: true, createdAt: true, updatedAt: true,
+      createdBy: { select: { id: true, email: true, fullName: true } },
+      files: { select: { id: true, url: true, fileType: true, fileName: true, fileSize: true, requestId: true, quoteId: true, uploadedById: true, createdAt: true } },
+      statusHistory: {
+        orderBy: { changedAt: 'desc' as const },
+        select: {
+          id: true, quoteId: true, oldStatus: true, newStatus: true, changedAt: true,
+          changedBy: { select: { id: true, email: true, fullName: true } },
+        },
+      },
+    },
+  },
+  _count: { select: { quotes: true, files: true } },
+} as const
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. LIST REQUESTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const listSchema = z.object({
+  page:          z.number().int().min(1).default(1),
+  pageSize:      z.number().int().min(1).max(100).default(20),
+  status:        z.nativeEnum(RequestStatus).optional(),
+  priority:      z.number().int().min(0).max(5).optional(),
+  clientEmail:   z.string().optional(),
+  search:        z.string().optional(),
+  createdAtFrom: z.coerce.date().optional(),
+  createdAtTo:   z.coerce.date().optional(),
 })
 
-const updateStatusSchema = z.object({
-  requestId: z.string().cuid(),
-  newStatus: z.nativeEnum(RequestStatus),
-})
-
-const createQuoteSchema = z.object({
-  requestId: z.string().cuid(),
-  price: z.number().positive(),
-  currency: z.string().default('USD'),
-  validUntil: z.date().optional(),
-  adminNotes: z.string().optional(),
-})
-
-const updateQuoteStatusSchema = z.object({
-  quoteId: z.string().cuid(),
-  newStatus: z.nativeEnum(QuoteStatus),
-})
-
-const softDeleteQuoteSchema = z.object({
-  quoteId: z.string().cuid(),
-})
-
-// -----------------------------------
-// ACTIONS
-// -----------------------------------
-export type GetRequestsFilter = z.infer<typeof getRequestsFilterSchema>
-
-
-// -----------------------------------
-// FUNC TO GET ALL PRODUCT REQUESTS  
-// -----------------------------------
-export async function getAllProductRequests(filters: GetRequestsFilter) {
+export async function getAllProductRequests(raw: z.infer<typeof listSchema>) {
   try {
     await requireAdmin()
-    const validated = getRequestsFilterSchema.parse(filters)
+    const { page, pageSize, status, priority, clientEmail, search, createdAtFrom, createdAtTo } = listSchema.parse(raw)
 
-    const { page, pageSize, status, clientEmail, createdAtFrom, createdAtTo } = validated
-    const skip = (page - 1) * pageSize
-
-    // Build where clause with explicit typing to avoid type errors
     const where: Prisma.ProductRequestWhereInput = {
       isDeleted: false,
-      ...(status && { status }),
-      ...(clientEmail && {
-        client: { email: { contains: clientEmail, mode: 'insensitive' } },
+      ...(status   && { status }),
+      ...(priority !== undefined && { priority }),
+      ...((createdAtFrom || createdAtTo) && {
+        createdAt: {
+          ...(createdAtFrom && { gte: createdAtFrom }),
+          ...(createdAtTo   && { lte: createdAtTo }),
+        },
       }),
-      ...(createdAtFrom || createdAtTo
-        ? {
-            createdAt: {
-              ...(createdAtFrom && { gte: createdAtFrom }),
-              ...(createdAtTo && { lte: createdAtTo }),
-            },
-          }
-        : {}),
+      ...((clientEmail || search) && {
+        client: {
+          ...(clientEmail && { email: { contains: clientEmail, mode: 'insensitive' } }),
+          ...(search && {
+            OR: [
+              { email:    { contains: search, mode: 'insensitive' } },
+              { fullName: { contains: search, mode: 'insensitive' } },
+            ],
+          }),
+        },
+      }),
+      ...(search && !clientEmail && {
+        OR: [
+          { description:   { contains: search, mode: 'insensitive' } },
+          { productLink:   { contains: search, mode: 'insensitive' } },
+          { customNotes:   { contains: search, mode: 'insensitive' } },
+          { client: { OR: [
+            { email:    { contains: search, mode: 'insensitive' } },
+            { fullName: { contains: search, mode: 'insensitive' } },
+          ]}},
+        ],
+      }),
     }
 
-    const [requests, totalCount] = await prisma.$transaction([
+    const [totalCount, requests] = await Promise.all([
+      prisma.productRequest.count({ where }),
       prisma.productRequest.findMany({
         where,
-        include: {
-          client: { select: { id: true, email: true, fullName: true } },
-          quotes: {
-            where: { isDeleted: false },
-            include: { createdBy: { select: { id: true, email: true, fullName: true } } },
-            orderBy: { createdAt: 'desc' },
-          },
-          acceptedQuote: true,
-          files: true,
-          statusHistory: {
-            include: { changedBy: { select: { id: true, email: true, fullName: true } } },
-            orderBy: { changedAt: 'desc' },
-          },
-        },
+        select: requestSelect,
         orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
-        skip,
+        skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.productRequest.count({ where }),
     ])
 
     return {
       success: true,
       data: {
-        requests,
-        pagination: {
-          page,
-          pageSize,
-          totalCount,
-          totalPages: Math.ceil(totalCount / pageSize),
-        },
+        requests: requests.map(serializeRequest),
+        pagination: { page, pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
       },
     }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid filters' }
-    }
+  } catch (err) {
+    console.error('[getAllProductRequests]', err)
     return { success: false, error: 'Failed to fetch requests' }
   }
 }
 
-// -----------------------------------
-// FUNC TO UPDATE REQUEST STATUS
-// -----------------------------------
-export async function updateRequestStatus(requestId: string, newStatus: RequestStatus) {
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. GET SINGLE REQUEST
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getProductRequest(id: string) {
+  try {
+    await requireAdmin()
+    const r = await prisma.productRequest.findUnique({ where: { id }, select: requestSelect })
+    if (!r) return { success: false, error: 'Not found' }
+    return { success: true, data: serializeRequest(r) }
+  } catch (err) {
+    console.error('[getProductRequest]', err)
+    return { success: false, error: 'Failed to fetch request' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. UPDATE STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateRequestStatus(
+  requestId: string,
+  newStatus: RequestStatus,
+  note?: string,
+) {
   try {
     const adminId = await requireAdmin()
-    const validated = updateStatusSchema.parse({ requestId, newStatus })
 
-    const request = await prisma.productRequest.findUnique({
-      where: { id: validated.requestId, isDeleted: false },
-      include: { client: { select: { id: true } } },
+    const req = await prisma.productRequest.findUnique({
+      where: { id: requestId }, select: { id: true, status: true, clientId: true },
     })
+    if (!req) return { success: false, error: 'Request not found' }
 
-    if (!request) {
-      return { success: false, error: 'Request not found' }
-    }
-
-    if (request.status === validated.newStatus) {
-      return { success: false, error: 'Status is already set to this value' }
-    }
-
-    // Optional: add allowed transition logic here if needed
-
-    const result = await prisma.$transaction(async (tx) => {
-      const updatedRequest = await tx.productRequest.update({
-        where: { id: validated.requestId },
-        data: { status: validated.newStatus },
-        include: {
-          client: { select: { id: true, email: true } },
-          quotes: true,
-          acceptedQuote: true,
-          files: true,
-          statusHistory: true,
-        },
-      })
-
-      // Status history
-      await tx.requestStatusHistory.create({
+    const oldStatus = req.status
+    await prisma.$transaction([
+      prisma.productRequest.update({ where: { id: requestId }, data: { status: newStatus } }),
+      prisma.requestStatusHistory.create({
+        data: { requestId, oldStatus, newStatus, changedById: adminId },
+      }),
+      prisma.auditLog.create({
         data: {
-          requestId: updatedRequest.id,
-          oldStatus: request.status,
-          newStatus: validated.newStatus,
-          changedById: adminId,
+          adminId, action: 'UPDATE_REQUEST_STATUS', entity: 'ProductRequest', entityId: requestId,
+          changes: { oldStatus, newStatus, note } satisfies Prisma.InputJsonValue,
         },
-      })
-
-      // Client notification
-      await tx.notification.create({
+      }),
+      // Notify client
+      prisma.notification.create({
         data: {
-          userId: request.client.id, // fixed: client.id, not clientId
-          title: 'Request Status Updated',
-          message: `Your request status has been changed from ${request.status} to ${validated.newStatus}.`,
-          type: 'REQUEST_STATUS_CHANGE',
-          requestId: updatedRequest.id,
+          userId:    req.clientId,
+          title:     `Request status updated to ${newStatus}`,
+          message:   note ?? `Your product request has been moved to ${newStatus}.`,
+          type:      'REQUEST',
+          requestId,
         },
-      })
+      }),
+    ])
 
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          adminId,
-          action: 'UPDATE_REQUEST_STATUS',
-          entity: 'ProductRequest',
-          entityId: updatedRequest.id,
-          changes: { oldStatus: request.status, newStatus: validated.newStatus },
-        },
-      })
-
-      return updatedRequest
-    })
-
-    return { success: true, data: result }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
-    }
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { newStatus } }
+  } catch (err) {
+    console.error('[updateRequestStatus]', err)
     return { success: false, error: 'Failed to update status' }
   }
 }
 
-// -----------------------------------
-// FUNC TO CREATE A QUOTE
-// -----------------------------------
-export async function createQuote(data: z.infer<typeof createQuoteSchema>) {
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. UPDATE PRIORITY
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateRequestPriority(requestId: string, priority: number) {
   try {
     const adminId = await requireAdmin()
-    const validated = createQuoteSchema.parse(data)
+    if (priority < 0 || priority > 5) return { success: false, error: 'Priority must be 0–5' }
 
-    const request = await prisma.productRequest.findUnique({
-      where: { id: validated.requestId, isDeleted: false },
-      include: {
-        client: { select: { id: true } },
-        quotes: { where: { isDeleted: false } }, // to check if any quotes exist
-      },
-    })
-
-    if (!request) {
-      return { success: false, error: 'Request not found' }
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const quote = await tx.quote.create({
+    await prisma.$transaction([
+      prisma.productRequest.update({ where: { id: requestId }, data: { priority } }),
+      prisma.auditLog.create({
         data: {
-          requestId: request.id,
-          createdById: adminId,
-          price: validated.price,
-          currency: validated.currency,
-          validUntil: validated.validUntil,
-          adminNotes: validated.adminNotes,
-          status: 'DRAFT',
+          adminId, action: 'UPDATE_REQUEST_PRIORITY', entity: 'ProductRequest', entityId: requestId,
+          changes: { priority } satisfies Prisma.InputJsonValue,
         },
-      })
+      }),
+    ])
 
-      // Quote status history (initial)
-      await tx.quoteStatusHistory.create({
-        data: {
-          quoteId: quote.id,
-          oldStatus: 'DRAFT',
-          newStatus: 'DRAFT',
-          changedById: adminId,
-        },
-      })
-
-      // If this is the first quote, update request status to QUOTED (if appropriate)
-      if (request.quotes.length === 0 && request.status === 'SUBMITTED') {
-        await tx.productRequest.update({
-          where: { id: request.id },
-          data: { status: 'QUOTED' },
-        })
-
-        await tx.requestStatusHistory.create({
-          data: {
-            requestId: request.id,
-            oldStatus: 'SUBMITTED',
-            newStatus: 'QUOTED',
-            changedById: adminId,
-          },
-        })
-      }
-
-      // Client notification
-      await tx.notification.create({
-        data: {
-          userId: request.client.id, // fixed
-          title: 'New Quote Created',
-          message: 'A new quote has been created for your request.',
-          type: 'QUOTE_CREATED',
-          requestId: request.id,
-          quoteId: quote.id,
-        },
-      })
-
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          adminId,
-          action: 'CREATE_QUOTE',
-          entity: 'Quote',
-          entityId: quote.id,
-          changes: {
-            requestId: request.id,
-            price: validated.price,
-            currency: validated.currency,
-          },
-        },
-      })
-
-      return quote
-    })
-
-    return { success: true, data: result }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
-    }
-    return { success: false, error: 'Failed to create quote' }
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { priority } }
+  } catch (err) {
+    console.error('[updateRequestPriority]', err)
+    return { success: false, error: 'Failed to update priority' }
   }
 }
 
-// -----------------------------------
-// FUNC TO UPDATE QUOTE STATUS
-// -----------------------------------
-export async function updateQuoteStatus(quoteId: string, newStatus: QuoteStatus) {
-  try {
-    const adminId = await requireAdmin()
-    const validated = updateQuoteStatusSchema.parse({ quoteId, newStatus })
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. SOFT DELETE REQUEST
+// ─────────────────────────────────────────────────────────────────────────────
 
-    const quote = await prisma.quote.findUnique({
-      where: { id: validated.quoteId, isDeleted: false },
-      include: {
-        request: {
-          include: { client: { select: { id: true } } },
-        },
-      },
-    })
-
-    if (!quote) {
-      return { success: false, error: 'Quote not found' }
-    }
-
-    if (quote.status === validated.newStatus) {
-      return { success: false, error: 'Quote already has this status' }
-    }
-
-    // Prevent accepting a quote if the request already has an accepted quote
-    if (validated.newStatus === 'ACCEPTED' && quote.request.acceptedQuoteId) {
-      return { success: false, error: 'This request already has an accepted quote' }
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const updatedQuote = await tx.quote.update({
-        where: { id: validated.quoteId },
-        data: { status: validated.newStatus },
-        include: { request: true },
-      })
-
-      // Quote status history
-      await tx.quoteStatusHistory.create({
-        data: {
-          quoteId: updatedQuote.id,
-          oldStatus: quote.status,
-          newStatus: validated.newStatus,
-          changedById: adminId,
-        },
-      })
-
-      // If ACCEPTED, update the linked request
-      if (validated.newStatus === 'ACCEPTED') {
-        await tx.productRequest.update({
-          where: { id: quote.requestId },
-          data: {
-            acceptedQuoteId: updatedQuote.id,
-            status: 'APPROVED',
-          },
-        })
-
-        await tx.requestStatusHistory.create({
-          data: {
-            requestId: quote.requestId,
-            oldStatus: quote.request.status,
-            newStatus: 'APPROVED',
-            changedById: adminId,
-          },
-        })
-      }
-
-      // Client notification
-      let notificationMessage = `Your quote status has been updated to ${validated.newStatus}.`
-      if (validated.newStatus === 'ACCEPTED') {
-        notificationMessage = 'Your quote has been accepted and your request is now approved.'
-      } else if (validated.newStatus === 'REJECTED') {
-        notificationMessage = 'Your quote has been rejected.'
-      }
-
-      await tx.notification.create({
-        data: {
-          userId: quote.request.client.id, // fixed
-          title: 'Quote Status Updated',
-          message: notificationMessage,
-          type: 'QUOTE_STATUS_CHANGE',
-          requestId: quote.requestId,
-          quoteId: updatedQuote.id,
-        },
-      })
-
-      // Audit log
-      await tx.auditLog.create({
-        data: {
-          adminId,
-          action: 'UPDATE_QUOTE_STATUS',
-          entity: 'Quote',
-          entityId: updatedQuote.id,
-          changes: {
-            oldStatus: quote.status,
-            newStatus: validated.newStatus,
-            requestId: quote.requestId,
-          },
-        },
-      })
-
-      return updatedQuote
-    })
-
-    return { success: true, data: result }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
-    }
-    return { success: false, error: 'Failed to update quote status' }
-  }
-}
-
-// -----------------------------------
-// FUNC TO DELETE REQUEST
-// -----------------------------------
-export async function softDeleteRequest(requestId: string) {
+export async function deleteProductRequest(requestId: string) {
   try {
     const adminId = await requireAdmin()
 
-    const request = await prisma.productRequest.findUnique({
-      where: { id: requestId, isDeleted: false },
-    })
-
-    if (!request) {
-      return { success: false, error: 'Request not found' }
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await tx.productRequest.update({
-        where: { id: requestId },
-        data: { isDeleted: true },
-      })
-
-      await tx.auditLog.create({
+    await prisma.$transaction([
+      prisma.productRequest.update({ where: { id: requestId }, data: { isDeleted: true } }),
+      prisma.auditLog.create({
         data: {
-          adminId,
-          action: 'SOFT_DELETE_REQUEST',
-          entity: 'ProductRequest',
-          entityId: requestId,
-          changes: { isDeleted: true },
+          adminId, action: 'DELETE_REQUEST', entity: 'ProductRequest', entityId: requestId,
+          changes: Prisma.JsonNull,
         },
-      })
-    })
+      }),
+    ])
 
-    return { success: true }
-  } catch {
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { ok: true } }
+  } catch (err) {
+    console.error('[deleteProductRequest]', err)
     return { success: false, error: 'Failed to delete request' }
   }
 }
 
-// -----------------------------------
-// FUNC TO DELETE QUOTE
-// -----------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. CREATE QUOTE (with optional file)
+// ─────────────────────────────────────────────────────────────────────────────
 
-export async function softDeleteQuote(input: { quoteId: string }) {
+const createQuoteSchema = z.object({
+  requestId:  z.string().min(1),
+  price:      z.number().positive(),
+  currency:   z.string().default('USD'),
+  validUntil: z.coerce.date().optional(),
+  adminNotes: z.string().optional(),
+  status:     z.nativeEnum(QuoteStatus).default('DRAFT'),
+})
+
+export async function createQuote(raw: z.infer<typeof createQuoteSchema>) {
   try {
     const adminId = await requireAdmin()
-    const { quoteId } = softDeleteQuoteSchema.parse(input)
+    const { requestId, price, currency, validUntil, adminNotes, status } = createQuoteSchema.parse(raw)
 
-    const quote = await prisma.quote.findUnique({
-      where: { id: quoteId, isDeleted: false },
-      select: { requestId: true },
+    const req = await prisma.productRequest.findUnique({
+      where: { id: requestId }, select: { id: true, clientId: true, _count: { select: { quotes: true } } },
     })
+    if (!req) return { success: false, error: 'Request not found' }
 
-    if (!quote) {
-      return { success: false, error: 'Quote not found' }
-    }
+    const revision = req._count.quotes + 1
 
-    await prisma.$transaction(async (tx) => {
-      await tx.quote.update({
-        where: { id: quoteId },
-        data: { isDeleted: true },
+    const quote = await prisma.$transaction(async tx => {
+      const q = await tx.quote.create({
+        data: { requestId, createdById: adminId, price, currency, validUntil, adminNotes, status, revision },
       })
-
+      await tx.quoteStatusHistory.create({
+        data: { quoteId: q.id, oldStatus: 'DRAFT', newStatus: status, changedById: adminId },
+      })
       await tx.auditLog.create({
         data: {
-          adminId,
-          action: 'SOFT_DELETE_QUOTE',
-          entity: 'Quote',
-          entityId: quoteId,
-          changes: { isDeleted: true },
+          adminId, action: 'CREATE_QUOTE', entity: 'Quote', entityId: q.id,
+          changes: { requestId, price, currency, status } satisfies Prisma.InputJsonValue,
         },
       })
+      if (status === 'SENT') {
+        await tx.notification.create({
+          data: {
+            userId: req.clientId, title: 'New quote received',
+            message: `A quote of ${price} ${currency} has been sent for your request.`,
+            type: 'QUOTE', requestId, quoteId: q.id,
+          },
+        })
+      }
+      return q
     })
 
-    return { success: true }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
-    }
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { id: quote.id } }
+  } catch (err) {
+    console.error('[createQuote]', err)
+    if (err instanceof z.ZodError) return { success: false, error: err.issues[0].message }
+    return { success: false, error: 'Failed to create quote' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. UPDATE QUOTE STATUS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateQuoteStatus(quoteId: string, newStatus: QuoteStatus) {
+  try {
+    const adminId = await requireAdmin()
+
+    const quote = await prisma.quote.findUnique({
+      where: { id: quoteId },
+      select: { id: true, status: true, requestId: true, request: { select: { clientId: true } } },
+    })
+    if (!quote) return { success: false, error: 'Quote not found' }
+
+    const oldStatus = quote.status
+    await prisma.$transaction([
+      prisma.quote.update({ where: { id: quoteId }, data: { status: newStatus } }),
+      prisma.quoteStatusHistory.create({
+        data: { quoteId, oldStatus, newStatus, changedById: adminId },
+      }),
+      prisma.auditLog.create({
+        data: {
+          adminId, action: 'UPDATE_QUOTE_STATUS', entity: 'Quote', entityId: quoteId,
+          changes: { oldStatus, newStatus } satisfies Prisma.InputJsonValue,
+        },
+      }),
+    ])
+
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { newStatus } }
+  } catch (err) {
+    console.error('[updateQuoteStatus]', err)
+    return { success: false, error: 'Failed to update quote' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 8. DELETE QUOTE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function deleteQuote(quoteId: string) {
+  try {
+    const adminId = await requireAdmin()
+
+    await prisma.$transaction([
+      prisma.quote.update({ where: { id: quoteId }, data: { isDeleted: true } }),
+      prisma.auditLog.create({
+        data: {
+          adminId, action: 'DELETE_QUOTE', entity: 'Quote', entityId: quoteId,
+          changes: Prisma.JsonNull,
+        },
+      }),
+    ])
+
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { ok: true } }
+  } catch (err) {
+    console.error('[deleteQuote]', err)
     return { success: false, error: 'Failed to delete quote' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. FILE UPLOAD (local storage → public/uploads/requests/)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_TYPES = new Set([
+  'application/pdf',
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain', 'text/csv',
+  'application/zip', 'application/x-zip-compressed',
+])
+const MAX_BYTES = 20 * 1024 * 1024   // 20 MB
+
+export async function uploadFile(formData: FormData): Promise<ActionResult<{ id: string; url: string; fileName: string }>> {
+  try {
+    const adminId  = await requireAdmin()
+    const file     = formData.get('file') as File | null
+    const requestId = formData.get('requestId') as string | null
+    const quoteId  = formData.get('quoteId') as string | null
+
+    if (!file)                  return { success: false, error: 'No file provided' }
+    if (!requestId && !quoteId) return { success: false, error: 'Must specify requestId or quoteId' }
+    if (!ALLOWED_TYPES.has(file.type)) return { success: false, error: `File type ${file.type} not allowed` }
+    if (file.size > MAX_BYTES)  return { success: false, error: 'File exceeds 20 MB limit' }
+
+    await ensureUploadDir()
+
+    const ext       = file.name.split('.').pop() ?? 'bin'
+    const safeName  = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const fullPath  = path.join(UPLOAD_DIR, safeName)
+    const buffer    = Buffer.from(await file.arrayBuffer())
+
+    await writeFile(fullPath, buffer)
+
+    const url = `/uploads/requests/${safeName}`
+
+    const record = await prisma.file.create({
+      data: {
+        url,
+        fileType:    file.type,
+        fileName:    file.name,
+        fileSize:    file.size,
+        requestId:   requestId ?? undefined,
+        quoteId:     quoteId   ?? undefined,
+        uploadedById: adminId,
+      },
+    })
+
+    await prisma.auditLog.create({
+      data: {
+        adminId, action: 'UPLOAD_FILE', entity: 'File', entityId: record.id,
+        changes: { fileName: file.name, requestId, quoteId, fileSize: file.size } satisfies Prisma.InputJsonValue,
+      },
+    })
+
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { id: record.id, url, fileName: file.name } }
+  } catch (err) {
+    console.error('[uploadFile]', err)
+    return { success: false, error: 'Upload failed' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. DELETE FILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function deleteFile(fileId: string): Promise<ActionResult<{ ok: boolean }>> {
+  try {
+    const adminId = await requireAdmin()
+
+    const file = await prisma.file.findUnique({ where: { id: fileId } })
+    if (!file) return { success: false, error: 'File not found' }
+
+    // Delete from disk
+    if (file.url.startsWith('/uploads/')) {
+      const diskPath = path.join(process.cwd(), 'public', file.url)
+      try { await unlink(diskPath) } catch { /* already gone */ }
+    }
+
+    await prisma.$transaction([
+      prisma.file.delete({ where: { id: fileId } }),
+      prisma.auditLog.create({
+        data: {
+          adminId, action: 'DELETE_FILE', entity: 'File', entityId: fileId,
+          changes: { fileName: file.fileName, url: file.url } satisfies Prisma.InputJsonValue,
+        },
+      }),
+    ])
+
+    revalidatePath('/admin/product-requests')
+    return { success: true, data: { ok: true } }
+  } catch (err) {
+    console.error('[deleteFile]', err)
+    return { success: false, error: 'Failed to delete file' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. AI QUOTE GENERATION (Groq)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function generateAIQuote(requestId: string): Promise<ActionResult<{
+  estimatedPrice: string
+  currency: string
+  confidence: number
+  reasoning: string
+  suggestedNotes: string
+}>> {
+  try {
+    const adminId = await requireAdmin()
+
+    const req = await prisma.productRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true, productLink: true, description: true, quantity: true,
+        shippingCountry: true, customNotes: true,
+        client: { select: { fullName: true, email: true } },
+      },
+    })
+    if (!req) return { success: false, error: 'Request not found' }
+
+    const apiKey = process.env.GROQ_API_KEY
+    if (!apiKey) return { success: false, error: 'GROQ_API_KEY not configured' }
+
+    const prompt = `You are a B2B product sourcing expert. Analyse this product request and generate a pricing estimate.
+
+Product Request:
+- Description: ${req.description ?? 'Not provided'}
+- Product Link: ${req.productLink ?? 'Not provided'}
+- Quantity: ${req.quantity}
+- Shipping Country: ${req.shippingCountry}
+- Client Notes: ${req.customNotes ?? 'None'}
+- Client: ${req.client?.fullName ?? req.client?.email ?? 'Unknown'}
+
+Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
+{
+  "estimatedPrice": number,
+  "currency": "USD",
+  "confidence": number between 0 and 1,
+  "reasoning": "2-3 sentence explanation of pricing factors",
+  "suggestedNotes": "professional notes for the client quote"
+}`
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 512,
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: 'You are a B2B sourcing pricing expert. Always respond with valid JSON only.' },
+          { role: 'user',   content: prompt },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      const e = await response.text()
+      throw new Error(`Groq error ${response.status}: ${e}`)
+    }
+
+    const groqData  = await response.json()
+    const rawText   = groqData.choices?.[0]?.message?.content?.trim() ?? ''
+    const cleaned   = rawText.replace(/```json|```/g, '').trim()
+    const parsed    = JSON.parse(cleaned)
+
+    const { estimatedPrice, currency, confidence, reasoning, suggestedNotes } = parsed
+
+    if (typeof estimatedPrice !== 'number') throw new Error('Invalid AI response structure')
+
+    // Save to AISuggestion table
+    await prisma.$transaction([
+      prisma.aISuggestion.create({
+        data: {
+          requestId, estimatedPrice, currency: currency ?? 'USD',
+          confidence: Math.min(1, Math.max(0, confidence ?? 0.5)),
+        },
+      }),
+      prisma.productRequest.update({
+        where: { id: requestId },
+        data: {
+          aiEstimatedPrice: estimatedPrice,
+          aiConfidence:     Math.min(1, Math.max(0, confidence ?? 0.5)),
+          aiParsedData:     parsed satisfies Prisma.InputJsonValue,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          adminId, action: 'AI_QUOTE_GENERATED', entity: 'ProductRequest', entityId: requestId,
+          changes: { estimatedPrice, confidence } satisfies Prisma.InputJsonValue,
+        },
+      }),
+    ])
+
+    revalidatePath('/admin/product-requests')
+    return {
+      success: true,
+      data: {
+        estimatedPrice: estimatedPrice.toString(),
+        currency:       currency ?? 'USD',
+        confidence:     Math.min(1, Math.max(0, confidence ?? 0.5)),
+        reasoning,
+        suggestedNotes,
+      },
+    }
+  } catch (err) {
+    console.error('[generateAIQuote]', err)
+    return { success: false, error: 'AI generation failed. Please try again.' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 12. DASHBOARD STATS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getRequestStats() {
+  try {
+    await requireAdmin()
+
+    const todayStart = new Date(new Date().setHours(0, 0, 0, 0))
+    const weekStart  = new Date(Date.now() - 7 * 86400 * 1000)
+
+    const [byStatus, submittedToday, submittedWeek, pendingQuotes, totalActive] = await Promise.all([
+      prisma.productRequest.groupBy({
+        by:     ['status'],
+        where:  { isDeleted: false },
+        _count: true,
+      }),
+      prisma.productRequest.count({ where: { isDeleted: false, createdAt: { gte: todayStart } } }),
+      prisma.productRequest.count({ where: { isDeleted: false, createdAt: { gte: weekStart } } }),
+      prisma.quote.count({ where: { isDeleted: false, status: 'DRAFT' } }),
+      prisma.productRequest.count({ where: { isDeleted: false, status: { in: ['SUBMITTED', 'IN_REVIEW', 'QUOTED'] } } }),
+    ])
+
+    const statusMap = byStatus.reduce<Record<string, number>>((acc, r) => {
+      acc[r.status] = r._count
+      return acc
+    }, {})
+
+    return {
+      success: true,
+      data: { byStatus: statusMap, submittedToday, submittedWeek, pendingQuotes, totalActive },
+    }
+  } catch (err) {
+    console.error('[getRequestStats]', err)
+    return { success: false, error: 'Failed to fetch stats' }
   }
 }

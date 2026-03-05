@@ -1,3 +1,5 @@
+// app/[locale]/dashboard/_components/ClientLayoutContent.tsx
+
 'use client';
 
 import { SidebarProvider, useSidebar } from '@/context/sidebar-context';

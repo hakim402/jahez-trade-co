@@ -1,3 +1,5 @@
+// app/[locale]/dashboard/_components/Sidebar.tsx
+
 "use client";
 
 import { useSidebar } from "@/context/sidebar-context";
@@ -18,6 +20,7 @@ import {
   PackageSearch,
   MessageSquareQuote,
   File,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -33,9 +36,9 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: Users, label: "My Requests", href: "/dashboard/requests" },
-  { icon: PackageSearch, label: "Video Bookings", href: "/dashboard/video-bookings" },
-  { icon: MessageSquare, label: "Messages", href: "/dashoard/messages", badge: 3 },
+  { icon: PackageSearch, label: "My Requests", href: "/dashboard/requests" },
+  { icon: Video, label: "Video Bookings", href: "/dashboard/video-bookings" },
+  { icon: MessageSquare, label: "Messages", href: "/dashboard/messages", badge: 3 },
 ];
 
 const bottomNavItems: NavItem[] = [

@@ -18,6 +18,8 @@ import {
   PackageSearch,
   MessageSquareQuote,
   File,
+  Video,
+  FilePlay,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -33,18 +35,17 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-  { icon: Users, label: "Customers", href: "/admin/users" },
+  { icon: Users, label: "Manage Users", href: "/admin/manage-users" },
   { icon: PackageSearch, label: "Product Requests", href: "/admin/product-requests" },
-  { icon: MessageSquareQuote, label: "Product Quotes", href: "/admin/product-quotes" },
-  { icon: File, label: "files", href: "/admin/files" },
-  { icon: FileText, label: "Reports", href: "/admin/reports" },
+  { icon: Video, label: "Video Request", href: "/admin/video-bookings" },
+  { icon: FilePlay, label: "Video Slots", href: "/admin/video-slots" },
   { icon: MessageSquare, label: "Messages", href: "/admin/messages", badge: 3 },
 ];
 
 const bottomNavItems: NavItem[] = [
   { icon: Bell, label: "Notifications", href: "/admin/notifications", badge: 5 },
   { icon: Settings, label: "Settings", href: "/admin/settings" },
-  { icon: HelpCircle, label: "Help", href: "/admin/help" },
+  { icon: HelpCircle, label: "Help", href: "#" },
 ];
 
 export function Sidebar() {
@@ -62,6 +63,7 @@ export function Sidebar() {
     }
     return pathname.startsWith(href);
   };
+  
 
   return (
     <>

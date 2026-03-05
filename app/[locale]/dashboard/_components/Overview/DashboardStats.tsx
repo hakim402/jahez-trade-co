@@ -1,33 +1,60 @@
-// app/[locale]/dashboard/_components/Overview/DashboardStats.tsx
-import { Card, CardContent } from '@/components/ui/card';
-import { Package, Video, CreditCard } from 'lucide-react';
+// app/[locale]/dashboard/_components/DashboardStatsCards.tsx
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Package, Video, FileText, File } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import type { ClientDashboardStats } from '../types'
 
-const statsConfig = [
-  { label: 'Total Requests', key: 'requests', icon: Package, color: 'bg-blue-500' },
-  { label: 'Video Bookings', key: 'bookings', icon: Video, color: 'bg-purple-500' },
-  { label: 'Payments', key: 'payments', icon: CreditCard, color: 'bg-green-500' },
-];
+interface StatsCardsProps {
+  stats: ClientDashboardStats
+}
 
-export default function DashboardStats({ stats }: { stats: { requests: number; bookings: number; payments: number } }) {
+const cardConfig = [
+  {
+    title: 'Total Requests',
+    value: (s: ClientDashboardStats) => s.requests.total,
+    icon: Package,
+    gradient: 'gradient-purple-blue',
+  },
+  {
+    title: 'Video Bookings',
+    value: (s: ClientDashboardStats) => s.bookings.total,
+    icon: Video,
+    gradient: 'gradient-purple-pink',
+  },
+  {
+    title: 'Quotes Received',
+    value: (s: ClientDashboardStats) => s.quotes.total,
+    icon: FileText,
+    gradient: 'gradient-blue-cyan',
+  },
+  {
+    title: 'Files Uploaded',
+    value: (s: ClientDashboardStats) => s.files.total,
+    icon: File,
+    gradient: 'gradient-amber-orange',
+  },
+]
+
+export function DashboardStatsCards({ stats }: StatsCardsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {statsConfig.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Card key={item.key} className="group bg-background/80 backdrop-blur-sm border border-border/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden">
-            <CardContent className="p-6 flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{item.label}</p>
-                <p className="text-3xl font-bold mt-2">{stats[item.key as keyof typeof stats]}</p>
-              </div>
-              <div className={`p-3 rounded-xl ${item.color} bg-opacity-10`}>
-                <Icon className={`h-6 w-6 ${item.color.replace('bg-', 'text-')}`} />
-              </div>
-            </CardContent>
-            <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-brand group-hover:w-full transition-all duration-300" />
-          </Card>
-        );
-      })}
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {cardConfig.map(({ title, value, icon: Icon, gradient }) => (
+        <Card key={title} className="relative overflow-hidden card-hover">
+          <div className={cn('absolute inset-0 opacity-10', gradient)} />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {title}
+            </CardTitle>
+            <Icon className="h-4 w-4 text-brand" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{value(stats)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total count
+            </p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
-  );
+  )
 }

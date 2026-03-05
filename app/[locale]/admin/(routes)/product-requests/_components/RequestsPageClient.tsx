@@ -1,50 +1,32 @@
-// app/[locale]/admin/(routes)/product-requests/_components/RequestsPageClient.tsx
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { RequestsTable } from './RequestsTable'
+import { RequestsTable }     from './RequestsTable'
 import { RequestPagination } from './RequestPagination'
-import type { ProductRequest, Quote, User } from '@prisma/client'
+import type { RequestWithRelations, PaginationInfo, RequestFiltersType } from './types'
 
-type RequestWithRelations = ProductRequest & {
-  client: Pick<User, 'id' | 'email' | 'fullName'>
-  quotes: (Quote & { createdBy: Pick<User, 'id' | 'email' | 'fullName'> })[]
-  acceptedQuote: Quote | null
-  files: any[]
-  statusHistory: any[]
+interface Props {
+  initialRequests:   RequestWithRelations[]
+  initialPagination: PaginationInfo
+  filters:           RequestFiltersType
 }
 
-interface RequestsPageClientProps {
-  initialRequests: RequestWithRelations[]
-  initialPagination: {
-    page: number
-    pageSize: number
-    totalCount: number
-    totalPages: number
-  }
-  filters: any
-}
-
-export function RequestsPageClient({
-  initialRequests,
-  initialPagination,
-  filters,
-}: RequestsPageClientProps) {
-  const router = useRouter()
-
-  // Use the props directly – after a mutation we call router.refresh()
-  // which will cause the server component to re‑fetch and pass new props.
-  const handleRefresh = () => {
-    router.refresh()
-  }
+export function RequestsPageClient({ initialRequests, initialPagination, filters }: Props) {
+  const router      = useRouter()
+  const handleRefresh = () => router.refresh()
 
   return (
     <div className="space-y-4">
-      <RequestsTable
-        requests={initialRequests}
-        onActionComplete={handleRefresh}
-      />
-      <RequestPagination pagination={initialPagination} filters={filters} />
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          Showing <span className="font-medium text-foreground">{initialRequests.length}</span> of{' '}
+          <span className="font-medium text-foreground">{initialPagination.totalCount}</span> requests
+        </p>
+      </div>
+      <RequestsTable requests={initialRequests} onActionComplete={handleRefresh} />
+      {initialPagination.totalPages > 1 && (
+        <RequestPagination pagination={initialPagination} filters={filters} />
+      )}
     </div>
   )
 }

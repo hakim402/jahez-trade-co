@@ -47,3 +47,15 @@ export function truncate(str: string, length: number) {
   if (str.length <= length) return str
   return str.slice(0, length) + '...'
 }
+
+export function formatFileSize(bytes?: number | null): string {
+  if (!bytes) return '—'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = bytes
+  let unitIndex = 0
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex++
+  }
+  return `${size.toFixed(1)} ${units[unitIndex]}`
+}
