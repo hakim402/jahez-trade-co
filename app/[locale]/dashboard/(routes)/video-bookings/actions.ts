@@ -1,10 +1,10 @@
-// app/[locale]/dashboard/(routes)/video-bookings/actions.ts
 'use server'
 
 import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { BookingStatus, BookingType } from '@prisma/client'
+import { PLAN_BOOKING_LIMITS } from './_components/types'
 
 // ------------------------------------------------------------------
 // Helpers
@@ -28,15 +28,29 @@ async function getAllAdminIds() {
     where: { role: 'ADMIN', isDeleted: false, isActive: true },
     select: { id: true },
   })
-  return admins.map(a => a.id)
+  return admins.map((a) => a.id)
 }
 
-/**
- * Returns the user's active plan and the corresponding video booking limit.
- * Plan names are assumed to be stored in Clerk and synced to the Plan model.
- * Adjust the mapping to match your actual plan names.
- */
-async function getUserVideoBookingLimits(userId: string): Promise<{ planName: string; limit: number }> {
+// ------------------------------------------------------------------
+// getUserPlanInfo — respects BILLING_ENABLED env var
+// ------------------------------------------------------------------
+export async function getUserPlanInfo(userId: string) {
+  const billingEnabled = process.env.BILLING_ENABLED === 'true'
+
+  const usedCount = await prisma.videoBooking.count({
+    where: { clientId: userId, isDeleted: false },
+  })
+
+  if (!billingEnabled) {
+    return {
+      planName: 'unlimited',
+      limit: Infinity,
+      usedCount,
+      hasAccess: true,
+      billingEnabled: false,
+    }
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -51,72 +65,102 @@ async function getUserVideoBookingLimits(userId: string): Promise<{ planName: st
     },
   })
 
-  // Default to no plan (limit 0) if no active subscription
-  if (!user?.subscription || user.subscription.items.length === 0) {
-    return { planName: 'NONE', limit: 0 }
+  const activeItem = user?.subscription?.items[0]
+  if (!activeItem?.plan) {
+    const limit = PLAN_BOOKING_LIMITS['free'] ?? 1
+    return {
+      planName: 'free',
+      limit,
+      usedCount,
+      hasAccess: usedCount < limit,
+      billingEnabled: true,
+    }
   }
 
-  // Assume the first active item represents the plan
-  const plan = user.subscription.items[0].plan
-  if (!plan) return { planName: 'UNKNOWN', limit: 0 }
+  const planName = activeItem.plan.name.toLowerCase()
+  const limit = PLAN_BOOKING_LIMITS[planName] ?? 1
 
-  // Map plan name to video booking limit – adjust to your exact plan names
-  const limitMap: Record<string, number> = {
-    free: 0,   // basic plan: 3 video bookings allowed
-    pro: 0,     // pro plan: 5 video bookings allowed
-    vip: Infinity, // vip: unlimited
+  return {
+    planName,
+    limit,
+    usedCount,
+    hasAccess: limit === Infinity || usedCount < limit,
+    billingEnabled: true,
   }
-  const planName = plan.name.toLowerCase()
-  const limit = limitMap[planName] ?? 0
-  return { planName, limit }
+}
+
+// ------------------------------------------------------------------
+// getUserBookingContext — single call for page.tsx
+// ------------------------------------------------------------------
+export async function getUserBookingContext() {
+  try {
+    const clerkId = (await auth()).userId
+    if (!clerkId) return { success: false as const, error: 'Unauthorized' }
+
+    const user = await prisma.user.findUnique({
+      where: { clerkId },
+      select: { id: true, role: true, isActive: true, isDeleted: true },
+    })
+    if (!user || user.isDeleted || !user.isActive || user.role !== 'CLIENT') {
+      return { success: false as const, error: 'Forbidden' }
+    }
+
+    const [planInfo, kpiCounts] = await Promise.all([
+      getUserPlanInfo(user.id),
+      prisma.videoBooking.groupBy({
+        by: ['status'],
+        where: { clientId: user.id, isDeleted: false },
+        _count: { _all: true },
+      }),
+    ])
+
+    const kpi = { total: 0, pending: 0, confirmed: 0, completed: 0 }
+    for (const row of kpiCounts) {
+      kpi.total += row._count._all
+      if (row.status === 'REQUESTED' || row.status === 'PROPOSED') kpi.pending += row._count._all
+      if (row.status === 'CONFIRMED') kpi.confirmed += row._count._all
+      if (row.status === 'COMPLETED') kpi.completed += row._count._all
+    }
+
+    return { success: true as const, data: { planInfo, kpi } }
+  } catch {
+    return { success: false as const, error: 'Failed to load context' }
+  }
 }
 
 // ------------------------------------------------------------------
 // Schemas
 // ------------------------------------------------------------------
 const createBookingSchema = z.object({
-  requestNotes: z.string().optional(),
-  type: z.nativeEnum(BookingType).default('CUSTOM'),
-  durationMinutes: z.number().int().positive().default(30),
-  preferredTime: z.date().optional(),
+  type:            z.nativeEnum(BookingType).default('CUSTOM'),
+  requestNotes:    z.string().max(2000).optional(),
+  durationMinutes: z.coerce.number().int().positive().default(30),
+  preferredTime:   z.date().optional(),
 })
 
-const getMyBookingsFilterSchema = z.object({
-  page: z.number().int().positive().default(1),
+type CreateBookingInput = z.infer<typeof createBookingSchema>
+
+const getMyBookingsSchema = z.object({
+  page:     z.number().int().positive().default(1),
   pageSize: z.number().int().positive().max(100).default(20),
-  status: z.nativeEnum(BookingStatus).optional(),
-})
-
-const confirmBookingSchema = z.object({
-  bookingId: z.string().cuid(),
-})
-
-const cancelMyBookingSchema = z.object({
-  bookingId: z.string().cuid(),
+  status:   z.nativeEnum(BookingStatus).optional(),
 })
 
 // ------------------------------------------------------------------
-// Actions
+// createBooking
 // ------------------------------------------------------------------
-export async function createBooking(input: z.infer<typeof createBookingSchema>) {
+export async function createBooking(input: CreateBookingInput) {
   try {
     const clientId = await requireClient()
     const validated = createBookingSchema.parse(input)
 
-    // Check subscription limits (unchanged)
-    const { planName, limit } = await getUserVideoBookingLimits(clientId)
-    if (limit === 0) {
-      return { success: false, error: 'No active subscription or plan not recognized' }
-    }
-    if (limit !== Infinity) {
-      const existingCount = await prisma.videoBooking.count({
-        where: { clientId, isDeleted: false },
-      })
-      if (existingCount >= limit) {
-        return {
-          success: false,
-          error: `Your ${planName} plan allows only ${limit} active video bookings. Please upgrade or cancel some bookings.`,
-        }
+    const planInfo = await getUserPlanInfo(clientId)
+    if (!planInfo.hasAccess) {
+      return {
+        success: false as const,
+        error: planInfo.billingEnabled
+          ? `UPGRADE_REQUIRED: Your ${planInfo.planName} plan allows ${planInfo.limit} video booking${planInfo.limit === 1 ? '' : 's'}. Please upgrade to request more.`
+          : 'Booking limit reached.',
       }
     }
 
@@ -124,33 +168,31 @@ export async function createBooking(input: z.infer<typeof createBookingSchema>) 
       const booking = await tx.videoBooking.create({
         data: {
           clientId,
-          type: validated.type,                // <-- use validated.type
-          requestNotes: validated.requestNotes,
+          type:            validated.type,
+          requestNotes:    validated.requestNotes,
           durationMinutes: validated.durationMinutes,
-          scheduledAt: validated.preferredTime,
-          status: 'REQUESTED',
+          scheduledAt:     validated.preferredTime,
+          status:          'REQUESTED',
         },
       })
 
-      // Status history (initial)
       await tx.bookingStatusHistory.create({
         data: {
-          bookingId: booking.id,
-          oldStatus: 'REQUESTED',
-          newStatus: 'REQUESTED',
+          bookingId:   booking.id,
+          oldStatus:   'REQUESTED',
+          newStatus:   'REQUESTED',
           changedById: clientId,
         },
       })
 
-      // Notify all admins (unchanged)
       const adminIds = await getAllAdminIds()
       if (adminIds.length > 0) {
         await tx.notification.createMany({
-          data: adminIds.map(adminId => ({
-            userId: adminId,
-            title: 'New Video Booking Request',
-            message: 'A client has requested a video call.',
-            type: 'NEW_BOOKING_REQUEST',
+          data: adminIds.map((adminId) => ({
+            userId:    adminId,
+            title:     'New Video Booking Request',
+            message:   'A client has requested a video call.',
+            type:      'NEW_BOOKING_REQUEST',
             bookingId: booking.id,
           })),
         })
@@ -159,21 +201,20 @@ export async function createBooking(input: z.infer<typeof createBookingSchema>) 
       return booking
     })
 
-    return { success: true, data: result }
+    return { success: true as const, data: result }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
-    }
-    return { success: false, error: 'Failed to create booking' }
+    if (error instanceof z.ZodError) return { success: false as const, error: 'Invalid input' }
+    return { success: false as const, error: 'Failed to create booking' }
   }
 }
 
-export async function getMyBookings(filters: z.infer<typeof getMyBookingsFilterSchema>) {
+// ------------------------------------------------------------------
+// getMyBookings
+// ------------------------------------------------------------------
+export async function getMyBookings(filters: z.infer<typeof getMyBookingsSchema>) {
   try {
     const clientId = await requireClient()
-    const validated = getMyBookingsFilterSchema.parse(filters)
-
-    const { page, pageSize, status } = validated
+    const { page, pageSize, status } = getMyBookingsSchema.parse(filters)
     const skip = (page - 1) * pageSize
 
     const where = {
@@ -188,7 +229,9 @@ export async function getMyBookings(filters: z.infer<typeof getMyBookingsFilterS
         include: {
           slot: true,
           statusHistory: {
-            include: { changedBy: { select: { id: true, email: true, fullName: true } } },
+            include: {
+              changedBy: { select: { id: true, email: true, fullName: true } },
+            },
             orderBy: { changedAt: 'desc' },
           },
         },
@@ -200,150 +243,142 @@ export async function getMyBookings(filters: z.infer<typeof getMyBookingsFilterS
     ])
 
     return {
-      success: true,
+      success: true as const,
       data: {
         bookings,
-        pagination: {
-          page,
-          pageSize,
-          totalCount,
-          totalPages: Math.ceil(totalCount / pageSize),
-        },
+        pagination: { page, pageSize, totalCount, totalPages: Math.ceil(totalCount / pageSize) },
       },
     }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid filters' }
-    }
-    return { success: false, error: 'Failed to fetch bookings' }
+    if (error instanceof z.ZodError) return { success: false as const, error: 'Invalid filters' }
+    return { success: false as const, error: 'Failed to fetch bookings' }
   }
 }
 
-export async function confirmScheduledBooking(input: z.infer<typeof confirmBookingSchema>) {
+// ------------------------------------------------------------------
+// confirmScheduledBooking
+// ------------------------------------------------------------------
+export async function confirmScheduledBooking(input: { bookingId: string }) {
   try {
     const clientId = await requireClient()
-    const validated = confirmBookingSchema.parse(input)
+    const bookingId = z.string().cuid().parse(input.bookingId)
 
     const result = await prisma.$transaction(async (tx) => {
       const booking = await tx.videoBooking.findUnique({
-        where: { id: validated.bookingId, isDeleted: false },
+        where: { id: bookingId, isDeleted: false },
       })
       if (!booking) throw new Error('Booking not found')
       if (booking.clientId !== clientId) throw new Error('Unauthorized')
       if (booking.status !== 'PROPOSED') throw new Error('Booking must be in PROPOSED status to confirm')
 
-      const updatedBooking = await tx.videoBooking.update({
-        where: { id: validated.bookingId },
-        data: {
-          status: 'CONFIRMED',
-          clientConfirmedAt: new Date(), // record confirmation time
-        },
+      const updated = await tx.videoBooking.update({
+        where: { id: bookingId },
+        data: { status: 'CONFIRMED', clientConfirmedAt: new Date() },
       })
 
       await tx.bookingStatusHistory.create({
         data: {
-          bookingId: updatedBooking.id,
-          oldStatus: 'PROPOSED',
-          newStatus: 'CONFIRMED',
+          bookingId:   updated.id,
+          oldStatus:   'PROPOSED',
+          newStatus:   'CONFIRMED',
           changedById: clientId,
         },
       })
 
-      // Notify all admins
       const adminIds = await getAllAdminIds()
       if (adminIds.length > 0) {
         await tx.notification.createMany({
-          data: adminIds.map(adminId => ({
-            userId: adminId,
-            title: 'Booking Confirmed',
-            message: 'A client has confirmed their video call.',
-            type: 'BOOKING_CONFIRMED',
-            bookingId: updatedBooking.id,
+          data: adminIds.map((adminId) => ({
+            userId:    adminId,
+            title:     'Booking Confirmed',
+            message:   'A client has confirmed their video call.',
+            type:      'BOOKING_CONFIRMED',
+            bookingId: updated.id,
           })),
         })
       }
 
-      return updatedBooking
+      return updated
     })
 
-    return { success: true, data: result }
+    return { success: true as const, data: result }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
+    if (error instanceof z.ZodError) return { success: false as const, error: 'Invalid input' }
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Failed to confirm booking',
     }
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to confirm booking' }
   }
 }
 
-export async function cancelMyBooking(input: z.infer<typeof cancelMyBookingSchema>) {
+// ------------------------------------------------------------------
+// cancelMyBooking
+// ------------------------------------------------------------------
+export async function cancelMyBooking(input: { bookingId: string }) {
   try {
     const clientId = await requireClient()
-    const validated = cancelMyBookingSchema.parse(input)
+    const bookingId = z.string().cuid().parse(input.bookingId)
 
     const result = await prisma.$transaction(async (tx) => {
       const booking = await tx.videoBooking.findUnique({
-        where: { id: validated.bookingId, isDeleted: false },
+        where: { id: bookingId, isDeleted: false },
         include: { slot: true },
       })
       if (!booking) throw new Error('Booking not found')
       if (booking.clientId !== clientId) throw new Error('Unauthorized')
-      if (booking.status !== 'REQUESTED' && booking.status !== 'PROPOSED') {
-        throw new Error('Booking can only be cancelled if it is REQUESTED or PROPOSED')
+      if (!['REQUESTED', 'PROPOSED'].includes(booking.status)) {
+        throw new Error('Only REQUESTED or PROPOSED bookings can be cancelled')
       }
 
       const oldStatus = booking.status
 
-      // If a slot was assigned, free it
       if (booking.slotId) {
-        // Mark slot as free
         await tx.availabilitySlot.update({
           where: { id: booking.slotId },
           data: { isBooked: false },
         })
-        // Disconnect slot from booking (slotId set to null)
         await tx.videoBooking.update({
-          where: { id: validated.bookingId },
+          where: { id: bookingId },
           data: { slot: { disconnect: true } },
         })
       }
 
-      // Update booking status to CANCELED (slot already disconnected above)
-      const updatedBooking = await tx.videoBooking.update({
-        where: { id: validated.bookingId },
+      const updated = await tx.videoBooking.update({
+        where: { id: bookingId },
         data: { status: 'CANCELED' },
       })
 
       await tx.bookingStatusHistory.create({
         data: {
-          bookingId: updatedBooking.id,
+          bookingId:   updated.id,
           oldStatus,
-          newStatus: 'CANCELED',
+          newStatus:   'CANCELED',
           changedById: clientId,
         },
       })
 
-      // Notify admins
       const adminIds = await getAllAdminIds()
       if (adminIds.length > 0) {
         await tx.notification.createMany({
-          data: adminIds.map(adminId => ({
-            userId: adminId,
-            title: 'Booking Cancelled',
-            message: 'A client has cancelled their video call.',
-            type: 'BOOKING_CANCELLED',
-            bookingId: updatedBooking.id,
+          data: adminIds.map((adminId) => ({
+            userId:    adminId,
+            title:     'Booking Cancelled',
+            message:   'A client has cancelled their video call.',
+            type:      'BOOKING_CANCELLED',
+            bookingId: updated.id,
           })),
         })
       }
 
-      return updatedBooking
+      return updated
     })
 
-    return { success: true, data: result }
+    return { success: true as const, data: result }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: 'Invalid input' }
+    if (error instanceof z.ZodError) return { success: false as const, error: 'Invalid input' }
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Failed to cancel booking',
     }
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to cancel booking' }
   }
 }
