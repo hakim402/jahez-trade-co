@@ -1,3 +1,6 @@
+// app/[locale]/dashboard/(routes)/notifications/_components/NotificationsPageSkeleton.tsx
+
+
 import { Skeleton } from '@/components/ui/skeleton'
 
 export function NotificationsPageSkeleton() {

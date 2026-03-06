@@ -1,25 +1,24 @@
 "use client";
 
+// app/[locale]/admin/(routes)/product-requests/_components/RequestsTable.tsx
+
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import {
   ChevronDown,
   MoreHorizontal,
   Eye,
-  FileText,
   Trash2,
   Sparkles,
   Star,
   ExternalLink,
   Clock,
   CheckCircle2,
-  AlertCircle,
   XCircle,
   Package,
   Truck,
   CheckSquare,
-  Edit3,
-  Upload,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RequestStatus } from "@prisma/client";
+import { cn } from "@/lib/utils";
 import {
   updateRequestStatus,
   updateRequestPriority,
@@ -50,52 +50,65 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import type { RequestWithRelations } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STATUS CONFIG
+// STATUS CONFIG  (keys = real Prisma enum values)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<
   RequestStatus,
-  { label: string; color: string; icon: React.ElementType }
+  {
+    label: string;
+    chip: string;
+    dot: string;
+    icon: React.ElementType;
+  }
 > = {
   SUBMITTED: {
     label: "Submitted",
-    color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    dot: "bg-blue-400",
     icon: Clock,
+    chip: "text-blue-600    dark:text-blue-400    ring-blue-400/30    bg-blue-500/8",
   },
   IN_REVIEW: {
     label: "In Review",
-    color: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    dot: "bg-amber-400",
     icon: Eye,
+    chip: "text-amber-600   dark:text-amber-400   ring-amber-400/30   bg-amber-500/8",
   },
   QUOTED: {
     label: "Quoted",
-    color: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+    dot: "bg-violet-400",
     icon: FileText,
+    chip: "text-violet-600  dark:text-violet-400  ring-violet-400/30  bg-violet-500/8",
   },
   APPROVED: {
     label: "Approved",
-    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    dot: "bg-emerald-400",
     icon: CheckCircle2,
+    chip: "text-emerald-600 dark:text-emerald-400 ring-emerald-400/30 bg-emerald-500/8",
   },
   REJECTED: {
     label: "Rejected",
-    color: "bg-red-500/10 text-red-400 border-red-500/20",
+    dot: "bg-red-400",
     icon: XCircle,
+    chip: "text-red-600     dark:text-red-400     ring-red-400/30     bg-red-500/8",
   },
   IN_PRODUCTION: {
     label: "In Production",
-    color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    dot: "bg-orange-400",
     icon: Package,
+    chip: "text-orange-600  dark:text-orange-400  ring-orange-400/30  bg-orange-500/8",
   },
   SHIPPED: {
     label: "Shipped",
-    color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+    dot: "bg-cyan-400",
     icon: Truck,
+    chip: "text-cyan-600    dark:text-cyan-400    ring-cyan-400/30    bg-cyan-500/8",
   },
   COMPLETED: {
     label: "Completed",
-    color: "bg-green-500/10 text-green-400 border-green-500/20",
+    dot: "bg-green-400",
     icon: CheckSquare,
+    chip: "text-green-600   dark:text-green-400   ring-green-400/30   bg-green-500/8",
   },
 };
 
@@ -105,21 +118,23 @@ const PRIORITY_CONFIG: Record<number, { label: string; color: string }> = {
   3: { label: "Medium", color: "text-yellow-400" },
   2: { label: "Normal", color: "text-blue-400" },
   1: { label: "Low", color: "text-muted-foreground" },
-  0: { label: "Minimal", color: "text-muted-foreground/50" },
+  0: { label: "Minimal", color: "text-muted-foreground/40" },
 };
 
-function PriorityStars({ priority }: { priority: number }) {
-  return (
-    <div
-      className={`flex items-center gap-0.5 ${PRIORITY_CONFIG[priority]?.color ?? ""}`}
-      title={PRIORITY_CONFIG[priority]?.label}
-    >
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star key={i} size={11} fill={i < priority ? "currentColor" : "none"} />
-      ))}
-    </div>
-  );
-}
+const STATUS_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
+  SUBMITTED: ["IN_REVIEW", "REJECTED"],
+  IN_REVIEW: ["QUOTED", "REJECTED"],
+  QUOTED: ["APPROVED", "REJECTED"],
+  APPROVED: ["IN_PRODUCTION"],
+  REJECTED: ["SUBMITTED"],
+  IN_PRODUCTION: ["SHIPPED"],
+  SHIPPED: ["COMPLETED"],
+  COMPLETED: [],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 
 function initials(name: string | null, email: string) {
   if (name)
@@ -132,38 +147,61 @@ function initials(name: string | null, email: string) {
   return email.slice(0, 2).toUpperCase();
 }
 
+function avatarColor(email: string) {
+  const palette = [
+    "bg-violet-500/20 text-violet-500",
+    "bg-blue-500/20 text-blue-500",
+    "bg-emerald-500/20 text-emerald-500",
+    "bg-amber-500/20 text-amber-500",
+    "bg-rose-500/20 text-rose-500",
+    "bg-[#7b57fc]/20 text-[#7b57fc]",
+  ];
+  const idx =
+    email.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
+  return palette[idx];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// STATUS BADGE
+// STATUS BADGE  (exported — used by RequestDetailModal)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function StatusBadge({ status }: { status: RequestStatus }) {
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
   return (
-    <Badge
-      variant="outline"
-      className={`text-xs flex items-center gap-1 ${cfg.color}`}
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ring-1 leading-none whitespace-nowrap",
+        cfg.chip,
+      )}
     >
-      <Icon size={10} />
+      <Icon size={9} />
       {cfg.label}
-    </Badge>
+    </span>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STATUS CHANGE DROPDOWN (inline in table)
+// PRIORITY STARS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STATUS_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
-  SUBMITTED: ["IN_REVIEW", "REJECTED"],
-  IN_REVIEW: ["QUOTED", "REJECTED"],
-  QUOTED: ["APPROVED", "REJECTED"],
-  APPROVED: ["IN_PRODUCTION"],
-  REJECTED: ["SUBMITTED"],
-  IN_PRODUCTION: ["SHIPPED"],
-  SHIPPED: ["COMPLETED"],
-  COMPLETED: [],
-};
+function PriorityStars({ priority }: { priority: number }) {
+  const cfg = PRIORITY_CONFIG[priority] ?? PRIORITY_CONFIG[0];
+  return (
+    <div
+      className={cn("flex items-center gap-px", cfg.color)}
+      title={cfg.label}
+    >
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star key={i} size={11} fill={i < priority ? "currentColor" : "none"} />
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS DROPDOWN (inline cell)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function StatusDropdown({
   requestId,
@@ -182,16 +220,25 @@ function StatusDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="flex items-center gap-1 group cursor-pointer" disabled={isPending} variant={"ghost"}>
-          <StatusBadge status={current}/>
+        <Button
+          variant={"ghost"}
+          disabled={isPending}
+          className="flex items-center gap-1 group focus:outline-none"
+        >
+          <StatusBadge status={current} />
           <ChevronDown
-            size={12}
-            className="text-muted-foreground group-hover:text-foreground transition-colors"
+            size={11}
+            className="text-muted-foreground/60 group-hover:text-muted-foreground transition-colors shrink-0"
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="bg-popover border-border">
-        <p className="text-xs text-muted-foreground px-2 py-1">Move to…</p>
+      <DropdownMenuContent
+        align="start"
+        className="w-44 rounded-xl border-border/60 bg-card/95 backdrop-blur-sm shadow-xl p-1"
+      >
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+          Move to…
+        </p>
         {transitions.map((s) => {
           const cfg = STATUS_CONFIG[s];
           const Icon = cfg.icon;
@@ -204,9 +251,19 @@ function StatusDropdown({
                   onDone();
                 })
               }
-              className="cursor-pointer text-sm flex items-center gap-2"
+              className={cn(
+                "flex items-center gap-2.5 text-xs px-2 py-2 rounded-lg cursor-pointer",
+                "focus:bg-muted/60 focus:text-foreground",
+              )}
             >
-              <Icon size={13} />
+              <span
+                className={cn(
+                  "h-6 w-6 flex items-center justify-center rounded-md",
+                  cfg.chip.replace("ring-", "bg-").split(" ")[2],
+                )}
+              >
+                <Icon size={12} className={cfg.chip.split(" ")[0]} />
+              </span>
               {cfg.label}
             </DropdownMenuItem>
           );
@@ -234,29 +291,52 @@ function PriorityDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="flex items-center gap-1 group cursor-pointer" disabled={isPending} variant={"ghost"}>
+        <Button
+          variant={"ghost"}
+          disabled={isPending}
+          className="flex items-center gap-1 group focus:outline-none"
+        >
           <PriorityStars priority={current} />
-          <ChevronDown size={10} className="text-muted-foreground" />
+          <ChevronDown
+            size={10}
+            className="text-muted-foreground/60 group-hover:text-muted-foreground transition-colors"
+          />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="bg-popover border-border">
-        {[5, 4, 3, 2, 1, 0].map((p) => (
-          <DropdownMenuItem
-            key={p}
-            onClick={() =>
-              startTransition(async () => {
-                await updateRequestPriority(requestId, p);
-                onDone();
-              })
-            }
-            className={`cursor-pointer text-sm ${current === p ? "text-color" : ""}`}
-          >
-            <PriorityStars priority={p} />
-            <span className="ml-2 text-xs text-muted-foreground">
-              {PRIORITY_CONFIG[p].label}
-            </span>
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent
+        align="start"
+        className="w-44 rounded-xl border-border/60 bg-card/95 backdrop-blur-sm shadow-xl p-1"
+      >
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+          Set priority
+        </p>
+        {[5, 4, 3, 2, 1, 0].map((p) => {
+          const cfg = PRIORITY_CONFIG[p];
+          return (
+            <DropdownMenuItem
+              key={p}
+              onClick={() =>
+                startTransition(async () => {
+                  await updateRequestPriority(requestId, p);
+                  onDone();
+                })
+              }
+              className={cn(
+                "flex items-center gap-2.5 text-xs px-2 py-2 rounded-lg cursor-pointer",
+                current === p ? "bg-muted/40" : "",
+                "focus:bg-muted/60 focus:text-foreground",
+              )}
+            >
+              <PriorityStars priority={p} />
+              <span className="text-xs text-muted-foreground ml-1">
+                {cfg.label}
+              </span>
+              {current === p && (
+                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#7b57fc]" />
+              )}
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -284,79 +364,72 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
     });
   };
 
-  if (requests.length === 0) {
-    return (
-      <div className="rounded-xl border border-border/5 bg-card/50">
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-          <Package size={40} className="opacity-20" />
-          <p className="text-sm">No product requests found</p>
-        </div>
-      </div>
-    );
-  }
+  if (requests.length === 0) return null;
 
   return (
     <>
-      <div className="rounded-xl border border-border/5 bg-card/50 overflow-hidden">
+      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow className="border-border/30 hover:bg-transparent">
-              <TableHead className="text-xs text-muted-foreground font-medium w-12">
-                #
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                Client
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                Product
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium w-20 text-center">
-                Qty
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                Status
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                Priority
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                Quotes
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                AI Est.
-              </TableHead>
-              <TableHead className="text-xs text-muted-foreground font-medium">
-                Created
-              </TableHead>
-              <TableHead className="w-10" />
+            <TableRow className="border-border/40 hover:bg-transparent">
+              {[
+                "#",
+                "Client",
+                "Product",
+                "Qty",
+                "Status",
+                "Priority",
+                "Quotes",
+                "AI Est.",
+                "Created",
+                "",
+              ].map((h, i) => (
+                <TableHead
+                  key={i}
+                  className={cn(
+                    "text-[10px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/20",
+                    i === 3 && "text-center w-16",
+                    i === 9 && "w-10",
+                    i === 0 && "w-12",
+                  )}
+                >
+                  {h}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {requests.map((req, idx) => (
               <TableRow
                 key={req.id}
-                className="border-border/20 hover:bg-accent/5 cursor-pointer"
+                className="group border-border/30 hover:bg-muted/30 cursor-pointer transition-colors"
                 onClick={() => setDetailId(req.id)}
               >
-                {/* Index */}
+                {/* # */}
                 <TableCell className="text-xs text-muted-foreground font-mono">
                   {String(idx + 1).padStart(3, "0")}
                 </TableCell>
 
                 {/* Client */}
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-7 h-7 border border-border/20">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="w-7 h-7 shrink-0">
                       <AvatarImage src={req.client.avatarUrl ?? undefined} />
-                      <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
+                      <AvatarFallback
+                        className={cn(
+                          "text-xs font-semibold",
+                          avatarColor(req.client.email),
+                        )}
+                      >
                         {initials(req.client.fullName, req.client.email)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate max-w-30">
+                      <p className="text-xs font-semibold truncate max-w-28">
                         {req.client.fullName ?? req.client.email}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate max-w-30">
+                      <p className="text-[10px] text-muted-foreground truncate max-w-28">
                         {req.client.email}
                       </p>
                     </div>
@@ -365,11 +438,11 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
 
                 {/* Product */}
                 <TableCell>
-                  <div className="min-w-0">
-                    <p className="text-sm truncate max-w-45">
+                  <div className="min-w-0 max-w-44">
+                    <p className="text-xs truncate">
                       {req.description ? (
-                        req.description.slice(0, 50) +
-                        (req.description.length > 50 ? "…" : "")
+                        req.description.slice(0, 55) +
+                        (req.description.length > 55 ? "…" : "")
                       ) : (
                         <span className="text-muted-foreground italic">
                           No description
@@ -382,16 +455,20 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-xs text-color hover:underline flex items-center gap-0.5 truncate max-w-45"
+                        className="text-[10px] text-[#7b57fc] hover:underline flex items-center gap-0.5 truncate mt-0.5"
                       >
-                        <ExternalLink size={10} />
-                        {
-                          new URL(
-                            req.productLink.startsWith("http")
-                              ? req.productLink
-                              : `https://${req.productLink}`,
-                          ).hostname
-                        }
+                        <ExternalLink size={9} />
+                        {(() => {
+                          try {
+                            return new URL(
+                              req.productLink.startsWith("http")
+                                ? req.productLink
+                                : `https://${req.productLink}`,
+                            ).hostname;
+                          } catch {
+                            return req.productLink.slice(0, 25);
+                          }
+                        })()}
                       </a>
                     )}
                   </div>
@@ -399,7 +476,7 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
 
                 {/* Qty */}
                 <TableCell className="text-center">
-                  <span className="text-sm font-mono font-medium">
+                  <span className="text-xs font-mono font-semibold">
                     {req.quantity.toLocaleString()}
                   </span>
                 </TableCell>
@@ -425,78 +502,83 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
                 {/* Quotes */}
                 <TableCell>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium">
+                    <span className="text-xs font-semibold tabular-nums">
                       {req.quotes.length}
                     </span>
                     {req.quotes.some((q) => q.status === "ACCEPTED") && (
                       <span
-                        className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                        className="h-1.5 w-1.5 rounded-full bg-emerald-400"
                         title="Accepted quote"
                       />
                     )}
                     {req.quotes.some((q) => q.status === "SENT") && (
                       <span
-                        className="w-1.5 h-1.5 rounded-full bg-violet-400"
+                        className="h-1.5 w-1.5 rounded-full bg-violet-400"
                         title="Quote sent"
                       />
                     )}
                   </div>
                 </TableCell>
 
-                {/* AI Estimate */}
+                {/* AI estimate */}
                 <TableCell>
                   {req.aiEstimatedPrice ? (
                     <div className="flex items-center gap-1">
-                      <Sparkles size={11} className="text-amber-400" />
-                      <span className="text-sm font-medium">
+                      <Sparkles size={10} className="text-amber-400 shrink-0" />
+                      <span className="text-xs font-semibold tabular-nums">
                         ${parseFloat(req.aiEstimatedPrice).toLocaleString()}
                       </span>
                       {req.aiConfidence && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[10px] text-muted-foreground">
                           {Math.round(req.aiConfidence * 100)}%
                         </span>
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground/50">—</span>
+                    <span className="text-xs text-muted-foreground/40">—</span>
                   )}
                 </TableCell>
 
                 {/* Created */}
                 <TableCell>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                     {format(new Date(req.createdAt), "MMM d, yyyy")}
                   </span>
                 </TableCell>
 
-                {/* Actions */}
+                {/* Actions menu */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        variant={"ghost"}
+                        className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground"
                       >
-                        <MoreHorizontal size={15} />
+                        <MoreHorizontal size={14} />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="bg-popover border-border"
+                      className="w-44 rounded-xl border-border/60 bg-card/95 backdrop-blur-sm shadow-xl p-1"
                     >
                       <DropdownMenuItem
                         onClick={() => setDetailId(req.id)}
-                        className="cursor-pointer text-sm gap-2"
+                        className="flex items-center gap-2.5 text-xs px-2 py-2 rounded-lg cursor-pointer focus:bg-muted/60"
                       >
-                        <Eye size={14} /> View details
+                        <span className="h-6 w-6 flex items-center justify-center rounded-md bg-muted/60">
+                          <Eye size={12} />
+                        </span>
+                        View details
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-border/50" />
+                      <DropdownMenuSeparator className="bg-border/40 my-1" />
                       <DropdownMenuItem
                         onClick={() => setDeleteId(req.id)}
-                        className="cursor-pointer text-sm gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                        className="flex items-center gap-2.5 text-xs px-2 py-2 rounded-lg cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10"
                       >
-                        <Trash2 size={14} /> Delete
+                        <span className="h-6 w-6 flex items-center justify-center rounded-md bg-red-500/10">
+                          <Trash2 size={12} />
+                        </span>
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -524,7 +606,9 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
         open={!!deleteId}
         onOpenChange={(open) => !open && setDeleteId(null)}
         title="Delete request?"
-        description="This will soft-delete the request and all its quotes. This action can be reversed by an administrator."
+        description="This will soft-delete the request and all its quotes. It can be restored by an administrator."
+        confirmLabel="Delete"
+        variant="danger"
         onConfirm={() => deleteId && handleDelete(deleteId)}
       />
     </>

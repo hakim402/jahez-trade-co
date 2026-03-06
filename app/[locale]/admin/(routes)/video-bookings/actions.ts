@@ -1,3 +1,5 @@
+// app/[locale]/admin/(routes)/video-bookings/actions.ts
+
 'use server'
 
 import { prisma } from '@/lib/prisma'

@@ -1,3 +1,5 @@
+// app/[locale]/admin/(routes)/video-bookings/page.tsx
+
 import { Suspense } from 'react'
 import { getAllBookings, getAdminBookingContext } from './actions'
 import { AdminBookingsClient } from './_components/AdminBookingsClient'

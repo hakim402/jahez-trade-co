@@ -1,72 +1,277 @@
-'use client'
+"use client";
+
+// app/[locale]/dashboard/(routes)/messages/_components/ClientMessagesClient.tsx
 
 import {
-  useState, useEffect, useCallback, useRef,
-  useTransition, useLayoutEffect,
-} from 'react'
-import { format, isToday, isYesterday } from 'date-fns'
+  useState,
+  useEffect,
+  useCallback,
+  useTransition,
+  useRef,
+  Fragment,
+} from "react";
+import { format, isToday, isYesterday } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  MessageSquare, Plus, Send, Loader2, Bot, User2,
-  StopCircle, Clock, Zap, Sparkles, Lock,
-  AlertTriangle, X, Check, ChevronRight, Crown,
-} from 'lucide-react'
-import { Button }   from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge }    from '@/components/ui/badge'
+  MessageSquare,
+  Plus,
+  Send,
+  Loader2,
+  Bot,
+  User,
+  StopCircle,
+  Sparkles,
+  Lock,
+  AlertTriangle,
+  Check,
+  Crown,
+  RefreshCw,
+  X,
+  Clock,
+  CheckCircle2,
+  ArrowDown,
+  Zap,
+  BellDot,
+  ChevronLeft,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
-  startSession, getClientSessionDetail, sendUserMessage,
-  pollClientMessages, endClientSession,
-  type PlanInfo, type ClientSession,
-  type ClientSessionDetail, type ClientMessage,
-} from '../actions'
+  startSession,
+  getClientSessionDetail,
+  sendUserMessage,
+  pollClientMessages,
+  endClientSession,
+  type PlanInfo,
+  type ClientSession,
+  type ClientSessionDetail,
+  type ClientMessage,
+} from "../actions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const POLL_MS = 5_000
+const SESSION_POLL_MS = 5_000; // how often session list refreshes
+const MESSAGE_POLL_MS = 3_000; // how often active conversation polls for replies
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function formatSessionTime(date: Date | string) {
-  const d = new Date(date)
-  if (isToday(d))     return format(d, 'h:mm a')
-  if (isYesterday(d)) return 'Yesterday'
-  return format(d, 'MMM d')
+function timeAgo(d: Date | string) {
+  return formatDistanceToNow(new Date(d), { addSuffix: true });
 }
 
-function formatMsgTime(date: Date | string) {
-  return format(new Date(date), 'h:mm a')
+function msgTime(d: Date | string) {
+  const date = new Date(d);
+  if (isToday(date)) return format(date, "HH:mm");
+  if (isYesterday(date)) return `Yesterday ${format(date, "HH:mm")}`;
+  return format(date, "dd MMM, HH:mm");
 }
 
-function formatMsgDate(date: Date | string) {
-  const d = new Date(date)
-  if (isToday(d))     return 'Today'
-  if (isYesterday(d)) return 'Yesterday'
-  return format(d, 'MMMM d, yyyy')
+function dayLabel(d: Date | string) {
+  const date = new Date(d);
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  return format(date, "MMMM d, yyyy");
 }
 
-function truncate(s: string, n: number) {
-  return s.length > n ? s.slice(0, n) + '…' : s
+function getInitials(name: string | null | undefined, email: string) {
+  if (name)
+    return name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  return email.slice(0, 2).toUpperCase();
 }
 
 function groupByDay(messages: ClientMessage[]) {
-  const groups: { date: string; messages: ClientMessage[] }[] = []
-  for (const msg of messages) {
-    const day = format(new Date(msg.createdAt), 'yyyy-MM-dd')
-    const last = groups[groups.length - 1]
-    if (last?.date === day) last.messages.push(msg)
-    else groups.push({ date: day, messages: [msg] })
+  const map = new Map<string, ClientMessage[]>();
+  for (const m of messages) {
+    const label = dayLabel(m.createdAt);
+    if (!map.has(label)) map.set(label, []);
+    map.get(label)!.push(m);
   }
-  return groups
+  return [...map.entries()];
 }
 
-function initials(name: string | null | undefined, email: string) {
-  if (name) return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
-  return email.slice(0, 2).toUpperCase()
+// ─────────────────────────────────────────────────────────────────────────────
+// HOOK: useSessionListSync
+// Keeps the session list up-to-date without resetting scroll or selection.
+// Detects new sessions and surfaces them as a banner count.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useSessionListSync(initial: ClientSession[], userId: string) {
+  const [sessions, setSessions] = useState<ClientSession[]>(initial);
+  const [newCount, setNewCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const knownIds = useRef<Set<string>>(new Set(initial.map((s) => s.id)));
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined,
+  );
+
+  const sync = useCallback(async (silent = true) => {
+    if (!silent) setSyncing(true);
+    // Re-use getUserContext but we only need sessions; import is already available
+    // Call the action directly — it reads the auth from the session server-side
+    const { getUserContext } = await import("../actions");
+    const r = await getUserContext();
+    if (!r.success) {
+      if (!silent) setSyncing(false);
+      return;
+    }
+
+    const incoming = r.data.sessions;
+    setSessions((prev) => {
+      const prevMap = new Map(prev.map((s) => [s.id, s]));
+      let added = 0;
+      for (const s of incoming) {
+        if (!knownIds.current.has(s.id)) added++;
+        prevMap.set(s.id, s);
+      }
+      if (added > 0 && knownIds.current.size > 0) {
+        setNewCount((c) => c + added);
+      }
+      knownIds.current = new Set(incoming.map((s) => s.id));
+      // Maintain order from server (newest first)
+      return incoming.map((s) => prevMap.get(s.id) ?? s);
+    });
+    if (!silent) setSyncing(false);
+  }, []);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => sync(true), SESSION_POLL_MS);
+    return () => clearInterval(timerRef.current);
+  }, [sync]);
+
+  const clearNewCount = () => setNewCount(0);
+  const forceSync = () => sync(false);
+
+  return { sessions, setSessions, newCount, clearNewCount, forceSync, syncing };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOOK: useConversation
+// Loads a session's messages and polls for admin/AI replies every 3 s.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useConversation(sessionId: string) {
+  const [detail, setDetail] = useState<ClientSessionDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const lastMsgId = useRef<string | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined,
+  );
+  const isActiveRef = useRef(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setDetail(null);
+    const r = await getClientSessionDetail(sessionId);
+    if (r.success) {
+      setDetail(r.data);
+      const msgs = r.data.messages;
+      lastMsgId.current = msgs[msgs.length - 1]?.id ?? null;
+      isActiveRef.current = r.data.isActive;
+    } else {
+      setError(r.error);
+    }
+    setLoading(false);
+  }, [sessionId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Poll for new messages (admin replies + AI) when session is active
+  useEffect(() => {
+    clearInterval(pollTimer.current);
+    if (loading || !detail?.isActive) return;
+
+    pollTimer.current = setInterval(async () => {
+      if (!isActiveRef.current) {
+        clearInterval(pollTimer.current);
+        return;
+      }
+      const r = await pollClientMessages(sessionId, lastMsgId.current);
+      if (!r.success) return;
+
+      if (r.data.messages.length > 0) {
+        setDetail((prev) => {
+          if (!prev) return prev;
+          const existingIds = new Set(prev.messages.map((m) => m.id));
+          const fresh = r.data.messages.filter((m) => !existingIds.has(m.id));
+          if (fresh.length === 0) return prev;
+          lastMsgId.current = fresh[fresh.length - 1].id;
+          return { ...prev, messages: [...prev.messages, ...fresh] };
+        });
+      }
+
+      if (r.data.sessionEndedAt) {
+        setDetail((prev) =>
+          prev
+            ? { ...prev, isActive: false, endedAt: r.data.sessionEndedAt }
+            : prev,
+        );
+        isActiveRef.current = false;
+        clearInterval(pollTimer.current);
+      }
+    }, MESSAGE_POLL_MS);
+
+    return () => clearInterval(pollTimer.current);
+  }, [loading, detail?.isActive, sessionId]);
+
+  const appendOptimistic = (msg: ClientMessage) =>
+    setDetail((prev) =>
+      prev ? { ...prev, messages: [...prev.messages, msg] } : prev,
+    );
+
+  const replaceOptimistic = (
+    tempId: string,
+    real: ClientMessage,
+    aiMsg?: ClientMessage | null,
+  ) => {
+    setDetail((prev) => {
+      if (!prev) return prev;
+      let msgs = prev.messages.map((m) => (m.id === tempId ? real : m));
+      if (aiMsg) msgs = [...msgs, aiMsg];
+      lastMsgId.current = aiMsg?.id ?? real.id;
+      return { ...prev, messages: msgs };
+    });
+  };
+
+  const removeOptimistic = (tempId: string) =>
+    setDetail((prev) =>
+      prev
+        ? { ...prev, messages: prev.messages.filter((m) => m.id !== tempId) }
+        : prev,
+    );
+
+  const markEnded = (endedAt: Date) => {
+    setDetail((prev) => (prev ? { ...prev, isActive: false, endedAt } : prev));
+    isActiveRef.current = false;
+    clearInterval(pollTimer.current);
+  };
+
+  return {
+    detail,
+    loading,
+    error,
+    setError,
+    appendOptimistic,
+    replaceOptimistic,
+    removeOptimistic,
+    markEnded,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,19 +281,16 @@ function initials(name: string | null | undefined, email: string) {
 function PlanBadge({ plan }: { plan: PlanInfo }) {
   if (plan.isDefault || plan.amount === 0) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted/50 text-muted-foreground border border-border/30">
-        <MessageSquare size={11} />
-        Free Plan
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted/60 text-muted-foreground ring-1 ring-border/50">
+        <MessageSquare size={9} /> Free
       </span>
-    )
+    );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-      <Crown size={11} />
-      {plan.name}
-      {plan.interval && <span className="opacity-70">/ {plan.interval}</span>}
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/25">
+      <Crown size={9} /> {plan.name}
     </span>
-  )
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,359 +299,543 @@ function PlanBadge({ plan }: { plan: PlanInfo }) {
 
 function UpgradeWall() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-6 px-8 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-        <Lock size={28} className="text-amber-400" />
+    <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/25">
+        <Lock size={26} className="text-amber-500" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-foreground">Upgrade to chat</h3>
-        <p className="text-sm text-muted-foreground mt-2 max-w-xs">
-          Messaging is available on paid plans. Upgrade to get direct access to our sourcing team and AI assistant.
+        <h3 className="text-base font-semibold text-foreground">
+          Upgrade to send messages
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed">
+          Direct messaging with our sourcing team is available on paid plans.
         </p>
       </div>
-      <Button className="bg-color hover:bg-color/90 text-white gap-2">
-        <Crown size={15} /> View plans
+      <Button className="bg-amber-500 hover:bg-amber-600 text-white gap-2 rounded-xl">
+        <Crown size={14} /> View plans
       </Button>
     </div>
-  )
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SESSION ROW
+// SESSION LIST ITEM
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface SessionRowProps {
-  session:    ClientSession
-  isSelected: boolean
-  onClick:    () => void
-}
-
-function SessionRow({ session, isSelected, onClick }: SessionRowProps) {
-  const lastMsg = session.lastMessage
-
+function SessionItem({
+  session,
+  isSelected,
+  isNew,
+  onSelect,
+}: {
+  session: ClientSession;
+  isSelected: boolean;
+  isNew: boolean;
+  onSelect: () => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-border/20 last:border-0 text-left transition-all ${
+    <motion.button
+      layout
+      initial={{ opacity: 0, x: -8, scale: 0.97 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onSelect}
+      className={cn(
+        "w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 relative",
         isSelected
-          ? 'bg-color/10 border-l-2 border-l-color'
-          : 'hover:bg-accent/10 border-l-2 border-l-transparent'
-      }`}
+          ? "bg-[#7b57fc]/12 border border-[#7b57fc]/25 shadow-sm"
+          : isNew
+            ? "bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/8"
+            : "hover:bg-muted/50 border border-transparent",
+      )}
     >
+      {isNew && !isSelected && (
+        <span className="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+      )}
+
       {/* Icon */}
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-        session.isActive
-          ? 'bg-color/15 border border-color/20'
-          : 'bg-muted/30 border border-border/20'
-      }`}>
-        <MessageSquare size={15} className={session.isActive ? 'text-color' : 'text-muted-foreground'} />
+      <div
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl mt-0.5",
+          isSelected
+            ? "bg-[#7b57fc]/15"
+            : session.isActive
+              ? "bg-emerald-500/10"
+              : "bg-muted/50",
+        )}
+      >
+        <MessageSquare
+          size={15}
+          className={cn(
+            isSelected
+              ? "text-[#7b57fc]"
+              : session.isActive
+                ? "text-emerald-500"
+                : "text-muted-foreground",
+          )}
+        />
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className={`text-sm font-medium ${isSelected ? 'text-color' : 'text-foreground'}`}>
+        <div className="flex items-center justify-between gap-1">
+          <p
+            className={cn(
+              "text-xs font-semibold truncate",
+              isSelected ? "text-[#7b57fc]" : "text-foreground",
+            )}
+          >
             {isToday(new Date(session.startedAt))
-              ? `Today, ${format(new Date(session.startedAt), 'h:mm a')}`
-              : format(new Date(session.startedAt), 'MMM d, yyyy')}
-          </span>
-          <span className="text-xs text-muted-foreground shrink-0">
-            {formatSessionTime(session.startedAt)}
+              ? `Today · ${format(new Date(session.startedAt), "HH:mm")}`
+              : format(new Date(session.startedAt), "MMM d · HH:mm")}
+          </p>
+          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+            {timeAgo(session.startedAt)}
           </span>
         </div>
 
-        <p className="text-xs text-muted-foreground truncate mt-0.5">
-          {lastMsg
-            ? `${lastMsg.role === 'assistant' ? '🤖 ' : ''}${truncate(lastMsg.content, 45)}`
-            : 'No messages yet'}
+        <p className="text-xs text-muted-foreground truncate mt-0.5 leading-relaxed">
+          {session.lastMessage
+            ? `${session.lastMessage.role === "assistant" ? "🤖" : "👤"} ${session.lastMessage.content}`
+            : "No messages yet"}
         </p>
 
         <div className="flex items-center gap-2 mt-1.5">
-          {session.isActive ? (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">
-              <Zap size={9} /> Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/20 border border-border/20 px-1.5 py-0.5 rounded-full">
-              <Clock size={9} /> Ended
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground">
-            {session.messageCount} msg{session.messageCount !== 1 ? 's' : ''}
+          <span
+            className={cn(
+              "text-[10px] font-medium px-1.5 py-0.5 rounded-full ring-1 leading-none",
+              session.isActive
+                ? "text-emerald-600 dark:text-emerald-400 ring-emerald-400/30"
+                : "text-muted-foreground/60 ring-border/50",
+            )}
+          >
+            {session.isActive ? "Active" : "Ended"}
+          </span>
+          <span className="text-muted-foreground/40 text-[10px]">·</span>
+          <span className="text-[10px] text-muted-foreground/60">
+            {session.messageCount} msg{session.messageCount !== 1 ? "s" : ""}
           </span>
         </div>
       </div>
-    </button>
-  )
+    </motion.button>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPING INDICATOR
+// TYPING INDICATOR (three bouncing dots)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TypingIndicator() {
   return (
-    <div className="flex items-end gap-2">
-      <div className="w-7 h-7 rounded-full bg-color/15 border border-color/20 flex items-center justify-center shrink-0">
-        <Bot size={13} className="text-color" />
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6 }}
+      className="flex items-end gap-2.5 self-start"
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted mb-1">
+        <Bot size={13} className="text-muted-foreground" />
       </div>
-      <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-muted/40 border border-border/20">
+      <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-muted border border-border/30">
         <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
+          {[0, 150, 300].map((delay) => (
+            <span
+              key={delay}
+              className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
+            />
+          ))}
         </div>
       </div>
-    </div>
-  )
+    </motion.div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONVERSATION VIEW
+// MESSAGE BUBBLE
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface ConversationProps {
-  sessionId:  string
-  user:       { id: string; email: string; fullName: string | null; avatarUrl: string | null }
-  plan:       PlanInfo
-  onEnded:    (sessionId: string, endedAt: Date) => void
+function MessageBubble({
+  message,
+  user,
+  isOptimistic,
+}: {
+  message: ClientMessage;
+  user: { fullName: string | null; email: string; avatarUrl: string | null };
+  isOptimistic?: boolean;
+}) {
+  const isUser = message.role === "user";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.96 }}
+      animate={{ opacity: isOptimistic ? 0.6 : 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className={cn(
+        "flex gap-2.5 max-w-[80%]",
+        isUser ? "self-end flex-row-reverse" : "self-start",
+      )}
+    >
+      {/* Avatar */}
+      <div className="mt-auto mb-1 shrink-0">
+        {isUser ? (
+          <Avatar className="h-7 w-7 ring-1 ring-border/40">
+            <AvatarImage src={user.avatarUrl ?? undefined} />
+            <AvatarFallback className="bg-[#7b57fc]/15 text-[#7b57fc] text-[10px] font-bold">
+              {getInitials(user.fullName, user.email)}
+            </AvatarFallback>
+          </Avatar>
+        ) : (
+          <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center ring-1 ring-border/40">
+            <Bot size={13} className="text-muted-foreground" />
+          </div>
+        )}
+      </div>
+
+      {/* Bubble */}
+      <div
+        className={cn(
+          "flex flex-col gap-1",
+          isUser ? "items-end" : "items-start",
+        )}
+      >
+        <div
+          className={cn(
+            "px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap wrap-break-words",
+            isUser
+              ? "bg-[#7b57fc] text-white rounded-br-sm"
+              : "bg-muted text-foreground rounded-bl-sm",
+          )}
+        >
+          {message.content}
+        </div>
+        <div className="flex items-center gap-1.5 px-1">
+          <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+            {msgTime(message.createdAt)}
+          </span>
+          {isUser &&
+            (isOptimistic ? (
+              <Loader2
+                size={9}
+                className="animate-spin text-muted-foreground/50"
+              />
+            ) : (
+              <Check size={9} className="text-[#7b57fc]/60" />
+            ))}
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
-function ConversationView({ sessionId, user, plan, onEnded }: ConversationProps) {
-  const [detail,     setDetail]     = useState<ClientSessionDetail | null>(null)
-  const [loading,    setLoading]    = useState(true)
-  const [replyText,  setReplyText]  = useState('')
-  const [isPending,  startTransition] = useTransition()
-  const [aiTyping,   setAiTyping]   = useState(false)
-  const [endConfirm, setEndConfirm] = useState(false)
-  const [error,      setError]      = useState<string | null>(null)
+// ─────────────────────────────────────────────────────────────────────────────
+// CONVERSATION VIEW (right panel)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const textareaRef    = useRef<HTMLTextAreaElement>(null)
-  const lastMsgId      = useRef<string | null>(null)
-  const pollRef        = useRef<ReturnType<typeof setInterval>>()
+interface ConversationViewProps {
+  sessionId: string;
+  user: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    avatarUrl: string | null;
+  };
+  plan: PlanInfo;
+  onEnded: (sessionId: string, endedAt: Date) => void;
+  onBack?: () => void;
+}
+
+function ConversationView({
+  sessionId,
+  user,
+  plan,
+  onEnded,
+  onBack,
+}: ConversationViewProps) {
+  const {
+    detail,
+    loading,
+    error,
+    setError,
+    appendOptimistic,
+    replaceOptimistic,
+    removeOptimistic,
+    markEnded,
+  } = useConversation(sessionId);
+
+  const [reply, setReply] = useState("");
+  const [aiTyping, setAiTyping] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const [endConfirm, setEndConfirm] = useState(false);
+  const [isPending, start] = useTransition();
+
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevMsgCount = useRef(0);
 
   const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
-  }, [])
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "instant",
+    });
+  }, []);
 
-  // Initial load
+  const handleScroll = () => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 100);
+  };
+
+  // Auto-scroll when new messages arrive
   useEffect(() => {
-    setLoading(true)
-    setDetail(null)
-    setError(null)
-    setReplyText('')
-    setEndConfirm(false)
-    setAiTyping(false)
+    if (!detail) return;
+    const count = detail.messages.length;
+    if (count > prevMsgCount.current) {
+      prevMsgCount.current = count;
+      if (atBottom) scrollToBottom();
+      // Dismiss AI typing when reply arrives
+      setAiTyping(false);
+    }
+  }, [detail?.messages.length, atBottom, scrollToBottom]);
 
-    getClientSessionDetail(sessionId).then(r => {
-      if (r.success) {
-        setDetail(r.data)
-        const msgs = r.data.messages
-        lastMsgId.current = msgs.length > 0 ? msgs[msgs.length - 1].id : null
-      } else {
-        setError(r.error)
-      }
-      setLoading(false)
-    })
-  }, [sessionId])
-
-  useLayoutEffect(() => {
-    if (!loading && detail) scrollToBottom(false)
-  }, [loading, detail, scrollToBottom])
-
-  // 5-second polling for admin/AI replies
+  // Scroll on first load
   useEffect(() => {
-    if (!detail?.isActive) return
-
-    pollRef.current = setInterval(async () => {
-      const r = await pollClientMessages(sessionId, lastMsgId.current)
-      if (!r.success) return
-
-      if (r.data.messages.length > 0) {
-        setDetail(prev => {
-          if (!prev) return prev
-          const newMsgs = r.data.messages
-          lastMsgId.current = newMsgs[newMsgs.length - 1].id
-          return { ...prev, messages: [...prev.messages, ...newMsgs] }
-        })
-        setAiTyping(false)
-        scrollToBottom()
-      }
-
-      if (r.data.sessionEndedAt) {
-        setDetail(prev => prev ? { ...prev, isActive: false, endedAt: r.data.sessionEndedAt } : prev)
-        clearInterval(pollRef.current)
-      }
-    }, POLL_MS)
-
-    return () => clearInterval(pollRef.current)
-  }, [sessionId, detail?.isActive, scrollToBottom])
+    if (!loading && detail) setTimeout(() => scrollToBottom(false), 60);
+  }, [loading]);
 
   const handleSend = () => {
-    if (!replyText.trim() || !detail?.isActive || isPending) return
-    const content = replyText.trim()
-    setReplyText('')
-    setError(null)
-
-    // Optimistic user message
-    const optimisticUser: ClientMessage = {
-      id:        `opt-user-${Date.now()}`,
-      role:      'user',
+    if (!reply.trim() || !detail?.isActive || isPending) return;
+    const content = reply.trim();
+    const tempId = `opt-${Date.now()}`;
+    setReply("");
+    setError(null);
+    appendOptimistic({
+      id: tempId,
+      role: "user",
       content,
       createdAt: new Date(),
-    }
-    setDetail(prev => prev ? { ...prev, messages: [...prev.messages, optimisticUser] } : prev)
-    scrollToBottom()
-    setAiTyping(true)
+    });
+    scrollToBottom();
+    setAiTyping(true);
 
-    startTransition(async () => {
-      const r = await sendUserMessage({ sessionId, content })
-
+    start(async () => {
+      const r = await sendUserMessage({ sessionId, content });
       if (r.success) {
-        setDetail(prev => {
-          if (!prev) return prev
-          // Replace optimistic user message with real one, then append AI reply
-          const msgs = prev.messages
-            .map(m => m.id === optimisticUser.id ? r.data.userMessage : m)
-          const withAi = r.data.aiMessage ? [...msgs, r.data.aiMessage] : msgs
-          lastMsgId.current = r.data.aiMessage
-            ? r.data.aiMessage.id
-            : r.data.userMessage.id
-          return { ...prev, messages: withAi }
-        })
-        setAiTyping(false)
-        scrollToBottom()
+        replaceOptimistic(tempId, r.data.userMessage, r.data.aiMessage);
+        setAiTyping(false);
+        scrollToBottom();
       } else {
-        // Rollback
-        setDetail(prev => prev ? {
-          ...prev,
-          messages: prev.messages.filter(m => m.id !== optimisticUser.id),
-        } : prev)
-        setAiTyping(false)
-        setReplyText(content)
-        setError(r.error === 'UPGRADE_REQUIRED' ? 'Upgrade your plan to send messages.' : r.error)
+        removeOptimistic(tempId);
+        setAiTyping(false);
+        setReply(content);
+        setError(
+          r.error === "UPGRADE_REQUIRED"
+            ? "Upgrade your plan to send messages."
+            : r.error,
+        );
       }
-    })
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-  }
+    });
+  };
 
   const handleEnd = () => {
-    startTransition(async () => {
-      const r = await endClientSession(sessionId)
+    start(async () => {
+      const r = await endClientSession(sessionId);
       if (r.success) {
-        setDetail(prev => prev ? { ...prev, isActive: false, endedAt: r.data.endedAt } : prev)
-        setEndConfirm(false)
-        clearInterval(pollRef.current)
-        onEnded(sessionId, r.data.endedAt)
+        markEnded(r.data.endedAt);
+        onEnded(sessionId, r.data.endedAt);
+        setEndConfirm(false);
       } else {
-        setError(r.error)
-        setEndConfirm(false)
+        setError(r.error);
+        setEndConfirm(false);
       }
-    })
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3">
+        <Loader2 size={22} className="animate-spin text-muted-foreground/50" />
+        <p className="text-xs text-muted-foreground">Loading conversation…</p>
+      </div>
+    );
   }
+  if (error && !detail) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 text-center px-8">
+        <AlertTriangle size={22} className="text-red-400/70" />
+        <p className="text-sm text-muted-foreground">{error}</p>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="text-xs text-[#7b57fc] hover:underline mt-1"
+          >
+            ← Back
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (!detail) return null;
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <Loader2 size={24} className="animate-spin text-muted-foreground" />
-    </div>
-  )
-
-  if (error && !detail) return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-      <AlertTriangle size={28} className="text-red-400 opacity-60" />
-      <p className="text-sm">{error}</p>
-    </div>
-  )
-
-  if (!detail) return null
-
-  const groups = groupByDay(detail.messages)
+  const grouped = groupByDay(detail.messages);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/20 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${detail.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-muted-foreground'}`} />
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              {isToday(new Date(detail.startedAt))
-                ? `Session started at ${format(new Date(detail.startedAt), 'h:mm a')}`
-                : format(new Date(detail.startedAt), 'MMM d, yyyy · h:mm a')}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {detail.isActive
-                ? <span className="text-emerald-400">Active · replies in seconds</span>
-                : `Ended ${format(new Date(detail.endedAt!), 'MMM d · h:mm a')}`}
-            </p>
-          </div>
-        </div>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/40 shrink-0 bg-card/60 backdrop-blur-sm">
+        {onBack && (
+          <Button
+            variant={"ghost"}
+            onClick={onBack}
+            className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-muted transition-colors shrink-0 md:hidden"
+          >
+            <ChevronLeft size={18} />
+          </Button>
+        )}
 
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs text-muted-foreground border-border/30 hidden sm:flex">
-            {detail.messageCount} messages
-          </Badge>
+        {/* Sourcing team avatar (static — represents the team, not a specific user) */}
+        <div className="relative shrink-0">
+          <div className="h-9 w-9 rounded-full bg-[#7b57fc]/15 ring-2 ring-border/40 flex items-center justify-center">
+            <Bot size={16} className="text-[#7b57fc]" />
+          </div>
           {detail.isActive && (
-            <Button variant="ghost" size="sm"
-              onClick={() => setEndConfirm(true)}
-              className="h-8 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 gap-1.5">
-              <StopCircle size={13} /> End
-            </Button>
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-background" />
           )}
         </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground">
+              Sourcing Team
+            </p>
+            {detail.isActive ? (
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-70" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                Live
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                Ended
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {detail.messageCount} messages · {timeAgo(detail.startedAt)}
+          </p>
+        </div>
+
+        {detail.isActive && (
+          <button
+            onClick={() => setEndConfirm(true)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/8"
+          >
+            <StopCircle size={13} /> End
+          </button>
+        )}
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-          <AlertTriangle size={13} />
-          {error}
-          <Button onClick={() => setError(null)} className="ml-auto"><X size={12} /></Button>
-        </div>
-      )}
+      {/* ── Error banner ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs shrink-0"
+          >
+            <AlertTriangle size={12} />
+            <span className="flex-1">{error}</span>
+            <Button variant={"ghost"} onClick={() => setError(null)}>
+              <X size={12} />
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* End confirm */}
-      {endConfirm && (
-        <div className="mx-4 mt-2 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
-          <AlertTriangle size={14} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-400 flex-1">End this conversation? You won't be able to send more messages.</p>
-          <Button size="sm" variant="ghost" onClick={() => setEndConfirm(false)}
-            className="h-7 text-xs text-muted-foreground">Cancel</Button>
-          <Button size="sm" onClick={handleEnd} disabled={isPending}
-            className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white">
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : 'End session'}
-          </Button>
-        </div>
-      )}
+      {/* ── End confirm ─────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {endConfirm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mx-4 mt-2 flex items-center gap-3 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 shrink-0"
+          >
+            <AlertTriangle size={13} className="text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-600 dark:text-amber-400 flex-1">
+              End this conversation? You won't be able to send more messages.
+            </p>
+            <button
+              onClick={() => setEndConfirm(false)}
+              className="text-xs text-muted-foreground hover:text-foreground px-2"
+            >
+              Cancel
+            </button>
+            <Button
+              size="sm"
+              onClick={handleEnd}
+              disabled={isPending}
+              className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white rounded-lg"
+            >
+              {isPending ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                "End"
+              )}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-1">
+      {/* ── Messages ────────────────────────────────────────────────── */}
+      <div
+        ref={scrollAreaRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-0.5 min-h-0"
+      >
         {detail.messages.length === 0 && !aiTyping ? (
-          /* Welcome state */
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-12">
-            <div className="w-14 h-14 rounded-2xl bg-color/10 border border-color/20 flex items-center justify-center">
-              <Sparkles size={24} className="text-color" />
-            </div>
-            <div>
-              <p className="text-base font-semibold text-foreground">How can we help?</p>
-              <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-                Ask about product sourcing, quotes, bookings, or anything about the platform.
+          /* Welcome empty state */
+          <div className="flex flex-col items-center justify-center h-full gap-5 text-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7b57fc]/10 ring-1 ring-[#7b57fc]/20"
+            >
+              <Sparkles size={26} className="text-[#7b57fc]/70" />
+            </motion.div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-foreground">
+                How can we help?
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                Ask our sourcing team about product requests, quotes, bookings,
+                or anything about the platform.
               </p>
             </div>
-            {/* Suggestion chips */}
-            <div className="flex flex-wrap justify-center gap-2 mt-2">
+            {/* Quick suggestion chips */}
+            <div className="flex flex-wrap justify-center gap-2 mt-1">
               {[
-                'How do I submit a product request?',
-                'What sourcing services do you offer?',
-                'How long does a quote take?',
-              ].map(q => (
+                "How do I submit a product request?",
+                "How long does a quote take?",
+                "What sourcing services do you offer?",
+              ].map((q) => (
                 <button
                   key={q}
-                  onClick={() => { setReplyText(q); textareaRef.current?.focus() }}
-                  className="text-xs px-3 py-1.5 rounded-full border border-color/20 bg-color/5 text-color hover:bg-color/10 transition-colors"
+                  onClick={() => {
+                    setReply(q);
+                    textareaRef.current?.focus();
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/5 text-[#7b57fc] hover:bg-[#7b57fc]/12 transition-colors"
                 >
                   {q}
                 </button>
@@ -457,284 +843,416 @@ function ConversationView({ sessionId, user, plan, onEnded }: ConversationProps)
             </div>
           </div>
         ) : (
-          groups.map(group => (
-            <div key={group.date}>
-              {/* Date separator */}
-              <div className="flex items-center gap-3 my-5">
-                <div className="flex-1 h-px bg-border/20" />
-                <span className="text-xs text-muted-foreground px-2 shrink-0">
-                  {formatMsgDate(group.messages[0].createdAt)}
+          grouped.map(([label, msgs]) => (
+            <Fragment key={label}>
+              <div className="flex items-center gap-3 my-5 shrink-0">
+                <div className="flex-1 h-px bg-border/50" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                  {label}
                 </span>
-                <div className="flex-1 h-px bg-border/20" />
+                <div className="flex-1 h-px bg-border/50" />
               </div>
-
-              <div className="space-y-3">
-                {group.messages.map(msg => {
-                  const isAssistant  = msg.role === 'assistant'
-                  const isOptimistic = msg.id.startsWith('opt-')
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex items-end gap-2.5 ${isAssistant ? 'flex-row' : 'flex-row-reverse'}`}
-                    >
-                      {/* Avatar */}
-                      {isAssistant ? (
-                        <div className="w-7 h-7 rounded-full bg-color/15 border border-color/20 flex items-center justify-center shrink-0 mb-1">
-                          <Bot size={13} className="text-color" />
-                        </div>
-                      ) : (
-                        <Avatar className="w-7 h-7 shrink-0 mb-1 border border-border/20">
-                          <AvatarImage src={user.avatarUrl ?? undefined} />
-                          <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
-                            {initials(user.fullName, user.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-
-                      <div className={`flex flex-col gap-1 max-w-[75%] ${isAssistant ? 'items-start' : 'items-end'}`}>
-                        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                          isAssistant
-                            ? 'bg-muted/40 text-foreground rounded-bl-sm border border-border/20'
-                            : `bg-color text-white rounded-br-sm ${isOptimistic ? 'opacity-60' : ''}`
-                        }`}>
-                          {msg.content}
-                        </div>
-                        <div className={`flex items-center gap-1.5 text-xs text-muted-foreground px-1 ${isAssistant ? '' : 'flex-row-reverse'}`}>
-                          <span>{formatMsgTime(msg.createdAt)}</span>
-                          {!isAssistant && (
-                            isOptimistic
-                              ? <Loader2 size={10} className="animate-spin" />
-                              : <Check size={10} className="text-color/60" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+              {msgs.map((m) => (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  user={user}
+                  isOptimistic={m.id.startsWith("opt-")}
+                />
+              ))}
+            </Fragment>
           ))
         )}
 
         {/* AI typing indicator */}
-        {aiTyping && (
-          <div className="pt-2">
-            <TypingIndicator />
-          </div>
-        )}
+        <AnimatePresence>
+          {aiTyping && (
+            <div className="mt-2">
+              <TypingIndicator />
+            </div>
+          )}
+        </AnimatePresence>
 
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Input */}
-      <div className={`shrink-0 px-5 py-4 border-t border-border/20 ${!detail.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
-        {!detail.isActive && (
-          <p className="text-xs text-center text-muted-foreground mb-3">
-            This session has ended.
-          </p>
-        )}
-        <div className="flex items-end gap-3">
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              value={replyText}
-              onChange={e => setReplyText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={detail.isActive ? 'Ask anything… (Enter to send)' : 'Session ended'}
-              rows={1}
-              disabled={!detail.isActive || isPending}
-              className="resize-none min-h-11 max-h-32 bg-background/60 border-border/40 text-sm pr-4 focus:border-color/50 focus:ring-1 focus:ring-color/20 rounded-xl"
-            />
-            <p className="absolute right-3 bottom-2 text-xs text-muted-foreground/50">
-              {replyText.length > 3500 ? `${replyText.length}/4000` : ''}
-            </p>
-          </div>
-          <Button
-            onClick={handleSend}
-            disabled={!replyText.trim() || !detail.isActive || isPending}
-            className="h-11 w-11 rounded-xl bg-color hover:bg-color/90 text-white shrink-0 p-0"
+      {/* Scroll-to-bottom FAB */}
+      <AnimatePresence>
+        {!atBottom && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => scrollToBottom()}
+            className="absolute bottom-24 right-5 h-8 w-8 rounded-full bg-[#7b57fc] text-white flex items-center justify-center shadow-xl hover:bg-[#6a48e8] transition-colors z-10"
           >
-            {isPending
-              ? <Loader2 size={16} className="animate-spin" />
-              : <Send size={16} />
-            }
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          <Bot size={11} className="inline mr-1" />
-          AI assistant replies instantly · Our team may follow up for complex requests
-        </p>
+            <ArrowDown size={14} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ── Composer ────────────────────────────────────────────────── */}
+      <div className="shrink-0 border-t border-border/40 p-3 bg-card/60 backdrop-blur-sm">
+        {detail.isActive ? (
+          <>
+            <div className="flex items-end gap-2">
+              <Textarea
+                ref={textareaRef}
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask anything…  (Enter to send · Shift+Enter for new line)"
+                rows={2}
+                disabled={isPending}
+                className="flex-1 resize-none text-sm bg-muted/40 border-border/50 rounded-xl focus:bg-background focus:border-[#7b57fc]/40 focus:ring-1 focus:ring-[#7b57fc]/20 min-h-13 max-h-35 transition-all"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!reply.trim() || isPending}
+                className="h-10 w-10 p-0 rounded-xl bg-[#7b57fc] hover:bg-[#6a48e8] text-white shrink-0 disabled:opacity-40"
+              >
+                {isPending ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Send size={15} />
+                )}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 mt-1.5 flex items-center gap-1">
+              <Bot size={9} />
+              AI replies instantly · Our team follows up for complex requests
+            </p>
+          </>
+        ) : (
+          <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/30 border border-dashed border-border/50">
+            <CheckCircle2 size={13} className="text-muted-foreground/50" />
+            <p className="text-xs text-muted-foreground">Conversation ended</p>
+            {detail.endedAt && (
+              <span className="text-[10px] text-muted-foreground/50">
+                · <Clock size={9} className="inline" />{" "}
+                {timeAgo(detail.endedAt)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
-  )
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EMPTY STATE (no session selected)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EmptyConversation({ onNew, plan }: { onNew: () => void; plan: PlanInfo }) {
+function EmptyState({
+  onNew,
+  plan,
+  isPending,
+}: {
+  onNew: () => void;
+  plan: PlanInfo;
+  isPending: boolean;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-color/10 border border-color/20 flex items-center justify-center">
-        <MessageSquare size={28} className="text-color opacity-60" />
-      </div>
+    <div className="flex flex-col items-center justify-center h-full gap-5 text-center px-8">
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7b57fc]/10 ring-1 ring-[#7b57fc]/20"
+      >
+        <MessageSquare size={28} className="text-[#7b57fc]/50" />
+        <span className="absolute inset-0 rounded-2xl animate-ping ring-1 ring-[#7b57fc]/15 opacity-40" />
+      </motion.div>
       <div>
-        <p className="text-base font-semibold text-foreground">Your conversations</p>
-        <p className="text-sm text-muted-foreground mt-1.5 max-w-xs">
-          Select a session on the left or start a new conversation with our sourcing team.
+        <p className="text-sm font-semibold text-foreground/80">
+          Your conversations
+        </p>
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-xs">
+          Select a session or start a new conversation with our sourcing team.
         </p>
       </div>
-      <Button onClick={onNew} className="bg-color hover:bg-color/90 text-white gap-2">
-        <Plus size={15} /> New conversation
-      </Button>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <PlanBadge plan={plan} />
-        <span>·</span>
-        <span>Full platform access</span>
+      {plan.hasAccess && (
+        <Button
+          onClick={onNew}
+          disabled={isPending}
+          className="bg-[#7b57fc] hover:bg-[#6a48e8] text-white gap-2 rounded-xl"
+        >
+          {isPending ? (
+            <>
+              <Loader2 size={13} className="animate-spin" /> Starting…
+            </>
+          ) : (
+            <>
+              <Plus size={14} /> New conversation
+            </>
+          )}
+        </Button>
+      )}
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+        </span>
+        Updates every {SESSION_POLL_MS / 1000}s
       </div>
     </div>
-  )
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT CLIENT COMPONENT
+// ROOT COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
-  initialUser:     { id: string; email: string; fullName: string | null; avatarUrl: string | null }
-  initialPlan:     PlanInfo
-  initialSessions: ClientSession[]
+  initialUser: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    avatarUrl: string | null;
+  };
+  initialPlan: PlanInfo;
+  initialSessions: ClientSession[];
 }
 
-export function ClientMessagesClient({ initialUser, initialPlan, initialSessions }: Props) {
-  const [sessions,    setSessions]    = useState<ClientSession[]>(initialSessions)
-  const [selectedId,  setSelectedId]  = useState<string | null>(
-    // Auto-select the most recent active session, if any
-    initialSessions.find(s => s.isActive)?.id ?? initialSessions[0]?.id ?? null
-  )
-  const [isPending,   startTransition] = useTransition()
-  const [startError,  setStartError]   = useState<string | null>(null)
+export function ClientMessagesClient({
+  initialUser,
+  initialPlan,
+  initialSessions,
+}: Props) {
+  const { sessions, setSessions, newCount, clearNewCount, forceSync, syncing } =
+    useSessionListSync(initialSessions, initialUser.id);
 
-  const plan    = initialPlan
-  const user    = initialUser
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSessions.find((s) => s.isActive)?.id ??
+      initialSessions[0]?.id ??
+      null,
+  );
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [isPending, start] = useTransition();
+  const [startError, setStartError] = useState<string | null>(null);
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
+
+  // Track new sessions for highlight
+  const prevIdsRef = useRef<Set<string>>(
+    new Set(initialSessions.map((s) => s.id)),
+  );
+  useEffect(() => {
+    const curr = new Set(sessions.map((s) => s.id));
+    const added = new Set<string>();
+    for (const id of curr) {
+      if (!prevIdsRef.current.has(id)) added.add(id);
+    }
+    if (added.size > 0) {
+      setNewIds((prev) => new Set([...prev, ...added]));
+      setTimeout(
+        () =>
+          setNewIds((prev) => {
+            const n = new Set(prev);
+            added.forEach((id) => n.delete(id));
+            return n;
+          }),
+        8_000,
+      );
+    }
+    prevIdsRef.current = curr;
+  }, [sessions]);
 
   const handleNewSession = () => {
-    if (!plan.hasAccess) return
-    setStartError(null)
-    startTransition(async () => {
-      const r = await startSession()
+    if (!initialPlan.hasAccess) return;
+    setStartError(null);
+    start(async () => {
+      const r = await startSession();
       if (r.success) {
-        setSessions(prev => [r.data, ...prev])
-        setSelectedId(r.data.id)
+        setSessions((prev) => [r.data, ...prev]);
+        setSelectedId(r.data.id);
+        setMobileView("chat");
       } else {
-        setStartError(r.error === 'UPGRADE_REQUIRED'
-          ? 'Upgrade your plan to start a conversation.'
-          : r.error)
+        setStartError(
+          r.error === "UPGRADE_REQUIRED"
+            ? "Upgrade your plan to start a conversation."
+            : r.error,
+        );
       }
-    })
-  }
+    });
+  };
 
-  const handleSessionEnded = (sessionId: string, endedAt: Date) => {
-    setSessions(prev => prev.map(s =>
-      s.id === sessionId ? { ...s, isActive: false, endedAt } : s
-    ))
-  }
+  const handleSelect = (id: string) => {
+    setSelectedId(id);
+    setMobileView("chat");
+    setNewIds((prev) => {
+      const n = new Set(prev);
+      n.delete(id);
+      return n;
+    });
+  };
+
+  const handleEnded = (id: string, endedAt: Date) => {
+    setSessions((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, isActive: false, endedAt } : s)),
+    );
+  };
 
   return (
-    <div
-      className="rounded-2xl border border-border/5 bg-card/50 overflow-hidden flex"
-      style={{ height: 'calc(100vh - 12rem)', minHeight: '520px' }}
-    >
-      {/* ── LEFT PANEL — session list ──────────────────────────────────────── */}
-      <div className="w-72 shrink-0 border-r border-border/20 flex flex-col h-full">
-
-        {/* Sidebar header */}
-        <div className="px-4 py-4 border-b border-border/20 space-y-3">
+    // ✅ No inline styles — layout driven by Tailwind flex + h-full
+    <div className="h-full rounded-2xl border border-border/50 bg-card overflow-hidden flex shadow-sm">
+      {/* ── Left: session list ──────────────────────────────────────── */}
+      <div
+        className={cn(
+          "w-full md:w-72 lg:w-80 shrink-0 border-r border-border/30 flex flex-col",
+          mobileView === "chat" ? "hidden md:flex" : "flex",
+        )}
+      >
+        {/* List header */}
+        <div className="px-3 pt-3 pb-2 border-b border-border/40 shrink-0 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Messages</h2>
-            <PlanBadge plan={plan} />
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">
+                Messages
+              </span>
+              {/* Live pulse */}
+              <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                </span>
+                Live
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <PlanBadge plan={initialPlan} />
+              <Button
+                variant={"ghost"}
+                onClick={forceSync}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <RefreshCw
+                  size={11}
+                  className={syncing ? "animate-spin" : ""}
+                />
+              </Button>
+            </div>
           </div>
 
-          {/* New session button */}
-          {plan.hasAccess ? (
+          {initialPlan.hasAccess ? (
             <Button
               onClick={handleNewSession}
               disabled={isPending}
               size="sm"
-              className="w-full h-8 text-xs bg-color hover:bg-color/90 text-white gap-1.5"
+              className="w-full h-8 text-xs bg-[#7b57fc] hover:bg-[#6a48e8] text-white gap-1.5 rounded-lg"
             >
-              {isPending
-                ? <><Loader2 size={12} className="animate-spin" /> Starting…</>
-                : <><Plus size={13} /> New conversation</>
-              }
+              {isPending ? (
+                <>
+                  <Loader2 size={11} className="animate-spin" /> Starting…
+                </>
+              ) : (
+                <>
+                  <Plus size={12} /> New conversation
+                </>
+              )}
             </Button>
           ) : (
-            <Button size="sm" variant="outline"
-              className="w-full h-8 text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10 gap-1.5">
-              <Crown size={12} /> Upgrade to chat
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-8 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/8 gap-1.5 rounded-lg"
+            >
+              <Crown size={11} /> Upgrade to chat
             </Button>
           )}
-
-          {startError && (
-            <p className="text-xs text-red-400">{startError}</p>
-          )}
+          {startError && <p className="text-xs text-red-500">{startError}</p>}
         </div>
+
+        {/* New sessions banner */}
+        <AnimatePresence>
+          {newCount > 0 && (
+            <motion.button
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              onClick={() => {
+                clearNewCount();
+                forceSync();
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2 bg-[#7b57fc]/10 border-b border-[#7b57fc]/20 text-xs font-semibold text-[#7b57fc] hover:bg-[#7b57fc]/15 transition-colors shrink-0"
+            >
+              <BellDot size={12} />
+              {newCount} new — tap to load
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* Session list */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 min-h-0">
           {sessions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground px-4 text-center">
-              <MessageSquare size={24} className="opacity-20" />
-              <p className="text-xs">No conversations yet</p>
+            <div className="flex flex-col items-center justify-center h-40 gap-3 text-center px-4">
+              <div className="h-10 w-10 rounded-xl bg-muted/60 flex items-center justify-center">
+                <MessageSquare size={18} className="text-muted-foreground/40" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                No conversations yet
+              </p>
             </div>
           ) : (
-            sessions.map(s => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                isSelected={s.id === selectedId}
-                onClick={() => setSelectedId(s.id)}
-              />
-            ))
+            <AnimatePresence initial={false}>
+              {sessions.map((s) => (
+                <SessionItem
+                  key={s.id}
+                  session={s}
+                  isSelected={selectedId === s.id}
+                  isNew={newIds.has(s.id)}
+                  onSelect={() => handleSelect(s.id)}
+                />
+              ))}
+            </AnimatePresence>
           )}
         </div>
 
-        {/* Sidebar footer — user info */}
-        <div className="px-4 py-3 border-t border-border/20 flex items-center gap-2.5">
-          <Avatar className="w-7 h-7 border border-border/20 shrink-0">
-            <AvatarImage src={user.avatarUrl ?? undefined} />
-            <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
-              {initials(user.fullName, user.email)}
+        {/* Footer — user identity */}
+        <div className="px-3 py-3 border-t border-border/40 flex items-center gap-2.5 shrink-0">
+          <Avatar className="h-7 w-7 ring-1 ring-border/40 shrink-0">
+            <AvatarImage src={initialUser.avatarUrl ?? undefined} />
+            <AvatarFallback className="bg-[#7b57fc]/15 text-[#7b57fc] text-[10px] font-bold">
+              {getInitials(initialUser.fullName, initialUser.email)}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-foreground truncate">
-              {user.fullName ?? user.email}
+              {initialUser.fullName ?? initialUser.email}
             </p>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            <p className="text-[10px] text-muted-foreground truncate">
+              {initialUser.email}
+            </p>
           </div>
-          <ChevronRight size={14} className="text-muted-foreground shrink-0" />
         </div>
       </div>
 
-      {/* ── RIGHT PANEL — conversation ────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col h-full min-w-0">
-        {!plan.hasAccess ? (
+      {/* ── Right: conversation ─────────────────────────────────────── */}
+      <div
+        className={cn(
+          "flex-1 flex flex-col min-w-0 relative",
+          mobileView === "list" ? "hidden md:flex" : "flex",
+        )}
+      >
+        {!initialPlan.hasAccess ? (
           <UpgradeWall />
         ) : selectedId ? (
           <ConversationView
             key={selectedId}
             sessionId={selectedId}
-            user={user}
-            plan={plan}
-            onEnded={handleSessionEnded}
+            user={initialUser}
+            plan={initialPlan}
+            onEnded={handleEnded}
+            onBack={() => setMobileView("list")}
           />
         ) : (
-          <EmptyConversation onNew={handleNewSession} plan={plan} />
+          <EmptyState
+            onNew={handleNewSession}
+            plan={initialPlan}
+            isPending={isPending}
+          />
         )}
       </div>
     </div>
-  )
+  );
 }

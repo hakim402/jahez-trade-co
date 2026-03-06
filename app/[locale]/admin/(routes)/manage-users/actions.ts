@@ -1,3 +1,5 @@
+// app/[locale]/admin/(routes)/manage-users/actions.ts
+
 'use server';
 
 import { prisma } from '@/lib/prisma';
@@ -14,22 +16,17 @@ type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-// FIX: requireAdmin() already returns the Prisma user.id (UUID string).
-// The old resolveAdmin() was calling findUniqueOrThrow({ where: { clerkId: uuid } })
-// which always failed with P2025 because it was searching clerkId with a Prisma id value.
-// Solution: use requireAdmin() directly as the adminId — no extra DB lookup needed.
-
 // ─────────────────────────────────────────────────────────────────────────────
 // VALIDATION SCHEMAS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const getUsersSchema = z.object({
-  take:      z.number().int().min(1).max(100).default(20),
-  cursor:    z.string().optional(),
-  search:    z.string().optional(),
-  role:      z.nativeEnum(UserRole).optional(),
-  isActive:  z.boolean().optional(),
-  sortBy:    z.enum(['createdAt', 'email', 'fullName']).default('createdAt'),
+  take: z.number().int().min(1).max(100).default(20),
+  cursor: z.string().optional(),
+  search: z.string().optional(),
+  role: z.nativeEnum(UserRole).optional(),
+  isActive: z.boolean().optional(),
+  sortBy: z.enum(['createdAt', 'email', 'fullName']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
@@ -38,12 +35,12 @@ const getUserByIdSchema = z.object({
 });
 
 const updateUserSchema = z.object({
-  id:        z.string().min(1),
-  fullName:  z.string().min(1).max(200).optional(),
-  phone:     z.string().max(30).optional().nullable(),
+  id: z.string().min(1),
+  fullName: z.string().min(1).max(200).optional(),
+  phone: z.string().max(30).optional().nullable(),
   avatarUrl: z.string().url().optional().nullable(),
-  role:      z.nativeEnum(UserRole).optional(),
-  isActive:  z.boolean().optional(),
+  role: z.nativeEnum(UserRole).optional(),
+  isActive: z.boolean().optional(),
 });
 
 const softDeleteUserSchema = z.object({
@@ -51,15 +48,15 @@ const softDeleteUserSchema = z.object({
 });
 
 const banUserSchema = z.object({
-  id:     z.string().min(1),
+  id: z.string().min(1),
   reason: z.string().max(500).optional(),
 });
 
 const sendNotificationSchema = z.object({
-  userId:   z.string().min(1),
-  title:    z.string().min(1).max(200),
-  message:  z.string().min(1).max(2000),
-  type:     z.string().min(1).max(50),
+  userId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  message: z.string().min(1).max(2000),
+  type: z.string().min(1).max(50),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -208,12 +205,12 @@ export async function getUsers(
 
     if (search) {
       where.OR = [
-        { email:    { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
         { fullName: { contains: search, mode: 'insensitive' } },
-        { phone:    { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
       ];
     }
-    if (role)              where.role     = role;
+    if (role) where.role = role;
     if (isActive !== undefined) where.isActive = isActive;
 
     const [total, rawUsers] = await Promise.all([
@@ -268,12 +265,12 @@ export async function getUsers(
       ...u,
       subscription: u.subscription
         ? {
-            ...u.subscription,
-            items: u.subscription.items.map((item) => ({
-              ...item,
-              plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
-            })),
-          }
+          ...u.subscription,
+          items: u.subscription.items.map((item) => ({
+            ...item,
+            plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
+          })),
+        }
         : null,
     }));
 
@@ -369,16 +366,16 @@ export async function getUserById(
       auditLogs: user.adminAuditLogs,
       subscription: user.subscription
         ? {
-            ...user.subscription,
-            items: user.subscription.items.map((item) => ({
-              ...item,
-              plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
-            })),
-            paymentAttempts: user.subscription.paymentAttempts.map((p) => ({
-              ...p,
-              amount: p.amount !== null ? Number(p.amount) : null,
-            })),
-          }
+          ...user.subscription,
+          items: user.subscription.items.map((item) => ({
+            ...item,
+            plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
+          })),
+          paymentAttempts: user.subscription.paymentAttempts.map((p) => ({
+            ...p,
+            amount: p.amount !== null ? Number(p.amount) : null,
+          })),
+        }
         : null,
     };
 
@@ -410,11 +407,11 @@ export async function updateUser(
     if (!target) return { success: false, error: 'User not found' };
 
     const data: Prisma.UserUpdateInput = {
-      ...(fullName  !== undefined && { fullName }),
-      ...(phone     !== undefined && { phone }),
+      ...(fullName !== undefined && { fullName }),
+      ...(phone !== undefined && { phone }),
       ...(avatarUrl !== undefined && { avatarUrl }),
-      ...(role      !== undefined && { role }),
-      ...(isActive  !== undefined && { isActive }),
+      ...(role !== undefined && { role }),
+      ...(isActive !== undefined && { isActive }),
     };
 
     const clerk = await clerkClient();
@@ -429,10 +426,10 @@ export async function updateUser(
     await prisma.auditLog.create({
       data: {
         adminId,   // ← Prisma UUID directly from requireAdmin()
-        action:   'UPDATE_USER',
-        entity:   'User',
+        action: 'UPDATE_USER',
+        entity: 'User',
         entityId: id,
-        changes:  data as Prisma.InputJsonValue,
+        changes: data as Prisma.InputJsonValue,
       },
     });
 
@@ -472,10 +469,10 @@ export async function softDeleteUser(
     await prisma.auditLog.create({
       data: {
         adminId,   // ← Prisma UUID directly
-        action:   'DELETE_USER',
-        entity:   'User',
+        action: 'DELETE_USER',
+        entity: 'User',
         entityId: id,
-        changes:  { reason: 'Admin soft delete + Clerk ban' } satisfies Prisma.InputJsonValue,
+        changes: { reason: 'Admin soft delete + Clerk ban' } satisfies Prisma.InputJsonValue,
       },
     });
 
@@ -514,10 +511,10 @@ export async function banUser(
     await prisma.auditLog.create({
       data: {
         adminId,
-        action:   'BAN_USER',
-        entity:   'User',
+        action: 'BAN_USER',
+        entity: 'User',
         entityId: id,
-        changes:  { reason: reason ?? 'No reason provided' } satisfies Prisma.InputJsonValue,
+        changes: { reason: reason ?? 'No reason provided' } satisfies Prisma.InputJsonValue,
       },
     });
 
@@ -556,10 +553,10 @@ export async function unbanUser(
     await prisma.auditLog.create({
       data: {
         adminId,
-        action:   'UNBAN_USER',
-        entity:   'User',
+        action: 'UNBAN_USER',
+        entity: 'User',
         entityId: id,
-        changes:  Prisma.JsonNull,
+        changes: Prisma.JsonNull,
       },
     });
 
@@ -590,17 +587,17 @@ export async function impersonateUser(
 
     const clerk = await clerkClient();
     const token = await clerk.signInTokens.createSignInToken({
-      userId:           target.clerkId,
+      userId: target.clerkId,
       expiresInSeconds: 60,
     });
 
     await prisma.auditLog.create({
       data: {
         adminId,
-        action:   'IMPERSONATE_USER',
-        entity:   'User',
+        action: 'IMPERSONATE_USER',
+        entity: 'User',
         entityId: id,
-        changes:  { targetEmail: target.email } satisfies Prisma.InputJsonValue,
+        changes: { targetEmail: target.email } satisfies Prisma.InputJsonValue,
       },
     });
 
@@ -640,10 +637,10 @@ export async function sendNotificationToUser(
     await prisma.auditLog.create({
       data: {
         adminId,
-        action:   'SEND_NOTIFICATION',
-        entity:   'User',
+        action: 'SEND_NOTIFICATION',
+        entity: 'User',
         entityId: userId,
-        changes:  { title, type } satisfies Prisma.InputJsonValue,
+        changes: { title, type } satisfies Prisma.InputJsonValue,
       },
     });
 

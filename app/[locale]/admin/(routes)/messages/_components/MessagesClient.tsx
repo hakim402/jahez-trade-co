@@ -1,146 +1,238 @@
 'use client'
 
+// app/[locale]/admin/(routes)/messages/_components/MessagesClient.tsx
+
 import {
-  useState, useEffect, useCallback, useRef, useTransition, useLayoutEffect,
+  useState, useEffect, useCallback, useTransition, useRef, Fragment,
 } from 'react'
 import { format, isToday, isYesterday } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
+import { motion, AnimatePresence } from 'motion/react'
 import {
-  Search, MessageSquare, Zap, Clock, Trash2,
-  StopCircle, Send, Loader2, RefreshCw, ChevronDown,
-  X, Check, Filter, Bot, User2, AlertTriangle,
+  Search, MessageSquare, Send, Trash2, StopCircle, Loader2,
+  User, Bot, RefreshCw, ChevronLeft, X, MoreVertical,
+  CheckCircle2, Clock, ArrowDown, Inbox, Zap, BellDot,
 } from 'lucide-react'
 import { Button }   from '@/components/ui/button'
-import { Input }    from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge }    from '@/components/ui/badge'
+import { Input }    from '@/components/ui/input'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import {
-  listSessions, getSessionDetail, pollNewMessages,
-  adminReply, endSession, deleteSession,
+  listSessions, getSessionDetail, adminReply,
+  endSession, deleteSession, pollNewMessages,
   type SessionListItem, type SessionDetail, type MessageItem,
-  type ListSessionsParams,
 } from '../actions'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TAKE         = 20
-const POLL_MS      = 5_000   // 5-second polling for live messages
+const SESSION_POLL_MS = 5_000   // how often the session list re-syncs
+const MESSAGE_POLL_MS = 3_000   // how often active conversation polls
+const SESSION_TAKE    = 50
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function formatSessionTime(date: Date | string) {
-  const d = new Date(date)
-  if (isToday(d))     return format(d, 'h:mm a')
-  if (isYesterday(d)) return 'Yesterday'
-  return format(d, 'MMM d')
+function timeAgo(d: Date | string) {
+  return formatDistanceToNow(new Date(d), { addSuffix: true })
 }
 
-function formatMsgTime(date: Date | string) {
-  return format(new Date(date), 'h:mm a')
+function msgTime(d: Date | string) {
+  const date = new Date(d)
+  if (isToday(date))     return format(date, 'HH:mm')
+  if (isYesterday(date)) return `Yesterday ${format(date, 'HH:mm')}`
+  return format(date, 'dd MMM, HH:mm')
 }
 
-function formatMsgDate(date: Date | string) {
-  const d = new Date(date)
-  if (isToday(d))     return 'Today'
-  if (isYesterday(d)) return 'Yesterday'
-  return format(d, 'MMMM d, yyyy')
+function dayLabel(d: Date | string) {
+  const date = new Date(d)
+  if (isToday(date))     return 'Today'
+  if (isYesterday(date)) return 'Yesterday'
+  return format(date, 'MMMM d, yyyy')
 }
 
-function initials(name: string | null | undefined, email: string) {
+function getInitials(name: string | null | undefined, email: string) {
   if (name) return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
   return email.slice(0, 2).toUpperCase()
 }
 
-function truncate(s: string, n: number) {
-  return s.length > n ? s.slice(0, n) + '…' : s
+function groupByDay(messages: MessageItem[]) {
+  const map = new Map<string, MessageItem[]>()
+  for (const m of messages) {
+    const label = dayLabel(m.createdAt)
+    if (!map.has(label)) map.set(label, [])
+    map.get(label)!.push(m)
+  }
+  return [...map.entries()]
 }
 
-// Group messages by calendar day for date separators
-function groupByDay(messages: MessageItem[]) {
-  const groups: { date: string; messages: MessageItem[] }[] = []
-  for (const msg of messages) {
-    const day = format(new Date(msg.createdAt), 'yyyy-MM-dd')
-    const last = groups[groups.length - 1]
-    if (last?.date === day) last.messages.push(msg)
-    else groups.push({ date: day, messages: [msg] })
-  }
-  return groups
+// ─────────────────────────────────────────────────────────────────────────────
+// HOOK: useSessionList  — polls & merges new sessions without resetting scroll
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useSessionList(search: string, filter: 'all' | 'active' | 'ended') {
+  const [sessions,   setSessions]   = useState<SessionListItem[]>([])
+  const [total,      setTotal]      = useState(0)
+  const [loading,    setLoading]    = useState(true)
+  const [newCount,   setNewCount]   = useState(0)   // new sessions arrived since last view
+  const knownIdsRef  = useRef<Set<string>>(new Set())
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const searchDebRef = useRef<ReturnType<typeof setTimeout>  | undefined>(undefined)
+
+  const fetchSessions = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    const r = await listSessions({
+      take:     SESSION_TAKE,
+      search:   search || undefined,
+      isActive: filter === 'active' ? true : filter === 'ended' ? false : undefined,
+    })
+    if (r.success) {
+      const incoming = r.data.items
+
+      setSessions(prev => {
+        // Merge: keep existing order, prepend new sessions, update existing ones
+        const prevMap = new Map(prev.map(s => [s.id, s]))
+        const merged: SessionListItem[] = []
+        const seenIncoming = new Set<string>()
+
+        // Count genuinely new sessions
+        let added = 0
+        for (const s of incoming) {
+          seenIncoming.add(s.id)
+          if (!knownIdsRef.current.has(s.id)) added++
+          prevMap.set(s.id, s) // update or add
+        }
+
+        // Rebuild: new sessions first, then existing in their original order
+        const incomingOrder = new Map(incoming.map((s, i) => [s.id, i]))
+        const allIds = [
+          ...incoming.map(s => s.id),
+          ...prev.map(s => s.id).filter(id => !seenIncoming.has(id)),
+        ]
+        for (const id of allIds) {
+          const s = prevMap.get(id)
+          if (s) merged.push(s)
+        }
+
+        if (added > 0 && knownIdsRef.current.size > 0) {
+          setNewCount(c => c + added)
+        }
+
+        // Update known set
+        knownIdsRef.current = new Set(incoming.map(s => s.id))
+        return merged
+      })
+
+      setTotal(r.data.total)
+    }
+    if (!silent) setLoading(false)
+  }, [search, filter])
+
+  // Initial load
+  useEffect(() => {
+    fetchSessions(false)
+  }, [fetchSessions])
+
+  // Polling
+  useEffect(() => {
+    clearInterval(pollTimerRef.current)
+    pollTimerRef.current = setInterval(() => fetchSessions(true), SESSION_POLL_MS)
+    return () => clearInterval(pollTimerRef.current)
+  }, [fetchSessions])
+
+  const clearNewCount  = () => setNewCount(0)
+  const manualRefresh  = () => { setNewCount(0); fetchSessions(false) }
+
+  return { sessions, total, loading, newCount, clearNewCount, manualRefresh, setSessions }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SESSION LIST ITEM ROW
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface SessionRowProps {
-  session:    SessionListItem
-  isSelected: boolean
-  onClick:    () => void
-}
-
-function SessionRow({ session, isSelected, onClick }: SessionRowProps) {
-  const user = session.user
-  const name = user?.fullName ?? user?.email ?? 'Anonymous'
-
+function SessionItem({
+  session, isSelected, isNew, onSelect,
+}: {
+  session: SessionListItem; isSelected: boolean; isNew: boolean; onSelect: () => void
+}) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-border/30 last:border-0 text-left transition-colors ${
+    <motion.button
+      layout
+      initial={{ opacity: 0, x: -10, scale: 0.97 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onSelect}
+      className={cn(
+        'w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all duration-200 group relative',
         isSelected
-          ? 'bg-color/10 border-l-2 border-l-color'
-          : 'hover:bg-accent/10 border-l-2 border-l-transparent'
-      }`}
+          ? 'bg-[#7b57fc]/12 border border-[#7b57fc]/25 shadow-sm'
+          : isNew
+            ? 'bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/8'
+            : 'hover:bg-muted/50 border border-transparent',
+      )}
     >
-      {/* Avatar with active dot */}
-      <div className="relative shrink-0">
-        <Avatar className="w-10 h-10 border border-border/20">
-          <AvatarImage src={user?.avatarUrl ?? undefined} />
-          <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs font-medium">
-            {user ? initials(user.fullName, user.email) : '??'}
+      {/* NEW dot */}
+      {isNew && !isSelected && (
+        <span className="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+      )}
+
+      {/* Avatar */}
+      <div className="relative shrink-0 mt-0.5">
+        <Avatar className="h-9 w-9 ring-2 ring-border/40">
+          <AvatarImage src={session.user?.avatarUrl ?? undefined} />
+          <AvatarFallback className={cn(
+            'text-xs font-bold',
+            isSelected ? 'bg-[#7b57fc]/20 text-[#7b57fc]' : 'bg-muted text-muted-foreground',
+          )}>
+            {session.user ? getInitials(session.user.fullName, session.user.email) : '??'}
           </AvatarFallback>
         </Avatar>
         {session.isActive && (
-          <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-background" />
+          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-background ring-1 ring-emerald-400/40" />
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className={`text-sm font-medium truncate ${isSelected ? 'text-color' : 'text-foreground'}`}>
-            {truncate(name, 22)}
-          </span>
-          <span className="text-xs text-muted-foreground shrink-0">
-            {formatSessionTime(session.startedAt)}
+        <div className="flex items-center justify-between gap-1">
+          <p className={cn(
+            'text-sm font-semibold truncate',
+            isSelected ? 'text-[#7b57fc]' : 'text-foreground',
+          )}>
+            {session.user?.fullName ?? session.user?.email ?? 'Anonymous'}
+          </p>
+          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+            {timeAgo(session.startedAt)}
           </span>
         </div>
-
-        <p className="text-xs text-muted-foreground truncate mt-0.5">
+        <p className="text-xs text-muted-foreground truncate mt-0.5 leading-relaxed">
           {session.lastMessage
-            ? `${session.lastMessage.role === 'assistant' ? '🤖 ' : ''}${session.lastMessage.content}`
+            ? `${session.lastMessage.role === 'user' ? '👤' : '🤖'} ${session.lastMessage.content}`
             : 'No messages yet'}
         </p>
-
         <div className="flex items-center gap-2 mt-1.5">
-          <span className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border ${
+          <span className={cn(
+            'text-[10px] font-medium px-1.5 py-0.5 rounded-full ring-1 leading-none',
             session.isActive
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-              : 'bg-muted/30 text-muted-foreground border-border/30'
-          }`}>
-            {session.isActive ? <><Zap size={9} /> Active</> : <><Clock size={9} /> Ended</>}
+              ? 'text-emerald-600 dark:text-emerald-400 ring-emerald-400/30'
+              : 'text-muted-foreground/60 ring-border/50',
+          )}>
+            {session.isActive ? 'Active' : 'Ended'}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-muted-foreground/40 text-[10px]">·</span>
+          <span className="text-[10px] text-muted-foreground/60">
             {session.messageCount} msg{session.messageCount !== 1 ? 's' : ''}
           </span>
         </div>
       </div>
-    </button>
+    </motion.button>
   )
 }
 
@@ -148,186 +240,316 @@ function SessionRow({ session, isSelected, onClick }: SessionRowProps) {
 // SESSION LIST PANEL
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Filters {
-  search:   string
-  isActive: boolean | undefined
-  dateFrom: string
-  dateTo:   string
-}
-const DEFAULT_FILTERS: Filters = { search: '', isActive: undefined, dateFrom: '', dateTo: '' }
-
 interface SessionListPanelProps {
   selectedId: string | null
   onSelect:   (id: string) => void
 }
 
 function SessionListPanel({ selectedId, onSelect }: SessionListPanelProps) {
-  const [items,       setItems]       = useState<SessionListItem[]>([])
-  const [nextCursor,  setNextCursor]  = useState<string | null>(null)
-  const [total,       setTotal]       = useState(0)
-  const [loading,     setLoading]     = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [filters,     setFilters]     = useState<Filters>(DEFAULT_FILTERS)
-  const [showFilters, setShowFilters] = useState(false)
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const [search,  setSearch]  = useState('')
+  const [filter,  setFilter]  = useState<'all' | 'active' | 'ended'>('all')
+  const [newIds,  setNewIds]   = useState<Set<string>>(new Set())
+  const sentinelRef            = useRef<HTMLDivElement>(null)
 
-  const buildParams = useCallback((cursor?: string): ListSessionsParams => ({
-    take:     TAKE,
-    cursor,
-    search:   filters.search   || undefined,
-    isActive: filters.isActive,
-    dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
-    dateTo:   filters.dateTo   ? new Date(filters.dateTo)   : undefined,
-  }), [filters])
+  const {
+    sessions, total, loading, newCount,
+    clearNewCount, manualRefresh, setSessions,
+  } = useSessionList(search, filter)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const r = await listSessions(buildParams())
-    if (r.success) { setItems(r.data.items); setNextCursor(r.data.nextCursor); setTotal(r.data.total) }
-    setLoading(false)
-  }, [buildParams])
-
+  // Track which session IDs are "new" for highlight
+  const prevSessionIdsRef = useRef<Set<string>>(new Set())
   useEffect(() => {
-    const t = setTimeout(load, 250)
-    return () => clearTimeout(t)
-  }, [load])
-
-  const loadMore = useCallback(async () => {
-    if (!nextCursor || loadingMore) return
-    setLoadingMore(true)
-    const r = await listSessions(buildParams(nextCursor))
-    if (r.success) {
-      setItems(prev => [...prev, ...r.data.items])
-      setNextCursor(r.data.nextCursor)
+    const curr = new Set(sessions.map(s => s.id))
+    const added = new Set<string>()
+    for (const id of curr) {
+      if (!prevSessionIdsRef.current.has(id) && prevSessionIdsRef.current.size > 0) {
+        added.add(id)
+      }
     }
-    setLoadingMore(false)
-  }, [nextCursor, loadingMore, buildParams])
+    if (added.size > 0) {
+      setNewIds(prev => new Set([...prev, ...added]))
+      // Clear new highlight after 8 seconds
+      setTimeout(() => setNewIds(prev => {
+        const n = new Set(prev)
+        added.forEach(id => n.delete(id))
+        return n
+      }), 8_000)
+    }
+    prevSessionIdsRef.current = curr
+  }, [sessions])
 
-  useEffect(() => {
-    const el = sentinelRef.current
-    if (!el) return
-    const obs = new IntersectionObserver(e => { if (e[0].isIntersecting) loadMore() }, { threshold: 0.1 })
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [loadMore])
+  const handleSelect = (id: string) => {
+    setNewIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    onSelect(id)
+  }
 
-  const setFilter = (key: keyof Filters, val: unknown) =>
-    setFilters(prev => ({ ...prev, [key]: val }))
-
-  const activeFilterCount = [
-    filters.search,
-    filters.isActive !== undefined ? '1' : '',
-    filters.dateFrom, filters.dateTo,
-  ].filter(Boolean).length
+  const FILTER_TABS = [
+    { id: 'all'    as const, label: 'All'    },
+    { id: 'active' as const, label: 'Active' },
+    { id: 'ended'  as const, label: 'Ended'  },
+  ]
 
   return (
     <div className="flex flex-col h-full">
-      {/* List header */}
-      <div className="px-4 py-3 border-b border-border/30 space-y-2">
-        {/* Search + filter toggle */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-            <Input
-              value={filters.search}
-              onChange={e => setFilter('search', e.target.value)}
-              placeholder="Search users…"
-              className="pl-8 h-8 text-xs bg-background/50 border-border/40"
-            />
-            {filters.search && (
-              <Button onClick={() => setFilter('search', '')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X size={12} />
-              </Button>
-            )}
-          </div>
-          <Button variant="ghost" size="icon"
-            onClick={() => setShowFilters(p => !p)}
-            className={`h-8 w-8 shrink-0 ${showFilters || activeFilterCount > 0 ? 'text-color' : 'text-muted-foreground'}`}>
-            <Filter size={14} />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={load}
-            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </Button>
+
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="px-3 pt-3 pb-2 border-b border-border/40 shrink-0 space-y-2">
+        {/* Search */}
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search users…"
+            className="pl-7 pr-7 h-8 text-sm bg-muted/40 border-border/50 rounded-lg focus:bg-background focus:border-[#7b57fc]/40 focus:ring-1 focus:ring-[#7b57fc]/20 transition-all"
+          />
+          {search && (
+            <Button onClick={() => setSearch('')} variant={"ghost"}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+              <X size={12} />
+            </Button>
+          )}
         </div>
 
-        {/* Expandable filters */}
-        {showFilters && (
-          <div className="space-y-2 pt-1">
-            {/* Active filter */}
-            <div className="flex gap-1.5">
-              {[
-                { label: 'All',    value: undefined },
-                { label: 'Active', value: true },
-                { label: 'Ended',  value: false },
-              ].map(o => (
-                <button
-                  key={String(o.value)}
-                  onClick={() => setFilter('isActive', o.value)}
-                  className={`flex-1 text-xs px-2 py-1 rounded-md border transition-colors ${
-                    filters.isActive === o.value
-                      ? 'bg-color/20 text-color border-color/30'
-                      : 'border-border/30 text-muted-foreground hover:text-foreground hover:border-border/50'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-            {/* Date range */}
-            <div className="flex items-center gap-1.5">
-              <Input type="date" value={filters.dateFrom}
-                onChange={e => setFilter('dateFrom', e.target.value)}
-                className="h-7 text-xs bg-background/50 border-border/40 flex-1" />
-              <span className="text-muted-foreground text-xs">–</span>
-              <Input type="date" value={filters.dateTo}
-                onChange={e => setFilter('dateTo', e.target.value)}
-                className="h-7 text-xs bg-background/50 border-border/40 flex-1" />
-            </div>
-            {activeFilterCount > 0 && (
-              <button onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="text-xs text-muted-foreground hover:text-color transition-colors flex items-center gap-1">
-                <X size={11} /> Reset filters
-              </button>
-            )}
-          </div>
-        )}
+        {/* Filters */}
+        <div className="flex gap-1">
+          {FILTER_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={cn(
+                'flex-1 text-xs font-medium py-1 rounded-lg transition-all',
+                filter === tab.id
+                  ? 'bg-[#7b57fc]/15 text-[#7b57fc]'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        <p className="text-xs text-muted-foreground">
-          {loading ? 'Loading…' : `${total.toLocaleString()} session${total !== 1 ? 's' : ''}`}
-        </p>
+        {/* Count + live indicator */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {loading ? 'Loading…' : `${total.toLocaleString()} session${total !== 1 ? 's' : ''}`}
+            </span>
+            {/* Live pulse indicator */}
+            <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </span>
+              Live
+            </span>
+          </div>
+          <button
+            onClick={manualRefresh}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
-      {/* List body */}
-      <div className="flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <Loader2 size={20} className="animate-spin text-muted-foreground" />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 gap-2 text-muted-foreground">
-            <MessageSquare size={32} className="opacity-20" />
-            <p className="text-sm">No sessions found</p>
+      {/* ── New sessions banner ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {newCount > 0 && (
+          <motion.button
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => { clearNewCount(); manualRefresh() }}
+            className="w-full flex items-center justify-center gap-2 py-2 bg-[#7b57fc]/10 border-b border-[#7b57fc]/20 text-xs font-semibold text-[#7b57fc] hover:bg-[#7b57fc]/15 transition-colors shrink-0"
+          >
+            <BellDot size={12} />
+            {newCount} new session{newCount !== 1 ? 's' : ''} — tap to load
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ── List ────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 min-h-0">
+        {loading && sessions.length === 0 ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-3 p-3 rounded-xl animate-pulse">
+              <div className="h-9 w-9 rounded-full bg-muted shrink-0" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-3 bg-muted rounded w-3/5" />
+                <div className="h-3 bg-muted rounded w-4/5" />
+                <div className="h-2.5 bg-muted rounded w-2/5" />
+              </div>
+            </div>
+          ))
+        ) : sessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-center px-4">
+            <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center">
+              <Inbox size={20} className="text-muted-foreground/40" />
+            </div>
+            <p className="text-sm text-muted-foreground">No sessions found</p>
           </div>
         ) : (
-          <>
-            {items.map(s => (
-              <SessionRow
+          <AnimatePresence initial={false}>
+            {sessions.map(s => (
+              <SessionItem
                 key={s.id}
                 session={s}
-                isSelected={s.id === selectedId}
-                onClick={() => onSelect(s.id)}
+                isSelected={selectedId === s.id}
+                isNew={newIds.has(s.id)}
+                onSelect={() => handleSelect(s.id)}
               />
             ))}
-            <div ref={sentinelRef} className="flex items-center justify-center py-4">
-              {loadingMore && <Loader2 size={16} className="animate-spin text-muted-foreground" />}
-            </div>
-          </>
+          </AnimatePresence>
         )}
+
+        {/* Infinite scroll sentinel */}
+        <div ref={sentinelRef} className="h-2" />
       </div>
     </div>
   )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MESSAGE BUBBLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MessageBubble({ message, isOptimistic }: { message: MessageItem; isOptimistic?: boolean }) {
+  const isUser = message.role === 'user'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.96 }}
+      animate={{ opacity: isOptimistic ? 0.6 : 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+      className={cn('flex gap-2.5 max-w-[80%]', isUser ? 'self-end flex-row-reverse' : 'self-start')}
+    >
+      {/* Avatar icon */}
+      <div className={cn(
+        'flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-auto mb-1',
+        isUser ? 'bg-[#7b57fc]/15' : 'bg-muted',
+      )}>
+        {isUser
+          ? <User size={13} className="text-[#7b57fc]" />
+          : <Bot  size={13} className="text-muted-foreground" />
+        }
+      </div>
+
+      {/* Bubble + time */}
+      <div className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
+        <div className={cn(
+          'px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap wrap-break-word',
+          isUser
+            ? 'bg-[#7b57fc] text-white rounded-br-sm'
+            : 'bg-muted text-foreground rounded-bl-sm',
+        )}>
+          {message.content}
+        </div>
+        <div className="flex items-center gap-1.5 px-1">
+          <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+            {msgTime(message.createdAt)}
+          </span>
+          {isOptimistic && <Loader2 size={9} className="animate-spin text-muted-foreground/50" />}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOOK: useConversation — loads detail + polls for new messages
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useConversation(sessionId: string) {
+  const [detail,     setDetail]     = useState<SessionDetail | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState<string | null>(null)
+  const lastMsgIdRef = useRef<string | null>(null)
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+  const isActiveRef  = useRef(false)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null); setDetail(null)
+    const r = await getSessionDetail(sessionId)
+    if (r.success) {
+      setDetail(r.data)
+      const msgs = r.data.messages
+      lastMsgIdRef.current = msgs[msgs.length - 1]?.id ?? null
+      isActiveRef.current  = r.data.isActive
+    } else {
+      setError(r.error)
+    }
+    setLoading(false)
+  }, [sessionId])
+
+  useEffect(() => { load() }, [load])
+
+  // Poll new messages for active sessions
+  useEffect(() => {
+    clearInterval(pollTimerRef.current)
+
+    const startPoll = () => {
+      pollTimerRef.current = setInterval(async () => {
+        if (!isActiveRef.current) { clearInterval(pollTimerRef.current); return }
+        const r = await pollNewMessages(sessionId, lastMsgIdRef.current)
+        if (!r.success) return
+
+        if (r.data.messages.length > 0) {
+          setDetail(prev => {
+            if (!prev) return prev
+            // Deduplicate
+            const existingIds = new Set(prev.messages.map(m => m.id))
+            const fresh = r.data.messages.filter(m => !existingIds.has(m.id))
+            if (fresh.length === 0) return prev
+            lastMsgIdRef.current = fresh[fresh.length - 1].id
+            return { ...prev, messages: [...prev.messages, ...fresh] }
+          })
+        }
+
+        if (r.data.sessionEndedAt) {
+          setDetail(prev => prev
+            ? { ...prev, isActive: false, endedAt: r.data.sessionEndedAt }
+            : prev)
+          isActiveRef.current = false
+          clearInterval(pollTimerRef.current)
+        }
+      }, MESSAGE_POLL_MS)
+    }
+
+    // Start poll only after initial load
+    if (!loading && detail?.isActive) startPoll()
+
+    return () => clearInterval(pollTimerRef.current)
+  }, [loading, detail?.isActive, sessionId])
+
+  const appendOptimistic = (msg: MessageItem) => {
+    setDetail(prev => prev ? { ...prev, messages: [...prev.messages, msg] } : prev)
+  }
+  const replaceOptimistic = (tempId: string, real: MessageItem) => {
+    setDetail(prev => {
+      if (!prev) return prev
+      lastMsgIdRef.current = real.id
+      return { ...prev, messages: prev.messages.map(m => m.id === tempId ? real : m) }
+    })
+  }
+  const removeOptimistic = (tempId: string) => {
+    setDetail(prev => prev
+      ? { ...prev, messages: prev.messages.filter(m => m.id !== tempId) }
+      : prev)
+  }
+  const markEnded = (endedAt: Date) => {
+    setDetail(prev => prev ? { ...prev, isActive: false, endedAt } : prev)
+    isActiveRef.current = false
+  }
+  const markDeleted = () => setDetail(null)
+
+  return {
+    detail, loading, error,
+    appendOptimistic, replaceOptimistic, removeOptimistic,
+    markEnded, markDeleted,
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -337,428 +559,355 @@ function SessionListPanel({ selectedId, onSelect }: SessionListPanelProps) {
 interface ConversationPanelProps {
   sessionId: string
   onDeleted: () => void
+  onBack?:   () => void
 }
 
-function ConversationPanel({ sessionId, onDeleted }: ConversationPanelProps) {
-  const [detail,      setDetail]      = useState<SessionDetail | null>(null)
-  const [loading,     setLoading]     = useState(true)
-  const [replyText,   setReplyText]   = useState('')
-  const [isPending,   startTransition]= useTransition()
-  const [endConfirm,  setEndConfirm]  = useState(false)
-  const [delConfirm,  setDelConfirm]  = useState(false)
-  const [error,       setError]       = useState<string | null>(null)
+function ConversationPanel({ sessionId, onDeleted, onBack }: ConversationPanelProps) {
+  const {
+    detail, loading, error,
+    appendOptimistic, replaceOptimistic, removeOptimistic,
+    markEnded, markDeleted,
+  } = useConversation(sessionId)
 
+  const [reply,    setReply]    = useState('')
+  const [atBottom, setAtBottom] = useState(true)
+  const [isPending, start]      = useTransition()
+
+  const scrollAreaRef  = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const textareaRef    = useRef<HTMLTextAreaElement>(null)
-  const lastMsgId      = useRef<string | null>(null)
-  const pollRef        = useRef<ReturnType<typeof setInterval>>()
+  const prevMsgCount   = useRef(0)
 
-  // Scroll to bottom smoothly
   const scrollToBottom = useCallback((smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
   }, [])
 
-  // Initial load
-  useEffect(() => {
-    setLoading(true)
-    setDetail(null)
-    setError(null)
-    setReplyText('')
-    setEndConfirm(false)
-    setDelConfirm(false)
-
-    getSessionDetail(sessionId).then(r => {
-      if (r.success) {
-        setDetail(r.data)
-        const msgs = r.data.messages
-        lastMsgId.current = msgs.length > 0 ? msgs[msgs.length - 1].id : null
-      } else {
-        setError(r.error)
-      }
-      setLoading(false)
-    })
-  }, [sessionId])
-
-  // Scroll after initial load
-  useLayoutEffect(() => {
-    if (!loading && detail) scrollToBottom(false)
-  }, [loading, detail, scrollToBottom])
-
-  // Polling for live updates
-  useEffect(() => {
-    if (!detail?.isActive) return
-
-    pollRef.current = setInterval(async () => {
-      const r = await pollNewMessages(sessionId, lastMsgId.current)
-      if (!r.success) return
-
-      if (r.data.messages.length > 0) {
-        setDetail(prev => {
-          if (!prev) return prev
-          const newMsgs = r.data.messages
-          lastMsgId.current = newMsgs[newMsgs.length - 1].id
-          return { ...prev, messages: [...prev.messages, ...newMsgs] }
-        })
-        scrollToBottom()
-      }
-
-      if (r.data.sessionEndedAt) {
-        setDetail(prev => prev ? { ...prev, isActive: false, endedAt: r.data.sessionEndedAt } : prev)
-        clearInterval(pollRef.current)
-      }
-    }, POLL_MS)
-
-    return () => clearInterval(pollRef.current)
-  }, [sessionId, detail?.isActive, scrollToBottom])
-
-  // Send reply
-  const handleReply = () => {
-    if (!replyText.trim() || !detail?.isActive) return
-    const content = replyText.trim()
-    setReplyText('')
-
-    // Optimistic message
-    const optimistic: MessageItem = {
-      id:        `opt-${Date.now()}`,
-      role:      'assistant',
-      content,
-      createdAt: new Date(),
-    }
-    setDetail(prev => prev ? { ...prev, messages: [...prev.messages, optimistic] } : prev)
-    scrollToBottom()
-
-    startTransition(async () => {
-      const r = await adminReply({ sessionId, content })
-      if (r.success) {
-        // Replace optimistic with real message
-        setDetail(prev => {
-          if (!prev) return prev
-          const msgs = prev.messages.map(m => m.id === optimistic.id ? r.data : m)
-          lastMsgId.current = r.data.id
-          return { ...prev, messages: msgs }
-        })
-      } else {
-        // Rollback + show error
-        setDetail(prev => prev ? { ...prev, messages: prev.messages.filter(m => m.id !== optimistic.id) } : prev)
-        setError(r.error)
-        setReplyText(content)
-      }
-    })
+  const handleScroll = () => {
+    const el = scrollAreaRef.current
+    if (!el) return
+    setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 100)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleReply()
+  // Auto-scroll when new messages arrive and user is near bottom
+  useEffect(() => {
+    if (!detail) return
+    const count = detail.messages.length
+    if (count > prevMsgCount.current) {
+      prevMsgCount.current = count
+      if (atBottom) scrollToBottom()
     }
+  }, [detail?.messages.length, atBottom, scrollToBottom])
+
+  // Scroll on first load
+  useEffect(() => {
+    if (!loading && detail) setTimeout(() => scrollToBottom(false), 60)
+  }, [loading])
+
+  const handleSend = () => {
+    if (!reply.trim() || !detail?.isActive) return
+    const content = reply.trim()
+    const tempId  = `opt-${Date.now()}`
+    setReply('')
+    appendOptimistic({ id: tempId, role: 'assistant', content, createdAt: new Date() })
+    scrollToBottom()
+    start(async () => {
+      const r = await adminReply({ sessionId, content })
+      if (r.success) replaceOptimistic(tempId, r.data)
+      else { removeOptimistic(tempId); setReply(content) }
+    })
   }
 
   const handleEnd = () => {
-    startTransition(async () => {
+    start(async () => {
       const r = await endSession(sessionId)
-      if (r.success) {
-        setDetail(prev => prev ? { ...prev, isActive: false, endedAt: r.data.endedAt } : prev)
-        setEndConfirm(false)
-        clearInterval(pollRef.current)
-      } else {
-        setError(r.error)
-        setEndConfirm(false)
-      }
+      if (r.success) markEnded(r.data.endedAt)
     })
   }
 
   const handleDelete = () => {
-    startTransition(async () => {
+    start(async () => {
       const r = await deleteSession(sessionId)
-      if (r.success) onDeleted()
-      else { setError(r.error); setDelConfirm(false) }
+      if (r.success) { markDeleted(); onDeleted() }
     })
   }
 
-  // ── Loading state ──────────────────────────────────────────────────────────
-  if (loading) return (
-    <div className="flex items-center justify-center h-full">
-      <Loader2 size={24} className="animate-spin text-muted-foreground" />
-    </div>
-  )
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+  }
 
-  if (error && !detail) return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
-      <AlertTriangle size={32} className="text-red-400 opacity-60" />
-      <p className="text-sm">{error}</p>
-    </div>
-  )
+  // ── Loading / error ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3">
+        <Loader2 size={22} className="animate-spin text-muted-foreground/50" />
+        <p className="text-xs text-muted-foreground">Loading conversation…</p>
+      </div>
+    )
+  }
+  if (error || !detail) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 px-8 text-center">
+        <p className="text-sm text-muted-foreground">{error ?? 'Session not found'}</p>
+        {onBack && (
+          <button onClick={onBack} className="text-xs text-[#7b57fc] hover:underline">← Back</button>
+        )}
+      </div>
+    )
+  }
 
-  if (!detail) return null
+  const grouped = groupByDay(detail.messages)
 
-  const user    = detail.user
-  const name    = user?.fullName ?? user?.email ?? 'Anonymous'
-  const groups  = groupByDay(detail.messages)
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      {/* Conversation header */}
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border/30 shrink-0">
-        <div className="relative">
-          <Avatar className="w-9 h-9 border border-border/20">
-            <AvatarImage src={user?.avatarUrl ?? undefined} />
-            <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs font-medium">
-              {user ? initials(user.fullName, user.email) : '??'}
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/40 shrink-0 bg-card/60 backdrop-blur-sm">
+        {onBack && (
+          <Button onClick={onBack} variant={"ghost"}
+            className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-muted transition-colors shrink-0 md:hidden">
+            <ChevronLeft size={18} />
+          </Button>
+        )}
+
+        <div className="relative shrink-0">
+          <Avatar className="h-9 w-9 ring-2 ring-border/40">
+            <AvatarImage src={detail.user?.avatarUrl ?? undefined} />
+            <AvatarFallback className="bg-[#7b57fc]/15 text-[#7b57fc] text-xs font-bold">
+              {detail.user ? getInitials(detail.user.fullName, detail.user.email) : '??'}
             </AvatarFallback>
           </Avatar>
           {detail.isActive && (
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-background" />
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-background" />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{name}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground truncate">
+              {detail.user?.fullName ?? detail.user?.email ?? 'Anonymous'}
+            </p>
+            {detail.isActive ? (
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-70" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                Live
+              </span>
+            ) : (
+              <span className="text-[10px] text-muted-foreground/60 shrink-0">Ended</span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
-            {user?.email ?? 'Unknown email'} ·{' '}
-            {detail.isActive
-              ? <span className="text-emerald-400">Active</span>
-              : `Ended ${format(new Date(detail.endedAt!), 'MMM d, h:mm a')}`}
+            {detail.messageCount} messages · {timeAgo(detail.startedAt)}
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Session meta */}
-          <Badge variant="outline" className="text-xs border-border/30 text-muted-foreground hidden sm:flex">
-            {detail.messageCount} messages
-          </Badge>
-
-          {/* Poll indicator */}
-          {detail.isActive && (
-            <span className="hidden sm:flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live
-            </span>
-          )}
-
-          {/* Actions dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm"
-                className="h-8 text-muted-foreground hover:text-foreground gap-1 text-xs">
-                Actions <ChevronDown size={12} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-popover border-border">
-              {detail.isActive && (
-                <DropdownMenuItem
-                  onClick={() => setEndConfirm(true)}
-                  className="text-sm cursor-pointer text-amber-400 focus:text-amber-400 focus:bg-amber-500/10">
-                  <StopCircle size={14} className="mr-2" /> End session
-                </DropdownMenuItem>
-              )}
+        {/* Actions */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground">
+              <MoreVertical size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            {detail.isActive && (
               <DropdownMenuItem
-                onClick={() => setDelConfirm(true)}
-                className="text-sm cursor-pointer text-red-400 focus:text-red-400 focus:bg-red-500/10">
-                <Trash2 size={14} className="mr-2" /> Delete session
+                onSelect={e => { e.preventDefault(); handleEnd() }}
+                disabled={isPending}
+                className="text-sm gap-2 cursor-pointer text-amber-600 dark:text-amber-400 focus:text-amber-600 focus:bg-amber-500/10"
+              >
+                <StopCircle size={13} /> End session
               </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            )}
+            <DropdownMenuItem
+              onSelect={e => { e.preventDefault(); handleDelete() }}
+              disabled={isPending}
+              className="text-sm gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10"
+            >
+              <Trash2 size={13} /> Delete session
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Error toast */}
-      {error && (
-        <div className="mx-4 mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-          <AlertTriangle size={13} />
-          {error}
-          <Button onClick={() => setError(null)} className="ml-auto"><X size={12} /></Button>
-        </div>
-      )}
-
-      {/* End confirm banner */}
-      {endConfirm && (
-        <div className="mx-4 mt-2 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-          <AlertTriangle size={15} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-400 flex-1">End this session? The user won't be able to send more messages.</p>
-          <Button size="sm" variant="ghost" onClick={() => setEndConfirm(false)}
-            className="h-7 text-xs text-muted-foreground">Cancel</Button>
-          <Button size="sm" onClick={handleEnd} disabled={isPending}
-            className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white">
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : 'End'}
-          </Button>
-        </div>
-      )}
-
-      {/* Delete confirm banner */}
-      {delConfirm && (
-        <div className="mx-4 mt-2 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
-          <AlertTriangle size={15} className="text-red-400 shrink-0" />
-          <p className="text-xs text-red-400 flex-1">Delete this session and all its messages? This cannot be undone.</p>
-          <Button size="sm" variant="ghost" onClick={() => setDelConfirm(false)}
-            className="h-7 text-xs text-muted-foreground">Cancel</Button>
-          <Button size="sm" onClick={handleDelete} disabled={isPending}
-            className="h-7 text-xs bg-red-500 hover:bg-red-600 text-white">
-            {isPending ? <Loader2 size={12} className="animate-spin" /> : 'Delete'}
-          </Button>
-        </div>
-      )}
-
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+      {/* ── Messages ────────────────────────────────────────────────── */}
+      <div
+        ref={scrollAreaRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-0.5 min-h-0"
+      >
         {detail.messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-            <MessageSquare size={32} className="opacity-20" />
-            <p className="text-sm">No messages yet</p>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+            <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center">
+              <MessageSquare size={24} className="text-muted-foreground/30" />
+            </div>
+            <p className="text-sm text-muted-foreground">No messages yet</p>
+            {detail.isActive && (
+              <p className="text-xs text-muted-foreground/60">Waiting for user to send a message…</p>
+            )}
           </div>
         ) : (
-          groups.map(group => (
-            <div key={group.date}>
-              {/* Date separator */}
-              <div className="flex items-center gap-3 my-4">
-                <div className="flex-1 h-px bg-border/30" />
-                <span className="text-xs text-muted-foreground px-2">
-                  {formatMsgDate(group.messages[0].createdAt)}
+          grouped.map(([label, msgs]) => (
+            <Fragment key={label}>
+              {/* Day divider */}
+              <div className="flex items-center gap-3 my-5 shrink-0">
+                <div className="flex-1 h-px bg-border/50" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                  {label}
                 </span>
-                <div className="flex-1 h-px bg-border/30" />
+                <div className="flex-1 h-px bg-border/50" />
               </div>
-
-              <div className="space-y-2">
-                {group.messages.map(msg => {
-                  const isAdmin = msg.role === 'assistant'
-                  const isOptimistic = msg.id.startsWith('opt-')
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex items-end gap-2 ${isAdmin ? 'flex-row-reverse' : 'flex-row'}`}
-                    >
-                      {/* Avatar */}
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mb-0.5 ${
-                        isAdmin ? 'bg-color/20' : 'bg-muted/50'
-                      }`}>
-                        {isAdmin
-                          ? <Bot size={14} className="text-color" />
-                          : <User2 size={14} className="text-muted-foreground" />
-                        }
-                      </div>
-
-                      {/* Bubble */}
-                      <div className={`group max-w-[72%] ${isAdmin ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-                        <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                          isAdmin
-                            ? `bg-color text-white rounded-br-sm ${isOptimistic ? 'opacity-60' : ''}`
-                            : 'bg-muted/40 text-foreground rounded-bl-sm border border-border/20'
-                        }`}>
-                          {msg.content}
-                        </div>
-                        <div className={`flex items-center gap-1 text-xs text-muted-foreground px-1 ${isAdmin ? 'flex-row-reverse' : ''}`}>
-                          <span>{formatMsgTime(msg.createdAt)}</span>
-                          {isAdmin && (
-                            isOptimistic
-                              ? <Loader2 size={10} className="animate-spin" />
-                              : <Check size={10} className="text-color/60" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+              {msgs.map(m => (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  isOptimistic={m.id.startsWith('opt-')}
+                />
+              ))}
+            </Fragment>
           ))
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Reply box */}
-      <div className={`shrink-0 border-t border-border/30 px-4 py-3 ${!detail.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
-        {!detail.isActive && (
-          <p className="text-xs text-center text-muted-foreground mb-2">
-            This session has ended — replies are disabled.
-          </p>
-        )}
-        <div className="flex items-end gap-2">
-          <div className="w-7 h-7 rounded-full bg-color/20 flex items-center justify-center shrink-0 mb-0.5">
-            <Bot size={14} className="text-color" />
-          </div>
-          <Textarea
-            ref={textareaRef}
-            value={replyText}
-            onChange={e => setReplyText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={detail.isActive ? 'Reply as admin… (Enter to send, Shift+Enter for new line)' : 'Session ended'}
-            rows={1}
-            disabled={!detail.isActive || isPending}
-            className="flex-1 min-h-10 max-h-32 resize-none bg-background/50 border-border/40 text-sm focus:border-color/50 focus:ring-1 focus:ring-color/20"
-          />
-          <Button
-            onClick={handleReply}
-            disabled={!replyText.trim() || !detail.isActive || isPending}
-            size="icon"
-            className="h-10 w-10 shrink-0 bg-color hover:bg-color/90 text-white"
+      {/* Scroll-to-bottom FAB */}
+      <AnimatePresence>
+        {!atBottom && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => scrollToBottom()}
+            className="absolute bottom-24 right-5 h-8 w-8 rounded-full bg-[#7b57fc] text-white flex items-center justify-center shadow-xl hover:bg-[#6a48e8] transition-colors z-10"
           >
-            {isPending
-              ? <Loader2 size={16} className="animate-spin" />
-              : <Send size={16} />
-            }
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-1.5 text-right">
-          {replyText.length}/4000
-        </p>
+            <ArrowDown size={14} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ── Composer ────────────────────────────────────────────────── */}
+      <div className="shrink-0 border-t border-border/40 p-3 bg-card/60 backdrop-blur-sm">
+        {detail.isActive ? (
+          <>
+            <div className="flex items-end gap-2">
+              <Textarea
+                value={reply}
+                onChange={e => setReply(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Reply to user…  (Enter sends · Shift+Enter new line)"
+                rows={2}
+                disabled={isPending}
+                className="flex-1 resize-none text-sm bg-muted/40 border-border/50 rounded-xl focus:bg-background focus:border-[#7b57fc]/40 focus:ring-1 focus:ring-[#7b57fc]/20 min-h-13 max-h-35 transition-all"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!reply.trim() || isPending}
+                className="h-10 w-10 p-0 rounded-xl bg-[#7b57fc] hover:bg-[#6a48e8] text-white shrink-0 disabled:opacity-40 transition-all"
+              >
+                {isPending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 mt-1.5 text-right tabular-nums">
+              {reply.length}/4000
+            </p>
+          </>
+        ) : (
+          <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/30 border border-dashed border-border/50">
+            <CheckCircle2 size={13} className="text-muted-foreground/50" />
+            <p className="text-xs text-muted-foreground">Session ended — replies disabled</p>
+            {detail.endedAt && (
+              <span className="text-[10px] text-muted-foreground/50 ml-1">
+                · <Clock size={9} className="inline" /> {timeAgo(detail.endedAt)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EMPTY STATE
+// EMPTY STATE (no session selected)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
-      <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center">
-        <MessageSquare size={28} className="opacity-30" />
+    <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7b57fc]/10 ring-1 ring-[#7b57fc]/20"
+      >
+        <MessageSquare size={28} className="text-[#7b57fc]/50" />
+        {/* Pulsing ring */}
+        <span className="absolute inset-0 rounded-2xl animate-ping ring-1 ring-[#7b57fc]/20 opacity-40" />
+      </motion.div>
+      <div>
+        <p className="text-sm font-semibold text-foreground/70">No conversation selected</p>
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+          Sessions update in real time — no need to refresh
+        </p>
       </div>
-      <div className="text-center">
-        <p className="text-sm font-medium text-foreground">Select a conversation</p>
-        <p className="text-xs mt-1">Choose a session from the list to view messages</p>
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 mt-1">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+        </span>
+        Polling every {SESSION_POLL_MS / 1000}s
       </div>
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT CLIENT COMPONENT
+// ROOT COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function MessagesClient() {
-  const [selectedId,    setSelectedId]    = useState<string | null>(null)
-  const [listKey,       setListKey]       = useState(0)   // bump to re-mount list after delete
+  const [selectedId,  setSelectedId]  = useState<string | null>(null)
+  const [listKey,     setListKey]     = useState(0)
+  const [mobileView,  setMobileView]  = useState<'list' | 'chat'>('list')
+
+  const handleSelect = (id: string) => {
+    setSelectedId(id)
+    setMobileView('chat')
+  }
 
   const handleDeleted = () => {
     setSelectedId(null)
     setListKey(k => k + 1)
+    setMobileView('list')
   }
 
   return (
-    <div className="rounded-2xl border border-border/5 bg-card/50 overflow-hidden"
-      style={{ height: 'calc(100vh - 20rem)', minHeight: '500px' }}>
-      <div className="flex h-full">
+    <div className="h-full rounded-2xl border border-border/50 bg-card overflow-hidden flex shadow-sm">
 
-        {/* Left panel — session list */}
-        <div className="w-80 shrink-0 border-r border-border/30 flex flex-col h-full">
-          <SessionListPanel
-            key={listKey}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
-        </div>
+      {/* ── Left: session list ──────────────────────────────────────── */}
+      <div className={cn(
+        'w-full md:w-72 lg:w-80 shrink-0 border-r border-border/30 flex flex-col',
+        mobileView === 'chat' ? 'hidden md:flex' : 'flex',
+      )}>
+        <SessionListPanel
+          key={listKey}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+        />
+      </div>
 
-        {/* Right panel — conversation */}
-        <div className="flex-1 flex flex-col h-full min-w-0">
-          {selectedId
-            ? <ConversationPanel key={selectedId} sessionId={selectedId} onDeleted={handleDeleted} />
-            : <EmptyState />
-          }
-        </div>
-
+      {/* ── Right: conversation ─────────────────────────────────────── */}
+      <div className={cn(
+        'flex-1 flex flex-col min-w-0 relative',
+        mobileView === 'list' ? 'hidden md:flex' : 'flex',
+      )}>
+        {selectedId
+          ? <ConversationPanel
+              key={selectedId}
+              sessionId={selectedId}
+              onDeleted={handleDeleted}
+              onBack={() => setMobileView('list')}
+            />
+          : <EmptyState />
+        }
       </div>
     </div>
   )

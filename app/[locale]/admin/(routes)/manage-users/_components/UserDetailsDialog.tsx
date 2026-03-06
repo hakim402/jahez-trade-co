@@ -1,20 +1,26 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+// app/[locale]/admin/(routes)/manage-users/_components/UserDetailsDialog.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// ALL logic, data fetching, types, and action calls are identical to the original.
+// Only the visual layer has been redesigned.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calendar,
   Mail,
@@ -27,10 +33,172 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-} from 'lucide-react';
-import { getUserById, type UserDetail } from '../actions';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+  ShieldCheck,
+  ShieldOff,
+  Zap,
+  Crown,
+  ExternalLink,
+  Hash,
+  BarChart3,
+  MessageSquare,
+} from "lucide-react";
+import { getUserById, type UserDetail } from "../actions";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS (same as original)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getInitials(fullName: string | null, email: string) {
+  if (fullName)
+    return fullName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  return email.substring(0, 2).toUpperCase();
+}
+
+// Deterministic avatar bg color
+function avatarColor(email: string) {
+  const palette = [
+    "from-violet-500 to-[#7b57fc]",
+    "from-blue-500 to-cyan-500",
+    "from-emerald-400 to-teal-500",
+    "from-amber-400 to-orange-500",
+    "from-rose-400 to-pink-500",
+    "from-fuchsia-500 to-purple-600",
+  ];
+  const idx =
+    email.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % palette.length;
+  return palette[idx];
+}
+
+function fmtDate(d: Date | string) {
+  return format(new Date(d), "MMM d, yyyy");
+}
+function fmtDateTime(d: Date | string) {
+  return format(new Date(d), "MMM d, yyyy · HH:mm");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SMALL REUSABLE ATOMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: any;
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+        <Icon size={13} className="text-muted-foreground" />
+      </div>
+      <span className="text-xs text-muted-foreground w-16 shrink-0">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-sm font-medium text-foreground truncate",
+          mono && "font-mono text-xs",
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  value,
+  label,
+  color,
+}: {
+  icon: any;
+  value: number;
+  label: string;
+  color: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center gap-1 px-4 py-3 rounded-xl ring-1 text-center min-w-18",
+        color,
+      )}
+    >
+      <Icon size={14} className="opacity-70" />
+      <p className="text-lg font-bold tabular-nums leading-none">{value}</p>
+      <p className="text-[10px] font-medium opacity-70 leading-none">{label}</p>
+    </div>
+  );
+}
+
+function SectionTitle({ icon: Icon, label }: { icon: any; label: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#7b57fc]/10">
+        <Icon size={11} className="text-[#7b57fc]" />
+      </div>
+      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, label }: { icon: any; label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50">
+        <Icon size={20} className="opacity-30" />
+      </div>
+      <p className="text-sm">{label}</p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOADING SKELETON
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  return (
+    <div className="p-6 space-y-6 animate-pulse">
+      {/* Hero */}
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-4 w-60" />
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-5 w-14 rounded-full" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN DIALOG — same props, same logic, redesigned shell
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface UserDetailsDialogProps {
   userId: string | null;
@@ -38,47 +206,21 @@ interface UserDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-function getInitials(fullName: string | null, email: string) {
-  if (fullName) {
-    return fullName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-  }
-  return email.substring(0, 2).toUpperCase();
-}
-
-function StatusDot({ active }: { active: boolean }) {
-  return (
-    <span
-      className={`inline-block h-2 w-2 rounded-full ${active ? 'bg-emerald-500' : 'bg-red-500'}`}
-    />
-  );
-}
-
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3 text-sm">
-      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-      <span className="text-muted-foreground min-w-20">{label}</span>
-      <span className="font-medium truncate">{value}</span>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDialogProps) {
-  // FIX: use UserDetail (not GetUserByIdReturn which doesn't exist)
+export function UserDetailsDialog({
+  userId,
+  open,
+  onOpenChange,
+}: UserDetailsDialogProps) {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // ── LOGIC IDENTICAL TO ORIGINAL ──────────────────────────────────────────
   useEffect(() => {
     if (!open || !userId) {
       setUser(null);
       return;
     }
     setLoading(true);
-    // FIX: getUserById returns ActionResult<{ user: UserDetail }> — handle success/error
     getUserById({ id: userId })
       .then((result) => {
         if (!result.success) {
@@ -87,261 +229,407 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
         }
         setUser(result.data.user);
       })
-      .catch(() => toast.error('Failed to load user details'))
+      .catch(() => toast.error("Failed to load user details"))
       .finally(() => setLoading(false));
   }, [userId, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-                "w-[95vw] sm:max-w-2xl lg:max-w-7xl",
-          "max-h-[95vh] overflow-y-auto",
-                "bg-background/95 backdrop-blur-xl",
-                "border border-border/50 shadow-2xl",
-                "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2",
-                "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-2",
-                "duration-300",
-                // Custom scrollbar styling
-                "[&::-webkit-scrollbar]:w-2",
-                "[&::-webkit-scrollbar-track]:bg-transparent",
-                "[&::-webkit-scrollbar-thumb]:bg-muted-foreground/20",
-                "[&::-webkit-scrollbar-thumb]:rounded-full",
-                "[&::-webkit-scrollbar-thumb]:hover:bg-muted-foreground/30",
-              )}>
-        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
-          <DialogTitle>User Details</DialogTitle>
-          <DialogDescription>Full profile and activity overview.</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        className={cn(
+          "w-[96vw] sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl",
+          "h-[92vh] overflow-hidden flex flex-col p-0",
+          "bg-card border border-border/60 shadow-2xl rounded-2xl",
+          "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97]",
+          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.97]",
+          "duration-200",
+        )}
+      >
+        {loading ? (
+          <LoadingSkeleton />
+        ) : user ? (
+          <>
+            {/* ── HERO HEADER ──────────────────────────────────────────── */}
+            <div className="relative overflow-hidden shrink-0">
+              {/* Gradient background strip */}
+              <div
+                className={cn(
+                  "absolute inset-0 bg-linear-to-r opacity-10",
+                  avatarColor(user.email),
+                )}
+              />
+              <div className="absolute inset-0 bg-linear-to-b from-transparent to-card" />
 
-        <Separator />
+              <div className="relative flex flex-col sm:flex-row sm:items-start gap-5 px-6 pt-6 pb-5">
+                {/* Avatar */}
+                <div className="relative shrink-0">
+                  <div
+                    className={cn(
+                      "h-16 w-16 rounded-2xl bg-linear-to-br flex items-center justify-center ring-4 ring-background shadow-xl",
+                      avatarColor(user.email),
+                    )}
+                  >
+                    {user.avatarUrl ? (
+                      <Avatar className="h-16 w-16 rounded-2xl">
+                        <AvatarImage src={user.avatarUrl} />
+                        <AvatarFallback
+                          className={cn(
+                            "rounded-2xl text-white text-xl font-bold bg-linear-to-br",
+                            avatarColor(user.email),
+                          )}
+                        >
+                          {getInitials(user.fullName, user.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <span className="text-2xl font-bold text-white">
+                        {getInitials(user.fullName, user.email)}
+                      </span>
+                    )}
+                  </div>
+                  {/* Active indicator */}
+                  <span
+                    className={cn(
+                      "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-background",
+                      user.isActive ? "bg-emerald-400" : "bg-red-400",
+                    )}
+                  />
+                </div>
 
-        <div className="flex-1 overflow-hidden">
-          {loading ? (
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <Skeleton className="h-16 w-16 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-4 w-56" />
+                {/* Identity */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-bold text-foreground truncate">
+                      {user.fullName || "No name"}
+                    </h2>
+                    <Badge
+                      variant={
+                        user.role === "ADMIN" ? "destructive" : "secondary"
+                      }
+                      className="text-xs shrink-0"
+                    >
+                      {user.role === "ADMIN" ? (
+                        <>
+                          <ShieldCheck size={10} className="mr-1" /> Admin
+                        </>
+                      ) : (
+                        user.role
+                      )}
+                    </Badge>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ring-1 shrink-0",
+                        user.isActive
+                          ? "text-emerald-600 dark:text-emerald-400 ring-emerald-400/30 bg-emerald-500/8"
+                          : "text-red-500 ring-red-400/30 bg-red-500/8",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          user.isActive ? "bg-emerald-400" : "bg-red-400",
+                        )}
+                      />
+                      {user.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {user.email}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 font-mono mt-1">
+                    {user.id}
+                  </p>
+                </div>
+
+                {/* Stat chips */}
+                <div className="grid grid-cols-4 gap-3">
+                  <StatCard
+                    icon={Package}
+                    value={user._count.requests}
+                    label="Requests"
+                    color="bg-blue-500/8 text-blue-600 dark:text-blue-400 ring-blue-400/20"
+                  />
+                  <StatCard
+                    icon={Video}
+                    value={user._count.clientBookings}
+                    label="Bookings"
+                    color="bg-violet-500/8 text-[#7b57fc] ring-[#7b57fc]/20"
+                  />
+                  <StatCard
+                    icon={Bell}
+                    value={user._count.notifications}
+                    label="Notifs"
+                    color="bg-amber-500/8 text-amber-600 dark:text-amber-400 ring-amber-400/20"
+                  />
+                  <StatCard
+                    icon={MessageSquare}
+                    value={user._count.chatSessions}
+                    label="Chats"
+                    color="bg-emerald-500/8 text-emerald-600 dark:text-emerald-400 ring-emerald-400/20"
+                  />
                 </div>
               </div>
-              <Skeleton className="h-48 w-full" />
             </div>
-          ) : user ? (
-            <ScrollArea className="h-full max-h-[calc(92vh-120px)]">
-              <div className="px-6 py-4 space-y-6">
 
-                {/* ── Profile header ─────────────────────────────────────── */}
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-14 w-14 shrink-0">
-                    <AvatarImage src={user.avatarUrl ?? ''} />
-                    <AvatarFallback className="text-base font-semibold bg-primary/10">
-                      {getInitials(user.fullName, user.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-lg font-semibold truncate">
-                        {user.fullName || 'No name'}
-                      </h2>
-                      <Badge variant={user.role === 'ADMIN' ? 'destructive' : 'secondary'}>
-                        {user.role}
-                      </Badge>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <StatusDot active={user.isActive} />
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      ID: <span className="font-mono">{user.id}</span>
-                    </p>
-                  </div>
+            <Separator className="shrink-0" />
 
-                  {/* Activity counts */}
-                  <div className="hidden sm:flex gap-3 shrink-0">
-                    {[
-                      { icon: Package, count: user._count.requests, label: 'Requests' },
-                      { icon: Video, count: user._count.clientBookings, label: 'Bookings' },
-                      { icon: Bell, count: user._count.notifications, label: 'Notifs' },
-                    ].map(({ icon: Icon, count, label }) => (
-                      <div key={label} className="text-center">
-                        <Icon className="h-4 w-4 text-muted-foreground mx-auto mb-0.5" />
-                        <p className="text-base font-semibold leading-none">{count}</p>
-                        <p className="text-[10px] text-muted-foreground">{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ── Contact & account info ──────────────────────────────── */}
+            {/* ── BODY ─────────────────────────────────────────────────── */}
+            {/* Native div instead of ScrollArea — Radix ScrollArea breaks flex-1 min-h-0 */}
+            <div className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/30">
+              <div className="px-6 py-5 space-y-6">
+                {/* Contact + Subscription side by side */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader className="py-3 px-4">
-                      <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Contact
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4 space-y-2.5">
-                      <InfoRow icon={Mail}     label="Email"   value={user.email} />
-                      <InfoRow icon={Phone}    label="Phone"   value={user.phone || '—'} />
-                      <InfoRow icon={Calendar} label="Joined"  value={new Date(user.createdAt).toLocaleDateString()} />
-                      <InfoRow icon={Calendar} label="Updated" value={new Date(user.updatedAt).toLocaleDateString()} />
-                    </CardContent>
-                  </Card>
+                  {/* Contact */}
+                  <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+                    <SectionTitle icon={Mail} label="Contact" />
+                    <InfoRow icon={Mail} label="Email" value={user.email} />
+                    <InfoRow
+                      icon={Phone}
+                      label="Phone"
+                      value={user.phone || "—"}
+                    />
+                    <InfoRow
+                      icon={Calendar}
+                      label="Joined"
+                      value={fmtDate(user.createdAt)}
+                    />
+                    <InfoRow
+                      icon={Clock}
+                      label="Updated"
+                      value={fmtDate(user.updatedAt)}
+                    />
+                    <InfoRow
+                      icon={Hash}
+                      label="Clerk ID"
+                      value={user.clerkId}
+                      mono
+                    />
+                  </div>
 
-                  {/* Subscription summary */}
-                  <Card>
-                    <CardHeader className="py-3 px-4">
-                      <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Subscription
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-4 pb-4">
-                      {/* FIX: user.subscription is a single object, not an array */}
-                      {user.subscription ? (
-                        <div className="space-y-2">
-                          {user.subscription.items.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between gap-2">
-                              <div>
-                                <p className="text-sm font-medium">{item.plan?.name ?? 'Unknown plan'}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {item.plan
-                                    ? `${item.plan.currency} ${Number(item.plan.amount).toFixed(2)} / ${item.plan.interval ?? 'one-time'}`
-                                    : '—'}
-                                </p>
+                  {/* Subscription */}
+                  <div className="rounded-xl border border-border/50 bg-muted/20 p-4 space-y-3">
+                    <SectionTitle icon={CreditCard} label="Subscription" />
+                    {user.subscription ? (
+                      <>
+                        {user.subscription.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-2 p-3 rounded-lg bg-background border border-border/40"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                {item.isDefaultPlan ? (
+                                  <span className="text-xs font-semibold text-muted-foreground">
+                                    {item.plan?.name ?? "Free"}
+                                  </span>
+                                ) : (
+                                  <>
+                                    <Crown
+                                      size={11}
+                                      className="text-amber-500 shrink-0"
+                                    />
+                                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 truncate">
+                                      {item.plan?.name}
+                                    </span>
+                                  </>
+                                )}
                               </div>
-                              <Badge variant="outline" className="text-xs capitalize shrink-0">
-                                {item.status.toLowerCase()}
-                              </Badge>
+                              {item.plan && (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {item.plan.currency.toUpperCase()}{" "}
+                                  {Number(item.plan.amount).toFixed(2)}
+                                  {item.plan.interval &&
+                                    ` / ${item.plan.interval}`}
+                                </p>
+                              )}
+                              {item.currentPeriodEnd && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  Renews {fmtDate(item.currentPeriodEnd)}
+                                </p>
+                              )}
                             </div>
-                          ))}
-                          {user.subscription.items.length === 0 && (
-                            <p className="text-sm text-muted-foreground">No plan items</p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No subscription</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] shrink-0",
+                                item.status === "ACTIVE" &&
+                                  "border-emerald-400/40 text-emerald-600 dark:text-emerald-400",
+                              )}
+                            >
+                              {item.status.toLowerCase()}
+                            </Badge>
+                          </div>
+                        ))}
+                        {user.subscription.items.length === 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            No plan items
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No subscription
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                {/* ── Tabs ───────────────────────────────────────────────── */}
+                {/* ── TABS ─────────────────────────────────────────────── */}
                 <Tabs defaultValue="requests">
-                  <TabsList className="grid w-full grid-cols-4">
-                    {/* FIX: use clientBookings not bookings, subscription not subscriptions */}
-                    <TabsTrigger value="requests">
-                      Requests ({user.requests.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="bookings">
-                      Bookings ({user.clientBookings.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="notifications">
-                      Notifs ({user.notifications.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="payments">
-                      Payments ({user.subscription?.paymentAttempts.length ?? 0})
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="w-full overflow-x-auto">
+                    <TabsList className="flex w-max h-9 rounded-xl bg-muted/50 p-0.5 gap-0.5">
+                      {[
+                        {
+                          value: "requests",
+                          label: "Requests",
+                          count: user.requests.length,
+                        },
+                        {
+                          value: "bookings",
+                          label: "Bookings",
+                          count: user.clientBookings.length,
+                        },
+                        {
+                          value: "notifications",
+                          label: "Notifs",
+                          count: user.notifications.length,
+                        },
+                        {
+                          value: "payments",
+                          label: "Payments",
+                          count: user.subscription?.paymentAttempts.length ?? 0,
+                        },
+                      ].map((tab) => (
+                        <TabsTrigger
+                          key={tab.value}
+                          value={tab.value}
+                          className="relative text-xs rounded-lg h-8 px-3 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-[#7b57fc] gap-1.5"
+                        >
+                          {tab.label}
+                          {tab.count > 0 && (
+                            <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-[#7b57fc]/15 text-[#7b57fc] text-[9px] font-bold">
+                              {tab.count}
+                            </span>
+                          )}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
 
-                  {/* Requests */}
-                  <TabsContent value="requests" className="mt-4 space-y-3">
+                  {/* ── Requests ─────────────────────────────────────── */}
+                  <TabsContent value="requests" className="mt-4 space-y-2">
                     {user.requests.length === 0 ? (
                       <EmptyState icon={Package} label="No requests yet" />
                     ) : (
                       user.requests.map((req) => (
-                        <Card key={req.id} className="overflow-hidden">
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {req.status}
-                                  </Badge>
-                                  {req.priority > 0 && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      P{req.priority}
-                                    </Badge>
-                                  )}
-                                </div>
-                                {req.productLink && (
-                                  <a
-                                    href={req.productLink}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-primary hover:underline truncate block max-w-xs"
-                                  >
-                                    {req.productLink}
-                                  </a>
-                                )}
-                                {req.description && (
-                                  <p className="text-xs text-muted-foreground line-clamp-2">
-                                    {req.description}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  Qty: {req.quantity} · {req.shippingCountry} ·{' '}
-                                  {req._count.quotes} quote{req._count.quotes !== 1 ? 's' : ''}
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                                {new Date(req.createdAt).toLocaleDateString()}
-                              </p>
+                        <div
+                          key={req.id}
+                          className="group flex items-start gap-3 p-3.5 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
+                            <Package size={14} className="text-blue-500" />
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] h-4 px-1.5"
+                              >
+                                {req.status}
+                              </Badge>
+                              {req.priority > 0 && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] h-4 px-1.5"
+                                >
+                                  P{req.priority}
+                                </Badge>
+                              )}
+                              <span className="text-[10px] text-muted-foreground ml-auto">
+                                {fmtDate(req.createdAt)}
+                              </span>
                             </div>
-                          </CardContent>
-                        </Card>
+                            {req.productLink && (
+                              <a
+                                href={req.productLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs text-[#7b57fc] hover:underline truncate max-w-xs"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink size={9} /> {req.productLink}
+                              </a>
+                            )}
+                            {req.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {req.description}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">
+                              Qty {req.quantity} · {req.shippingCountry} ·{" "}
+                              {req._count.quotes} quote
+                              {req._count.quotes !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        </div>
                       ))
                     )}
                   </TabsContent>
 
-                  {/* Bookings — FIX: user.clientBookings not user.bookings */}
-                  <TabsContent value="bookings" className="mt-4 space-y-3">
+                  {/* ── Bookings ──────────────────────────────────────── */}
+                  <TabsContent value="bookings" className="mt-4 space-y-2">
                     {user.clientBookings.length === 0 ? (
                       <EmptyState icon={Video} label="No bookings yet" />
                     ) : (
                       user.clientBookings.map((booking) => (
-                        <Card key={booking.id}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {booking.status}
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs">
-                                    {booking.type}
-                                  </Badge>
-                                </div>
-                                {/* FIX: removed booking.supplier (doesn't exist in schema) */}
-                                {booking.scheduledAt && (
-                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                    <Clock className="h-3 w-3" />
-                                    {new Date(booking.scheduledAt).toLocaleString()}
-                                  </div>
-                                )}
-                                {booking.meetingProvider && (
-                                  <p className="text-xs text-muted-foreground">
-                                    via {booking.meetingProvider}
-                                  </p>
-                                )}
-                                {booking.requestNotes && (
-                                  <p className="text-xs text-muted-foreground line-clamp-1">
-                                    {booking.requestNotes}
-                                  </p>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                                {new Date(booking.createdAt).toLocaleDateString()}
-                              </p>
+                        <div
+                          key={booking.id}
+                          className="flex items-start gap-3 p-3.5 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#7b57fc]/10">
+                            <Video size={14} className="text-[#7b57fc]" />
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] h-4 px-1.5"
+                              >
+                                {booking.status}
+                              </Badge>
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] h-4 px-1.5"
+                              >
+                                {booking.type}
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground ml-auto">
+                                {fmtDate(booking.createdAt)}
+                              </span>
                             </div>
-                          </CardContent>
-                        </Card>
+                            {booking.scheduledAt && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Clock size={10} />{" "}
+                                {fmtDateTime(booking.scheduledAt)}
+                              </div>
+                            )}
+                            {booking.meetingProvider && (
+                              <p className="text-xs text-muted-foreground">
+                                via {booking.meetingProvider}
+                              </p>
+                            )}
+                            {booking.requestNotes && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">
+                                {booking.requestNotes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       ))
                     )}
                   </TabsContent>
 
-                  {/* Notifications */}
+                  {/* ── Notifications ─────────────────────────────────── */}
                   <TabsContent value="notifications" className="mt-4 space-y-2">
                     {user.notifications.length === 0 ? (
                       <EmptyState icon={Bell} label="No notifications" />
@@ -349,56 +637,99 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                       user.notifications.map((notif) => (
                         <div
                           key={notif.id}
-                          className="flex items-center gap-3 p-3 rounded-lg border bg-card text-sm"
+                          className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors"
                         >
-                          {notif.isRead ? (
-                            <CheckCircle2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                          ) : (
-                            <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-0.5" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{notif.title}</p>
-                            <p className="text-xs text-muted-foreground">{notif.type}</p>
+                          <div
+                            className={cn(
+                              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+                              notif.isRead ? "bg-muted/60" : "bg-[#7b57fc]/10",
+                            )}
+                          >
+                            {notif.isRead ? (
+                              <CheckCircle2
+                                size={13}
+                                className="text-muted-foreground"
+                              />
+                            ) : (
+                              <div className="h-2 w-2 rounded-full bg-[#7b57fc]" />
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                            {new Date(notif.createdAt).toLocaleDateString()}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={cn(
+                                "text-sm truncate",
+                                notif.isRead
+                                  ? "text-muted-foreground"
+                                  : "font-semibold text-foreground",
+                              )}
+                            >
+                              {notif.title}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {notif.type}
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                            {fmtDate(notif.createdAt)}
+                          </span>
                         </div>
                       ))
                     )}
                   </TabsContent>
 
-                  {/* Payment attempts */}
+                  {/* ── Payments ──────────────────────────────────────── */}
                   <TabsContent value="payments" className="mt-4 space-y-2">
                     {!user.subscription?.paymentAttempts.length ? (
-                      <EmptyState icon={CreditCard} label="No payment history" />
+                      <EmptyState
+                        icon={CreditCard}
+                        label="No payment history"
+                      />
                     ) : (
                       user.subscription.paymentAttempts.map((p) => (
                         <div
                           key={p.id}
-                          className="flex items-center gap-3 p-3 rounded-lg border bg-card text-sm"
+                          className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/20 hover:bg-muted/40 transition-colors"
                         >
-                          {p.status === 'PAID' ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                          ) : p.status === 'FAILED' ? (
-                            <XCircle className="h-4 w-4 text-destructive shrink-0" />
-                          ) : (
-                            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                          )}
+                          <div
+                            className={cn(
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+                              p.status === "PAID"
+                                ? "bg-emerald-500/10"
+                                : p.status === "FAILED"
+                                  ? "bg-red-500/10"
+                                  : "bg-muted/60",
+                            )}
+                          >
+                            {p.status === "PAID" ? (
+                              <CheckCircle2
+                                size={14}
+                                className="text-emerald-500"
+                              />
+                            ) : p.status === "FAILED" ? (
+                              <XCircle size={14} className="text-red-500" />
+                            ) : (
+                              <Clock
+                                size={14}
+                                className="text-muted-foreground"
+                              />
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium capitalize">{p.type.toLowerCase()}</p>
-                            <p className="text-xs text-muted-foreground capitalize">
+                            <p className="text-sm font-medium capitalize text-foreground">
+                              {p.type.toLowerCase()}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground capitalize">
                               {p.status.toLowerCase()}
                             </p>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="font-medium">
+                            <p className="text-sm font-semibold text-foreground tabular-nums">
                               {p.amount !== null
-                                ? `${p.currency} ${p.amount.toFixed(2)}`
-                                : '—'}
+                                ? `${p.currency.toUpperCase()} ${p.amount.toFixed(2)}`
+                                : "—"}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(p.occurredAt).toLocaleDateString()}
+                            <p className="text-[10px] text-muted-foreground">
+                              {fmtDate(p.occurredAt)}
                             </p>
                           </div>
                         </div>
@@ -407,27 +738,27 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                   </TabsContent>
                 </Tabs>
 
-                {/* ── Audit log ───────────────────────────────────────────── */}
+                {/* ── Audit log ────────────────────────────────────────── */}
                 {user.auditLogs.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-2">
-                      <Activity className="h-3.5 w-3.5" />
-                      Admin audit log
-                    </h3>
-                    <div className="space-y-2">
+                    <SectionTitle icon={Activity} label="Admin audit log" />
+                    <div className="space-y-1.5">
                       {user.auditLogs.map((log) => (
                         <div
                           key={log.id}
-                          className="flex items-center gap-3 text-xs p-2 rounded-md bg-muted/40"
+                          className="flex items-center gap-3 text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/30"
                         >
-                          <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] shrink-0">
+                          <span className="font-mono text-[10px] bg-[#7b57fc]/10 text-[#7b57fc] px-1.5 py-0.5 rounded shrink-0">
                             {log.action}
                           </span>
                           <span className="text-muted-foreground truncate flex-1">
-                            {log.entity} {log.entityId ? `· ${log.entityId.slice(0, 8)}…` : ''}
+                            {log.entity}
+                            {log.entityId
+                              ? ` · ${log.entityId.slice(0, 8)}…`
+                              : ""}
                           </span>
-                          <span className="text-muted-foreground whitespace-nowrap shrink-0">
-                            {new Date(log.createdAt).toLocaleDateString()}
+                          <span className="text-muted-foreground/60 whitespace-nowrap shrink-0">
+                            {fmtDate(log.createdAt)}
                           </span>
                         </div>
                       ))}
@@ -435,19 +766,18 @@ export function UserDetailsDialog({ userId, open, onOpenChange }: UserDetailsDia
                   </div>
                 )}
               </div>
-            </ScrollArea>
-          ) : null}
-        </div>
+            </div>
+          </>
+        ) : null}
+
+        {/* Hidden accessible header for screen readers */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>User Details</DialogTitle>
+          <DialogDescription>
+            Full profile and activity overview.
+          </DialogDescription>
+        </DialogHeader>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function EmptyState({ icon: Icon, label }: { icon: any; label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-      <Icon className="h-8 w-8 opacity-30" />
-      <p className="text-sm">{label}</p>
-    </div>
   );
 }

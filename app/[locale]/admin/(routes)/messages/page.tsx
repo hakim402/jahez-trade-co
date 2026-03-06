@@ -1,68 +1,84 @@
 // app/[locale]/admin/(routes)/messages/page.tsx
 
-import { AdminHeader }    from '../../_components/AdminHeader'
-import { MessagesClient } from './_components/MessagesClient'
-import { getMessagesStats } from './actions'
-import { MessageSquare, Zap, Hash, CalendarDays } from 'lucide-react'
+import { AdminHeader } from "../../_components/AdminHeader";
+import { MessagesClient } from "./_components/MessagesClient";
+import { getMessagesStats } from "./actions";
+import { MessageSquare, Zap, Hash, CalendarDays } from "lucide-react";
 
-export const metadata = { title: 'Messages — Admin' }
+export const metadata = { title: "Messages — Admin" };
+
+const KPI_META = [
+  {
+    key: "totalSessions",
+    label: "Total Sessions",
+    icon: MessageSquare,
+    gradient: "from-violet-500 to-[#7b57fc]",
+    glow: "shadow-violet-500/20",
+  },
+  {
+    key: "activeSessions",
+    label: "Active Now",
+    icon: Zap,
+    gradient: "from-emerald-400 to-teal-500",
+    glow: "shadow-emerald-500/20",
+  },
+  {
+    key: "totalMessages",
+    label: "Total Messages",
+    icon: Hash,
+    gradient: "from-amber-400 to-orange-500",
+    glow: "shadow-amber-500/20",
+  },
+  {
+    key: "sessionsToday",
+    label: "Started Today",
+    icon: CalendarDays,
+    gradient: "from-pink-500 to-rose-500",
+    glow: "shadow-pink-500/20",
+  },
+] as const;
 
 export default async function MessagesPage() {
-  const statsResult = await getMessagesStats()
-  const stats = statsResult.success ? statsResult.data : null
-
-  const kpis = stats ? [
-    { label: 'Total Sessions',   value: stats.totalSessions,   icon: MessageSquare, color: 'from-violet-500 to-blue-500' },
-    { label: 'Active Now',       value: stats.activeSessions,  icon: Zap,           color: 'from-emerald-500 to-teal-500' },
-    { label: 'Total Messages',   value: stats.totalMessages,   icon: Hash,          color: 'from-amber-500 to-orange-500' },
-    { label: 'Started Today',    value: stats.sessionsToday,   icon: CalendarDays,  color: 'from-pink-500 to-rose-500' },
-  ] : []
+  const statsResult = await getMessagesStats();
+  const stats = statsResult.success ? statsResult.data : null;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    // Use flex-col on the outermost shell; MessagesClient owns the remaining height
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
       <AdminHeader />
 
-      <div className="flex-1 px-6 py-8 max-w-400 mx-auto w-full space-y-6">
-        {/* Page header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Page body — scrollable header zone + fixed-height messenger */}
+      <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 lg:px-8 pt-6 pb-4 gap-5 max-w-screen-2xl mx-auto w-full">
+        {/* ── Page header ──────────────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Messages</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Messages
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Monitor and respond to user chat sessions in real time.
             </p>
           </div>
-          {stats && (
-            <div className="flex items-center gap-2 text-sm">
-              {stats.activeSessions > 0 && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {stats.activeSessions} active
-                </span>
-              )}
+
+          {stats && stats.activeSessions > 0 && (
+            <div className=" flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 self-start sm:self-auto">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                {stats.activeSessions} live session
+                {stats.activeSessions !== 1 ? "s" : ""}
+              </span>
             </div>
           )}
         </div>
 
-        {/* KPI strip */}
-        {kpis.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {kpis.map(k => (
-              <div key={k.label} className="rounded-xl border border-border/5 bg-card/50 p-4 flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-lg bg-linear-to-br ${k.color} flex items-center justify-center shrink-0`}>
-                  <k.icon size={16} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">{k.label}</p>
-                  <p className="text-xl font-bold text-card-foreground">{k.value.toLocaleString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Two-panel messenger */}
-        <MessagesClient />
+        {/* ── Messenger — takes all remaining height ────────────────────── */}
+        <div className="flex-1 overflow-hidden min-h-0">
+          <MessagesClient />
+        </div>
       </div>
     </div>
-  )
+  );
 }

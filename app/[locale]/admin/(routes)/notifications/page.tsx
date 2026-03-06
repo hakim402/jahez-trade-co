@@ -1,6 +1,7 @@
 // app/[locale]/admin/(routes)/notifications/page.tsx
 
-import { AdminHeader }        from '../../_components/AdminHeader'
+import { Bell } from 'lucide-react'
+import { AdminHeader }         from '../../_components/AdminHeader'
 import { NotificationsClient } from './_components/NotificationsClient'
 import { getNotificationStats } from './actions'
 
@@ -13,37 +14,53 @@ export default async function NotificationsPage() {
   return (
     <div className="min-h-screen">
       <AdminHeader />
-      <div className="px-6 py-8 max-w-400 mx-auto space-y-8">
-        {/* Page header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Notifications</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage, send and broadcast notifications across the platform.
-            </p>
+
+      <div className="px-6 py-8 max-w-7xl mx-auto space-y-6">
+
+        {/* ── Page header ─────────────────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
+              <Bell className="h-5 w-5 text-[#7b57fc]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Notifications</h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
+                Manage, send and broadcast notifications across the platform.
+              </p>
+            </div>
           </div>
-          {stats && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="px-3 py-1.5 rounded-full bg-color/10 text-color border border-color/20 font-medium">
+
+          {stats && stats.unread > 0 && (
+            <div className="flex items-center gap-1.5 rounded-full bg-[#7b57fc]/10 border border-[#7b57fc]/20 px-3 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#7b57fc] animate-pulse" />
+              <span className="text-sm font-medium text-[#7b57fc]">
                 {stats.unread} unread
               </span>
-              <span className="text-muted-foreground">of {stats.total} total</span>
             </div>
           )}
         </div>
 
-        {/* KPI strip */}
+        {/* ── KPI strip ───────────────────────────────────────────────────── */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total',       value: stats.total,         color: 'from-violet-500 to-blue-500' },
-              { label: 'Unread',      value: stats.unread,        color: 'from-amber-500 to-orange-500' },
-              { label: 'Today',       value: stats.sentToday,     color: 'from-emerald-500 to-teal-500' },
-              { label: 'This Week',   value: stats.sentThisWeek,  color: 'from-pink-500 to-rose-500' },
+              { label: 'Total',      value: stats.total,        g: ['#7b57fc', '#6366f1'] },
+              { label: 'Unread',     value: stats.unread,       g: ['#f59e0b', '#f97316'] },
+              { label: 'Today',      value: stats.sentToday,    g: ['#10b981', '#14b8a6'] },
+              { label: 'This Week',  value: stats.sentThisWeek, g: ['#ec4899', '#f43f5e'] },
             ].map(k => (
-              <div key={k.label} className="rounded-xl border border-border/5 bg-card/50 p-4 flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground font-medium">{k.label}</span>
-                <span className={`text-2xl font-bold bg-linear-to-r ${k.color} bg-clip-text text-transparent`}>
+              <div
+                key={k.label}
+                className="rounded-xl border border-border/50 bg-card p-4 flex flex-col gap-1"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                  {k.label}
+                </span>
+                <span
+                  className="text-2xl font-extrabold tabular-nums tracking-tight bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(135deg, ${k.g[0]}, ${k.g[1]})` }}
+                >
                   {k.value.toLocaleString()}
                 </span>
               </div>
@@ -51,7 +68,7 @@ export default async function NotificationsPage() {
           </div>
         )}
 
-        {/* Main client component */}
+        {/* ── Main client component ────────────────────────────────────────── */}
         <NotificationsClient initialStats={stats} />
       </div>
     </div>

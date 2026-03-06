@@ -1,3 +1,5 @@
+// app/[locale]/dashboard/(routes)/notifications/_components/NotificationBell.tsx
+
 'use client'
 
 import {

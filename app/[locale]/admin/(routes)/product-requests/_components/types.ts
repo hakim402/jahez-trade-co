@@ -1,4 +1,5 @@
 // app/[locale]/admin/(routes)/product-requests/_components/types.ts
+
 import {
   User,
   Quote,
@@ -9,6 +10,11 @@ import {
   RequestStatus,
   QuoteStatus,
 } from '@prisma/client'
+import type { LucideIcon } from 'lucide-react'
+import {
+  FileText, FileImage, FileSpreadsheet,
+  FileType2, File, Archive,
+} from 'lucide-react'
 
 // ─── Serialised Decimal fields ─────────────────────────────────────────────
 
@@ -87,27 +93,25 @@ export const ALLOWED_EXTENSIONS = [
 
 export const MAX_FILE_SIZE_MB = 20
 
-export const FILE_TYPE_ICONS: Record<string, string> = {
-  pdf:  '📄',
-  doc:  '📝',
-  docx: '📝',
-  xls:  '📊',
-  xlsx: '📊',
-  ppt:  '📊',
-  pptx: '📊',
-  png:  '🖼️',
-  jpg:  '🖼️',
-  jpeg: '🖼️',
-  gif:  '🖼️',
-  webp: '🖼️',
-  txt:  '📃',
-  csv:  '📊',
-  zip:  '🗜️',
+// Lucide icon components — renders with theme color, scales with text, dark-mode safe
+export const FILE_TYPE_ICONS: Record<string, LucideIcon> = {
+  pdf: FileText,
+  doc: FileType2, docx: FileType2,
+  xls: FileSpreadsheet, xlsx: FileSpreadsheet,
+  ppt: FileSpreadsheet, pptx: FileSpreadsheet,
+  png: FileImage, jpg: FileImage, jpeg: FileImage, gif: FileImage, webp: FileImage,
+  txt: FileText,
+  csv: FileSpreadsheet,
+  zip: Archive,
 }
 
-export function getFileIcon(filename: string): string {
+/**
+ * Returns a Lucide icon component for the given filename extension.
+ * Usage: const Icon = getFileIcon(filename); <Icon size={14} className="..." />
+ */
+export function getFileIcon(filename: string): LucideIcon {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
-  return FILE_TYPE_ICONS[ext] ?? '📎'
+  return FILE_TYPE_ICONS[ext] ?? File
 }
 
 export function formatFileSize(bytes: number | null): string {

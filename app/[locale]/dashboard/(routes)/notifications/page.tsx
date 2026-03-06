@@ -1,3 +1,6 @@
+// app/[locale]/dashboard/(routes)/notifications/page.tsx
+
+
 import { Suspense } from "react";
 import { listClientNotifications } from "./actions";
 import { NotificationsClient } from "./_components/NotificationsClient";

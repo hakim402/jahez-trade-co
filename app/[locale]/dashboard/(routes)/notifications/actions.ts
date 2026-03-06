@@ -1,3 +1,5 @@
+// app/[locale]/dashboard/(routes)/notifications/actions.ts
+
 'use server'
 
 import { auth }    from '@clerk/nextjs/server'

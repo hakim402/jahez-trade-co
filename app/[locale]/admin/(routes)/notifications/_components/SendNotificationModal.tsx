@@ -1,15 +1,21 @@
 'use client'
 
+// app/[locale]/admin/(routes)/notifications/_components/SendNotificationModal.tsx
+
 import { useState, useTransition, useCallback, useRef, useEffect } from 'react'
 import { Send, Radio, X, Loader2, User, Users, Check, ChevronDown } from 'lucide-react'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
 import { Button }   from '@/components/ui/button'
 import { Input }    from '@/components/ui/input'
 import { Label }    from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import {
   sendNotification, broadcastNotification, searchUsers,
   type UserOption,
@@ -22,7 +28,7 @@ import {
 const TYPES = ['BOOKING', 'QUOTE', 'REQUEST', 'PAYMENT', 'SYSTEM', 'GENERAL']
 
 // ─────────────────────────────────────────────────────────────────────────────
-// USER SEARCH INPUT (for single-send mode)
+// USER SEARCH INPUT
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface UserSearchProps {
@@ -32,11 +38,14 @@ interface UserSearchProps {
 }
 
 function UserSearch({ value, onChange, error }: UserSearchProps) {
-  const [query,    setQuery]    = useState('')
-  const [results,  setResults]  = useState<UserOption[]>([])
-  const [open,     setOpen]     = useState(false)
-  const [loading,  setLoading]  = useState(false)
-  const debounce   = useRef<ReturnType<typeof setTimeout>>()
+  const [query,   setQuery]   = useState('')
+  const [results, setResults] = useState<UserOption[]>([])
+  const [open,    setOpen]    = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  // ✅ Fixed: useRef requires an initial value in strict TypeScript
+  const debounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const wrapRef  = useRef<HTMLDivElement>(null)
 
   const search = useCallback((q: string) => {
     setQuery(q)
@@ -51,8 +60,6 @@ function UserSearch({ value, onChange, error }: UserSearchProps) {
     }, 300)
   }, [value, onChange])
 
-  // Close on outside click
-  const wrapRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
@@ -61,7 +68,7 @@ function UserSearch({ value, onChange, error }: UserSearchProps) {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  function initials(name: string | null, email: string) {
+  function getInitials(name: string | null, email: string) {
     if (name) return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
     return email.slice(0, 2).toUpperCase()
   }
@@ -69,51 +76,59 @@ function UserSearch({ value, onChange, error }: UserSearchProps) {
   return (
     <div ref={wrapRef} className="relative">
       {value ? (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-color/30 bg-color/5">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#7b57fc]/30 bg-[#7b57fc]/5">
           <Avatar className="w-6 h-6">
-            <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
-              {initials(value.fullName, value.email)}
+            <AvatarFallback className="bg-[#7b57fc]/20 text-[#7b57fc] text-xs font-bold">
+              {getInitials(value.fullName, value.email)}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm text-foreground flex-1">
+          <span className="text-sm text-foreground flex-1 truncate">
             {value.fullName ?? value.email}
           </span>
-          <Button onClick={() => { onChange(null); setQuery('') }}
-            className="text-muted-foreground hover:text-foreground">
+          <Button
+            type="button"
+            onClick={() => { onChange(null); setQuery('') }}
+            className="text-muted-foreground hover:text-foreground transition-colors p-0.5 bg-color"
+          >
             <X size={14} />
           </Button>
         </div>
       ) : (
         <div className="relative">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+          <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={15} />
           <Input
             value={query}
             onChange={e => search(e.target.value)}
             placeholder="Search by name or email…"
-            className={`pl-9 bg-background/50 border-border/50 ${error ? 'border-red-500/50' : ''}`}
+            className={cn(
+              'pl-9 bg-background/50 border-border/50',
+              error && 'border-red-500/50 focus-visible:ring-red-500/30',
+            )}
           />
           {loading && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" size={14} />
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin pointer-events-none" size={14} />
           )}
         </div>
       )}
 
+      {/* Dropdown results */}
       {open && results.length > 0 && (
-        <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-lg border border-border bg-popover shadow-xl overflow-hidden">
+        <div className="absolute top-full mt-1 left-0 right-0 z-200 rounded-xl border border-border bg-popover shadow-2xl overflow-hidden">
           {results.map(u => (
             <button
               key={u.id}
+              type="button"
               onClick={() => { onChange(u); setQuery(''); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 text-left transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/60 text-left transition-colors"
             >
-              <Avatar className="w-7 h-7">
-                <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
-                  {initials(u.fullName, u.email)}
+              <Avatar className="w-7 h-7 shrink-0">
+                <AvatarFallback className="bg-[#7b57fc]/15 text-[#7b57fc] text-xs font-bold">
+                  {getInitials(u.fullName, u.email)}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="text-sm text-popover-foreground font-medium">{u.fullName ?? '—'}</p>
-                <p className="text-xs text-muted-foreground">{u.email}</p>
+              <div className="min-w-0">
+                <p className="text-sm text-foreground font-medium truncate">{u.fullName ?? '—'}</p>
+                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
               </div>
             </button>
           ))}
@@ -146,12 +161,14 @@ interface FormState {
 const DEFAULT_FORM: FormState = { user: null, title: '', message: '', type: 'SYSTEM' }
 
 export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props) {
-  const [form,       setForm]       = useState<FormState>(DEFAULT_FORM)
-  const [errors,     setErrors]     = useState<Partial<Record<keyof FormState, string>>>({})
-  const [result,     setResult]     = useState<{ ok: boolean; msg: string } | null>(null)
-  const [isPending,  startTransition] = useTransition()
+  const [form,      setForm]      = useState<FormState>(DEFAULT_FORM)
+  const [errors,    setErrors]    = useState<Partial<Record<keyof FormState, string>>>({})
+  const [result,    setResult]    = useState<{ ok: boolean; msg: string } | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-  // Reset when modal opens
+  const isBroadcast = mode === 'broadcast'
+
+  // Reset on open
   useEffect(() => {
     if (open) { setForm(DEFAULT_FORM); setErrors({}); setResult(null) }
   }, [open])
@@ -163,9 +180,9 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
 
   const validate = () => {
     const e: typeof errors = {}
-    if (mode === 'single' && !form.user) e.user = 'Please select a user'
-    if (!form.title.trim())   e.title   = 'Title is required'
-    if (!form.message.trim()) e.message = 'Message is required'
+    if (!isBroadcast && !form.user) e.user = 'Please select a user'
+    if (!form.title.trim())         e.title   = 'Title is required'
+    if (!form.message.trim())       e.message = 'Message is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -174,7 +191,7 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
     if (!validate()) return
     startTransition(async () => {
       setResult(null)
-      if (mode === 'single') {
+      if (!isBroadcast) {
         const r = await sendNotification({
           userId:  form.user!.id,
           title:   form.title,
@@ -205,48 +222,41 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
     })
   }
 
-  if (!open) return null
-
-  const isBroadcast = mode === 'broadcast'
-
   return (
-    /* Backdrop */
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-border/10 bg-card shadow-2xl overflow-hidden">
+    // ✅ Dialog uses a Radix portal — renders outside DOM tree, no z-index/stacking issues
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+      <DialogContent className="sm:max-w-lg p-0 gap-0 overflow-hidden rounded-2xl border border-border/50">
 
-        {/* Modal header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b border-border/10 ${
-          isBroadcast ? 'bg-violet-500/5' : 'bg-color/5'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-              isBroadcast ? 'bg-violet-500/20' : 'bg-color/20'
-            }`}>
-              {isBroadcast
-                ? <Radio size={18} className="text-violet-400" />
-                : <Send size={18} className="text-color" />
-              }
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-card-foreground">
-                {isBroadcast ? 'Broadcast Notification' : 'Send Notification'}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {isBroadcast
-                  ? 'Send to all active users on the platform'
-                  : 'Send to a specific user'}
-              </p>
-            </div>
+        {/* Header */}
+        <DialogHeader className={cn(
+          'flex-row items-center gap-3 px-6 py-4 border-b border-border/40 space-y-0',
+          isBroadcast ? 'bg-indigo-500/5' : 'bg-[#7b57fc]/5',
+        )}>
+          <div className={cn(
+            'flex h-10 w-10 items-center justify-center rounded-xl shrink-0',
+            isBroadcast ? 'bg-indigo-500/15' : 'bg-[#7b57fc]/15',
+          )}>
+            {isBroadcast
+              ? <Radio size={18} className="text-indigo-500" />
+              : <Send size={18} className="text-[#7b57fc]" />
+            }
           </div>
-          <Button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X size={20} />
-          </Button>
-        </div>
+          <div className="flex-1 min-w-0">
+            <DialogTitle className="text-base font-semibold leading-tight">
+              {isBroadcast ? 'Broadcast Notification' : 'Send Notification'}
+            </DialogTitle>
+            <DialogDescription className="text-xs mt-0.5">
+              {isBroadcast
+                ? 'Send to all active users on the platform'
+                : 'Send a notification to a specific user'}
+            </DialogDescription>
+          </div>
+        </DialogHeader>
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
 
-          {/* User selector (single mode only) */}
+          {/* Recipient (single mode) */}
           {!isBroadcast && (
             <div className="space-y-1.5">
               <Label className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -260,33 +270,38 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
             </div>
           )}
 
-          {/* Broadcast target notice */}
+          {/* Broadcast warning */}
           {isBroadcast && (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-violet-500/20 bg-violet-500/5">
-              <Users size={14} className="text-violet-400 shrink-0" />
-              <p className="text-xs text-violet-400">
-                This will be sent to <strong>all active users</strong>. Use with care.
+            <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+              <Users size={14} className="text-indigo-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-indigo-500 leading-relaxed">
+                This will be delivered to <strong>all active users</strong> on the platform. Please use with care.
               </p>
             </div>
           )}
 
-          {/* Type */}
+          {/* Type selector */}
           <div className="space-y-1.5">
-            <Label className="text-sm text-muted-foreground">Type</Label>
+            <Label className="text-sm text-muted-foreground">Notification type</Label>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline"
-                  className="w-full justify-between bg-background/50 border-border/50 text-foreground h-10">
+                <Button
+                  variant="outline"
+                  className="w-full justify-between bg-background/50 border-border/50 text-foreground h-10 font-normal"
+                >
                   {form.type}
-                  <ChevronDown size={14} />
+                  <ChevronDown size={14} className="text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-full bg-popover border-border">
+              <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
                 {TYPES.map(t => (
-                  <DropdownMenuItem key={t} onClick={() => set('type', t)}
-                    className="cursor-pointer text-sm">
+                  <DropdownMenuItem
+                    key={t}
+                    onSelect={() => set('type', t)}
+                    className="cursor-pointer text-sm flex justify-between"
+                  >
                     {t}
-                    {form.type === t && <Check size={13} className="ml-auto text-color" />}
+                    {form.type === t && <Check size={13} className="text-[#7b57fc]" />}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -301,10 +316,17 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
               onChange={e => set('title', e.target.value)}
               placeholder="Notification title…"
               maxLength={200}
-              className={`bg-background/50 border-border/50 ${errors.title ? 'border-red-500/50' : ''}`}
+              className={cn(
+                'bg-background/50 border-border/50',
+                errors.title && 'border-red-500/50 focus-visible:ring-red-500/30',
+              )}
             />
-            {errors.title && <p className="text-xs text-red-400">{errors.title}</p>}
-            <p className="text-xs text-muted-foreground text-right">{form.title.length}/200</p>
+            <div className="flex items-center justify-between">
+              {errors.title
+                ? <p className="text-xs text-red-400">{errors.title}</p>
+                : <span />}
+              <p className="text-xs text-muted-foreground/60 tabular-nums">{form.title.length}/200</p>
+            </div>
           </div>
 
           {/* Message */}
@@ -316,19 +338,27 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
               placeholder="Write your notification message…"
               maxLength={2000}
               rows={4}
-              className={`bg-background/50 border-border/50 resize-none ${errors.message ? 'border-red-500/50' : ''}`}
+              className={cn(
+                'bg-background/50 border-border/50 resize-none',
+                errors.message && 'border-red-500/50 focus-visible:ring-red-500/30',
+              )}
             />
-            {errors.message && <p className="text-xs text-red-400">{errors.message}</p>}
-            <p className="text-xs text-muted-foreground text-right">{form.message.length}/2000</p>
+            <div className="flex items-center justify-between">
+              {errors.message
+                ? <p className="text-xs text-red-400">{errors.message}</p>
+                : <span />}
+              <p className="text-xs text-muted-foreground/60 tabular-nums">{form.message.length}/2000</p>
+            </div>
           </div>
 
           {/* Result feedback */}
           {result && (
-            <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm ${
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm border',
               result.ok
-                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-                : 'bg-red-500/10 border border-red-500/20 text-red-400'
-            }`}>
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400',
+            )}>
               {result.ok ? <Check size={15} /> : <X size={15} />}
               {result.msg}
             </div>
@@ -336,29 +366,38 @@ export function SendNotificationModal({ open, mode, onClose, onSuccess }: Props)
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border/10">
-          <Button variant="ghost" onClick={onClose} disabled={isPending}
-            className="text-muted-foreground hover:text-foreground">
+        <div className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-border/40 bg-muted/20">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={isPending}
+            className="text-muted-foreground hover:text-foreground"
+          >
             Cancel
           </Button>
           <Button
+            type="button"
             onClick={handleSubmit}
             disabled={isPending}
-            className={`gap-2 ${
+            className={cn(
+              'gap-2 min-w-27.5',
               isBroadcast
-                ? 'bg-violet-600 hover:bg-violet-700 text-white'
-                : 'bg-color hover:bg-color/90 text-white'
-            }`}
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : 'bg-[#7b57fc] hover:bg-[#6a48e8] text-white',
+            )}
           >
-            {isPending
-              ? <><Loader2 size={15} className="animate-spin" /> Sending…</>
-              : isBroadcast
-                ? <><Radio size={15} /> Broadcast</>
-                : <><Send size={15} /> Send</>
-            }
+            {isPending ? (
+              <><Loader2 size={14} className="animate-spin" /> Sending…</>
+            ) : isBroadcast ? (
+              <><Radio size={14} /> Broadcast</>
+            ) : (
+              <><Send size={14} /> Send</>
+            )}
           </Button>
         </div>
-      </div>
-    </div>
+
+      </DialogContent>
+    </Dialog>
   )
 }
