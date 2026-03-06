@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition, useCallback } from 'react'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { Search, Bell, MessageSquare, Menu, Check, CheckCheck, ExternalLink, Loader2 } from 'lucide-react'
 import { Button }   from '@/components/ui/button'
 import { Input }    from '@/components/ui/input'
@@ -14,6 +15,7 @@ import {
 import { useSidebar }   from '@/context/sidebar-context'
 import { ThemeToggle }  from '@/app/[locale]/_components/Theme/theme-toggle'
 import dynamic          from 'next/dynamic'
+import { cn } from '@/lib/utils'
 import {
   getHeaderNotifications,
   getHeaderChatSessions,
@@ -49,22 +51,22 @@ function initials(name: string | null | undefined, email: string) {
 function notificationHref(n: HeaderNotification) {
   if (n.bookingId) return `/admin/video-bookings/${n.bookingId}`
   if (n.requestId) return `/admin/product-requests/${n.requestId}`
-  if (n.quoteId)   return `/admin/product-requests?quoteId=${n.quoteId}`
+  if (n.quoteId)   return `/admin/product-requests/{n.quoteId}`
   return '/admin/notifications'
 }
 
-// Map notification type → accent colour dot
+// Map notification type → accent colour dot (brand‑inspired)
 function typeDot(type: string) {
   const t = type.toLowerCase()
   if (t.includes('booking')) return 'bg-blue-400'
-  if (t.includes('quote'))   return 'bg-violet-400'
+  if (t.includes('quote'))   return 'bg-[#7b57fc]' // brand color
   if (t.includes('request')) return 'bg-amber-400'
   if (t.includes('payment')) return 'bg-emerald-400'
   return 'bg-muted-foreground'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NOTIFICATIONS DROPDOWN
+// NOTIFICATIONS DROPDOWN (enhanced styling)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL = 30_000 // 30 seconds
@@ -122,18 +124,25 @@ function NotificationsDropdown() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative text-muted-foreground hover:text-foreground hover:bg-accent/10 cursor-pointer"
+          className="relative text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-all hover:scale-105 cursor-pointer"
         >
           <Bell size={20} />
           {unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-color rounded-full text-xs flex items-center justify-center text-white font-medium">
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-[#7b57fc] rounded-full text-xs flex items-center justify-center text-white font-medium"
+            >
               {unread > 99 ? '99+' : unread}
-            </span>
+            </motion.span>
           )}
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-96 bg-popover border-border p-0">
+      <DropdownMenuContent
+        align="end"
+        className="w-96 bg-popover/95 backdrop-blur-sm border-border p-0 shadow-xl rounded-xl overflow-hidden"
+      >
         {/* Header row */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
@@ -141,7 +150,7 @@ function NotificationsDropdown() {
               Notifications
             </DropdownMenuLabel>
             {unread > 0 && (
-              <Badge variant="outline" className="text-xs bg-color/10 text-color border-color/30">
+              <Badge variant="outline" className="text-xs bg-[#7b57fc]/10 text-[#7b57fc] border-[#7b57fc]/30">
                 {unread} unread
               </Badge>
             )}
@@ -153,7 +162,7 @@ function NotificationsDropdown() {
                 variant="ghost"
                 size="sm"
                 onClick={handleMarkAll}
-                className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
+                className="text-xs text-muted-foreground hover:text-foreground h-7 px-2 transition-colors"
               >
                 <CheckCheck size={14} className="mr-1" />
                 Mark all read
@@ -177,13 +186,14 @@ function NotificationsDropdown() {
             notifications.map((n) => (
               <div
                 key={n.id}
-                className={`flex items-start gap-3 px-4 py-3 border-b border-border/50 last:border-0 transition-colors ${
-                  n.isRead ? 'opacity-60' : 'bg-accent/5'
-                }`}
+                className={cn(
+                  'flex items-start gap-3 px-4 py-3 border-b border-border/50 last:border-0 transition-colors',
+                  n.isRead ? 'opacity-60' : 'bg-[#7b57fc]/5'
+                )}
               >
                 {/* Type dot */}
                 <div className="mt-1.5 shrink-0">
-                  <span className={`block w-2 h-2 rounded-full ${typeDot(n.type)}`} />
+                  <span className={cn('block w-2 h-2 rounded-full', typeDot(n.type))} />
                 </div>
 
                 {/* Content */}
@@ -209,7 +219,7 @@ function NotificationsDropdown() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-7 h-7 text-muted-foreground hover:text-emerald-400"
+                      className="w-7 h-7 text-muted-foreground hover:text-[#7b57fc] transition-colors"
                       onClick={() => handleMarkOne(n.id)}
                       title="Mark as read"
                     >
@@ -219,7 +229,7 @@ function NotificationsDropdown() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-7 h-7 text-muted-foreground hover:text-foreground"
+                    className="w-7 h-7 text-muted-foreground hover:text-foreground transition-colors"
                     asChild
                   >
                     <Link href={notificationHref(n)} onClick={() => setOpen(false)}>
@@ -237,7 +247,7 @@ function NotificationsDropdown() {
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs text-color hover:bg-color/10 justify-center"
+            className="w-full text-xs text-[#7b57fc] hover:bg-[#7b57fc]/10 justify-center transition-colors"
             asChild
           >
             <Link href="/admin/notifications" onClick={() => setOpen(false)}>
@@ -251,7 +261,7 @@ function NotificationsDropdown() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MESSAGES (CHAT SESSIONS) DROPDOWN
+// MESSAGES (CHAT SESSIONS) DROPDOWN (enhanced styling)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MessagesDropdown() {
@@ -286,25 +296,32 @@ function MessagesDropdown() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative text-muted-foreground hover:text-foreground hover:bg-accent/10 cursor-pointer"
+          className="relative text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-all hover:scale-105 cursor-pointer"
         >
           <MessageSquare size={20} />
           {active > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full text-xs flex items-center justify-center text-white font-medium">
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full text-xs flex items-center justify-center text-white font-medium"
+            >
               {active > 99 ? '99+' : active}
-            </span>
+            </motion.span>
           )}
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-80 bg-popover border-border p-0">
+      <DropdownMenuContent
+        align="end"
+        className="w-80 bg-popover/95 backdrop-blur-sm border-border p-0 shadow-xl rounded-xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <DropdownMenuLabel className="p-0 text-popover-foreground font-semibold">
             Chat Sessions
           </DropdownMenuLabel>
           {active > 0 && (
-            <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+            <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
               {active} active
             </Badge>
           )}
@@ -323,16 +340,16 @@ function MessagesDropdown() {
             </div>
           ) : (
             sessions.map((s) => (
-              <DropdownMenuItem key={s.id} asChild>
+              <DropdownMenuItem key={s.id} asChild className="p-0 focus:bg-transparent">
                 <Link
                   href={`/admin/messages/${s.id}`}
                   onClick={() => setOpen(false)}
-                  className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-accent/10 border-b border-border/50 last:border-0"
+                  className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-[#7b57fc]/5 transition-colors border-b border-border/50 last:border-0"
                 >
                   <div className="relative shrink-0">
                     <Avatar className="w-9 h-9">
                       <AvatarImage src={s.user?.avatarUrl ?? undefined} />
-                      <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
+                      <AvatarFallback className="bg-[#7b57fc]/20 text-[#7b57fc] text-xs">
                         {s.user
                           ? initials(s.user.fullName, s.user.email)
                           : '??'}
@@ -374,7 +391,7 @@ function MessagesDropdown() {
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs text-color hover:bg-color/10 justify-center"
+            className="w-full text-xs text-[#7b57fc] hover:bg-[#7b57fc]/10 justify-center transition-colors"
             asChild
           >
             <Link href="/admin/messages" onClick={() => setOpen(false)}>
@@ -388,35 +405,42 @@ function MessagesDropdown() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN HEADER
+// MAIN HEADER (enhanced with motion and brand styling)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function AdminHeader() {
   const { toggleMobile } = useSidebar()
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur-sm border-b border-border px-4 lg:px-6">
+    <motion.header
+      className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur-sm border-b border-border px-4 lg:px-6"
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
       <div className="flex items-center justify-between h-full max-w-480 mx-auto">
         {/* Left */}
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleMobile}
-            className="lg:hidden text-muted-foreground hover:text-foreground hover:bg-accent/10"
-          >
-            <Menu size={20} />
-          </Button>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleMobile}
+              className="lg:hidden text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+            >
+              <Menu size={20} />
+            </Button>
+          </motion.div>
 
-          <div className="relative hidden sm:block">
+          <div className="relative hidden sm:block group">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-[#7b57fc]"
               size={18}
             />
             <Input
               type="search"
               placeholder="Search anything..."
-              className="w-64 lg:w-80 pl-10 bg-background/10 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+              className="w-64 lg:w-80 pl-10 bg-background/10 border-border text-foreground placeholder:text-muted-foreground focus:border-[#7b57fc] focus:ring-1 focus:ring-[#7b57fc]/20 transition-all"
             />
           </div>
         </div>
@@ -427,21 +451,23 @@ export function AdminHeader() {
             <ThemeToggle />
           </div>
 
-          {/* Real messages dropdown */}
+          {/* Messages dropdown */}
           <MessagesDropdown />
 
-          {/* Real notifications dropdown */}
+          {/* Notifications dropdown */}
           <NotificationsDropdown />
 
           {/* Clerk user button */}
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{
-              elements: { avatarBox: 'w-8 h-8 border-2 border-indigo-500 -mt-1' },
-            }}
-          />
+          <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: { avatarBox: 'w-8 h-8 border-2 border-[#7b57fc] -mt-1 shadow-sm hover:shadow-md transition-shadow' },
+              }}
+            />
+          </motion.div>
         </div>
       </div>
-    </header>
+    </motion.header>
   )
 }

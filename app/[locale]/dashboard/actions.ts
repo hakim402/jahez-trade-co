@@ -1,483 +1,726 @@
-// app/[locale]/dashboard/actions.tsx
-
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/prisma'
-import { RequestStatus, BookingStatus, QuoteStatus } from '@prisma/client'
+import { auth }          from '@clerk/nextjs/server'
+import { prisma }        from '@/lib/prisma'
+import { z }             from 'zod'
+import { revalidatePath } from 'next/cache'
+import {
+  type RequestStatus,
+  type BookingStatus,
+  type QuoteStatus,
+} from '@prisma/client'
+import type {
+  ClientDashboardStats,
+  SubscriptionInfo,
+  RecentRequestItem,
+  RecentBookingItem,
+  RecentQuoteItem,
+} from './_components/types'
 
-// ------------------------------------------------------------------
-// Helper – get authenticated client ID
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// RESULT WRAPPER
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ActionResult<T> = { success: true; data: T } | { success: false; error: string }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAN LIMIT MAPS
+// Keep in sync with video-bookings and requests plan maps.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PLAN_REQUEST_LIMITS: Record<string, number> = {
+  free:       2,
+  starter:    5,
+  pro:        15,
+  business:   50,
+  enterprise: Infinity,
+  vip:        Infinity,
+}
+
+const PLAN_BOOKING_LIMITS: Record<string, number> = {
+  free:       1,
+  starter:    2,
+  pro:        5,
+  business:   10,
+  enterprise: Infinity,
+  vip:        Infinity,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH HELPER
+// Fetches user + subscription in one query so every action is one round-trip.
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function requireClient() {
   const { userId: clerkId } = await auth()
   if (!clerkId) throw new Error('Unauthorized')
 
   const user = await prisma.user.findUnique({
-    where: { clerkId },
-    select: { id: true, role: true, isActive: true, isDeleted: true },
-  })
-
-  if (!user || user.isDeleted || !user.isActive) throw new Error('User not found or inactive')
-  if (user.role !== 'CLIENT') throw new Error('Forbidden')
-  return user.id
-}
-
-// ------------------------------------------------------------------
-// Types (exported for client components)
-// ------------------------------------------------------------------
-export type ClientDashboardStats = {
-  user: {
-    id: string
-    email: string
-    fullName: string | null
-    avatarUrl: string | null
-    isActive: boolean
-    createdAt: Date
-  }
-  subscription: {
-    hasActive: boolean
-    planName: string | null
-    planLimit: number // request limit from plan (0 = no active plan)
-    requestCount: number // current number of non‑deleted requests
-    remainingRequests: number // limit - requestCount (if limit is finite, otherwise Infinity)
-  } | null
-  requests: {
-    total: number
-    byStatus: Record<RequestStatus, number>
-    recent: Array<{
-      id: string
-      productLink: string | null
-      description: string | null
-      status: RequestStatus
-      createdAt: Date
-      quoteCount: number
-      fileCount: number
-    }>
-  }
-  bookings: {
-    total: number
-    byStatus: Record<BookingStatus, number>
-    recent: Array<{
-      id: string
-      status: BookingStatus
-      scheduledAt: Date | null
-      createdAt: Date
-      type: string
-    }>
-  }
-  quotes: {
-    total: number // quotes on client's requests
-    byStatus: Record<QuoteStatus, number>
-    recent: Array<{
-      id: string
-      price: number
-      currency: string
-      status: QuoteStatus
-      createdAt: Date
-      request: { id: string; productLink: string | null }
-    }>
-  }
-  files: {
-    total: number // files uploaded by client
-    recent: Array<{
-      id: string
-      url: string
-      fileName: string | null
-      fileType: string
-      createdAt: Date
-      request: { id: string; productLink: string | null } | null
-    }>
-  }
-  notifications: {
-    unreadCount: number
-    recent: Array<{
-      id: string
-      title: string
-      message: string
-      type: string
-      isRead: boolean
-      createdAt: Date
-      metadata: any
-    }>
-  }
-}
-
-// ------------------------------------------------------------------
-// Main metrics action
-// ------------------------------------------------------------------
-export async function getClientDashboardStats(): Promise<
-  { success: true; data: ClientDashboardStats } | { success: false; error: string }
-> {
-  try {
-    const clientId = await requireClient()
-
-    // Run all queries in parallel for maximum performance
-    const [
-      user,
-      subscriptionData,
-      totalRequests,
-      requestsByStatus,
-      recentRequests,
-      totalBookings,
-      bookingsByStatus,
-      recentBookings,
-      quotesTotal,
-      quotesByStatus,
-      recentQuotes,
-      filesTotal,
-      recentFiles,
-      unreadNotifications,
-      recentNotifications,
-    ] = await Promise.all([
-      // User profile
-      prisma.user.findUnique({
-        where: { id: clientId },
+    where:  { clerkId, isDeleted: false, isActive: true },
+    select: {
+      id:        true,
+      email:     true,
+      fullName:  true,
+      avatarUrl: true,
+      phone:     true,
+      role:      true,
+      createdAt: true,
+      subscription: {
         select: {
-          id: true,
-          email: true,
-          fullName: true,
-          avatarUrl: true,
-          isActive: true,
-          createdAt: true,
-        },
-      }),
-
-      // Subscription & plan info
-      prisma.user.findUnique({
-        where: { id: clientId },
-        select: {
-          subscription: {
+          items: {
+            where:   { status: 'ACTIVE' },
+            orderBy: { isDefaultPlan: 'asc' },
+            take:    1,
             select: {
-              items: {
-                where: { status: 'ACTIVE' },
+              status:            true,
+              currentPeriodEnd:  true,
+              trialEndsAt:       true,
+              isDefaultPlan:     true,
+              plan: {
                 select: {
-                  plan: {
-                    select: {
-                      name: true,
-                    },
-                  },
+                  name:          true,
+                  amount:        true,
+                  currency:      true,
+                  interval:      true,
+                  intervalCount: true,
+                  isDefault:     true,
                 },
               },
             },
           },
         },
-      }),
+      },
+    },
+  })
 
-      // Total requests (non‑deleted)
-      prisma.productRequest.count({
-        where: { clientId, isDeleted: false },
-      }),
+  if (!user)                  throw new Error('User not found or inactive')
+  if (user.role !== 'CLIENT') throw new Error('Forbidden')
+  return user
+}
 
-      // Requests by status
+type ClientUser = Awaited<ReturnType<typeof requireClient>>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INTERNAL: build SubscriptionInfo from user + usage counts
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildSubscriptionInfo(
+  user:           ClientUser,
+  billingEnabled: boolean,
+  requestsUsed:   number,
+  bookingsUsed:   number,
+): SubscriptionInfo {
+  const item = user.subscription?.items[0]
+  const plan = item?.plan
+
+  if (!billingEnabled) {
+    return {
+      planName:       'Platform Access',
+      planAmount:     0,
+      currency:       'USD',
+      interval:       null,
+      intervalCount:  null,
+      isDefaultPlan:  true,
+      isTrial:        false,
+      trialEndsAt:    null,
+      periodEndsAt:   null,
+      billingEnabled: false,
+      hasAccess:      true,
+      requestLimit:   Infinity,
+      bookingLimit:   Infinity,
+      requestsUsed,
+      bookingsUsed,
+    }
+  }
+
+  if (!plan || !item) {
+    return {
+      planName:       'No Plan',
+      planAmount:     0,
+      currency:       'USD',
+      interval:       null,
+      intervalCount:  null,
+      isDefaultPlan:  true,
+      isTrial:        false,
+      trialEndsAt:    null,
+      periodEndsAt:   null,
+      billingEnabled: true,
+      hasAccess:      false,
+      requestLimit:   0,
+      bookingLimit:   0,
+      requestsUsed,
+      bookingsUsed,
+    }
+  }
+
+  const key    = plan.name.toLowerCase()
+  const isTrial = !!(item.trialEndsAt && new Date(item.trialEndsAt) > new Date())
+
+  return {
+    planName:       plan.name,
+    planAmount:     Number(plan.amount),
+    currency:       plan.currency,
+    interval:       plan.interval,
+    intervalCount:  plan.intervalCount,
+    isDefaultPlan:  plan.isDefault,
+    isTrial,
+    trialEndsAt:    item.trialEndsAt     ?? null,
+    periodEndsAt:   item.currentPeriodEnd ?? null,
+    billingEnabled: true,
+    hasAccess:      item.status === 'ACTIVE',
+    requestLimit:   PLAN_REQUEST_LIMITS[key]  ?? (plan.isDefault ? 2 : 0),
+    bookingLimit:   PLAN_BOOKING_LIMITS[key]  ?? (plan.isDefault ? 1 : 0),
+    requestsUsed,
+    bookingsUsed,
+  }
+}
+
+// Active request statuses (not terminal)
+const ACTIVE_REQUEST_STATUSES: RequestStatus[] = [
+  'SUBMITTED', 'IN_REVIEW', 'QUOTED', 'APPROVED', 'IN_PRODUCTION',
+]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 1. getClientDashboardStats ────────────────────────────────────────────────
+//    Called by page.tsx — single parallel round-trip for all dashboard data.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getClientDashboardStats(): Promise<ActionResult<ClientDashboardStats>> {
+  try {
+    const user           = await requireClient()
+    const billingEnabled = process.env.BILLING_ENABLED === 'true'
+
+    // ── Single parallel batch ──────────────────────────────────────────────
+    const [
+      requestsByStatus,
+      bookingsByStatus,
+      quotesByStatus,
+      requestsUsed,
+      bookingsUsed,
+      recentRequestsRaw,
+      recentBookingsRaw,
+      recentQuotesRaw,
+      unreadNotifications,
+    ] = await Promise.all([
+
+      // ① Requests grouped by status
       prisma.productRequest.groupBy({
-        by: ['status'],
-        where: { clientId, isDeleted: false },
-        _count: true,
+        by:    ['status'],
+        where: { clientId: user.id, isDeleted: false },
+        _count: { _all: true },
       }),
 
-      // Recent 5 requests with counts
-      prisma.productRequest.findMany({
-        where: { clientId, isDeleted: false },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          productLink: true,
-          description: true,
-          status: true,
-          createdAt: true,
-          _count: { select: { quotes: true, files: true } },
-        },
-      }),
-
-      // Total bookings (non‑deleted)
-      prisma.videoBooking.count({
-        where: { clientId, isDeleted: false },
-      }),
-
-      // Bookings by status
+      // ② Bookings grouped by status
       prisma.videoBooking.groupBy({
-        by: ['status'],
-        where: { clientId, isDeleted: false },
-        _count: true,
+        by:    ['status'],
+        where: { clientId: user.id, isDeleted: false },
+        _count: { _all: true },
       }),
 
-      // Recent 5 bookings
-      prisma.videoBooking.findMany({
-        where: { clientId, isDeleted: false },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          status: true,
-          scheduledAt: true,
-          createdAt: true,
-          type: true,
-        },
-      }),
-
-      // Total quotes on client's requests
-      prisma.quote.count({
-        where: {
-          request: { clientId, isDeleted: false },
-          isDeleted: false,
-        },
-      }),
-
-      // Quotes by status
+      // ③ Quotes grouped by status
       prisma.quote.groupBy({
-        by: ['status'],
+        by:    ['status'],
         where: {
-          request: { clientId, isDeleted: false },
+          request:   { clientId: user.id, isDeleted: false },
           isDeleted: false,
         },
-        _count: true,
+        _count: { _all: true },
       }),
 
-      // Recent 5 quotes
+      // ④ Total request count (for subscription usage bar)
+      prisma.productRequest.count({ where: { clientId: user.id, isDeleted: false } }),
+
+      // ⑤ Total booking count (for subscription usage bar)
+      prisma.videoBooking.count({ where: { clientId: user.id, isDeleted: false } }),
+
+      // ⑥ Recent requests with latest quote
+      prisma.productRequest.findMany({
+        where:   { clientId: user.id, isDeleted: false },
+        orderBy: { updatedAt: 'desc' },
+        take:    5,
+        select: {
+          id:              true,
+          status:          true,
+          description:     true,
+          productLink:     true,
+          quantity:        true,
+          shippingCountry: true,
+          createdAt:       true,
+          updatedAt:       true,
+          acceptedQuoteId: true,
+          _count: { select: { quotes: { where: { isDeleted: false } } } },
+          quotes: {
+            where:   { isDeleted: false },
+            orderBy: { createdAt: 'desc' },
+            take:    1,
+            select: { id: true, price: true, currency: true, status: true },
+          },
+        },
+      }),
+
+      // ⑦ Recent bookings
+      prisma.videoBooking.findMany({
+        where:   { clientId: user.id, isDeleted: false },
+        orderBy: { updatedAt: 'desc' },
+        take:    5,
+        select: {
+          id:               true,
+          type:             true,
+          status:           true,
+          scheduledAt:      true,
+          durationMinutes:  true,
+          meetingLink:      true,
+          meetingProvider:  true,
+          meetingPassword:  true,
+          requestNotes:     true,
+          clientConfirmedAt: true,
+          createdAt:        true,
+        },
+      }),
+
+      // ⑧ Recent quotes with parent request
       prisma.quote.findMany({
         where: {
-          request: { clientId, isDeleted: false },
+          request:   { clientId: user.id, isDeleted: false },
           isDeleted: false,
         },
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take:    5,
         select: {
-          id: true,
-          price: true,
-          currency: true,
-          status: true,
-          createdAt: true,
-          request: { select: { id: true, productLink: true } },
+          id:         true,
+          status:     true,
+          price:      true,
+          currency:   true,
+          revision:   true,
+          validUntil: true,
+          adminNotes: true,
+          createdAt:  true,
+          request: { select: { id: true, description: true, status: true } },
         },
       }),
 
-      // Total files uploaded by client
-      prisma.file.count({
-        where: { uploadedById: clientId },
-      }),
-
-      // Recent 5 files uploaded by client
-      prisma.file.findMany({
-        where: { uploadedById: clientId },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          url: true,
-          fileName: true,
-          fileType: true,
-          createdAt: true,
-          request: { select: { id: true, productLink: true } },
-        },
-      }),
-
-      // Unread notifications count
-      prisma.notification.count({
-        where: { userId: clientId, isRead: false },
-      }),
-
-      // Recent 5 notifications
-      prisma.notification.findMany({
-        where: { userId: clientId },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          title: true,
-          message: true,
-          type: true,
-          isRead: true,
-          createdAt: true,
-          metadata: true,
-        },
-      }),
+      // ⑨ Unread notification count
+      prisma.notification.count({ where: { userId: user.id, isRead: false } }),
     ])
 
-    if (!user) throw new Error('User not found')
+    // ── Crunch request stats ───────────────────────────────────────────────
+    const requestByStatusMap: Record<string, number> = {}
+    let totalRequests    = 0
+    let activeRequests   = 0
+    let completedRequests = 0
 
-    // Process subscription
-    let subscriptionInfo = null
-    if (subscriptionData?.subscription && subscriptionData.subscription.items.length > 0) {
-      const plan = subscriptionData.subscription.items[0].plan
-      const planName = plan?.name || 'Unknown'
-      // Map plan name to request limit – adjust to your plan names
-      const limitMap: Record<string, number> = {
-        basic: 3,
-        pro: 5,
-        vip: Infinity,
-      }
-      const limit = planName ? limitMap[planName.toLowerCase()] ?? 0 : 0
-      const remaining = limit === Infinity ? Infinity : Math.max(0, limit - totalRequests)
-
-      subscriptionInfo = {
-        hasActive: true,
-        planName,
-        planLimit: limit,
-        requestCount: totalRequests,
-        remainingRequests: remaining,
-      }
-    } else {
-      subscriptionInfo = {
-        hasActive: false,
-        planName: null,
-        planLimit: 0,
-        requestCount: totalRequests,
-        remainingRequests: 0,
-      }
+    for (const row of requestsByStatus) {
+      const label               = row.status.charAt(0) + row.status.slice(1).toLowerCase().replace(/_/g, ' ')
+      requestByStatusMap[label] = row._count._all
+      totalRequests            += row._count._all
+      if (ACTIVE_REQUEST_STATUSES.includes(row.status)) activeRequests    += row._count._all
+      if (row.status === 'COMPLETED')                   completedRequests += row._count._all
     }
 
-    // Convert groupBy arrays to status → count objects
-    const requestStatusMap = requestsByStatus.reduce((acc, item) => {
-      acc[item.status] = item._count
-      return acc
-    }, {} as Record<RequestStatus, number>)
+    // ── Crunch booking stats ───────────────────────────────────────────────
+    const bookingByStatusMap: Record<string, number> = {}
+    let totalBookings    = 0
+    let upcomingBookings = 0
+    let completedBookings = 0
 
-    const bookingStatusMap = bookingsByStatus.reduce((acc, item) => {
-      acc[item.status] = item._count
-      return acc
-    }, {} as Record<BookingStatus, number>)
+    for (const row of bookingsByStatus) {
+      const label               = row.status.charAt(0) + row.status.slice(1).toLowerCase().replace(/_/g, ' ')
+      bookingByStatusMap[label] = row._count._all
+      totalBookings            += row._count._all
+      if (['PROPOSED', 'CONFIRMED'].includes(row.status)) upcomingBookings  += row._count._all
+      if (row.status === 'COMPLETED')                     completedBookings += row._count._all
+    }
 
-    const quoteStatusMap = quotesByStatus.reduce((acc, item) => {
-      acc[item.status] = item._count
-      return acc
-    }, {} as Record<QuoteStatus, number>)
+    // ── Crunch quote stats ─────────────────────────────────────────────────
+    const quoteByStatusMap: Record<string, number> = {}
+    let totalQuotes  = 0
+    let pendingQuotes = 0
 
-    // Map recent requests with counts
-    const mappedRecentRequests = recentRequests.map((r) => ({
-      ...r,
-      quoteCount: r._count.quotes,
-      fileCount: r._count.files,
-      _count: undefined, // remove raw _count
-    }))
-
-    // Convert Decimal to number for quotes
-    const mappedRecentQuotes = recentQuotes.map((q) => ({
-      ...q,
-      price: Number(q.price),
-    }))
+    for (const row of quotesByStatus) {
+      const label             = row.status.charAt(0) + row.status.slice(1).toLowerCase()
+      quoteByStatusMap[label] = row._count._all
+      totalQuotes            += row._count._all
+      if (row.status === 'SENT') pendingQuotes += row._count._all
+    }
 
     return {
       success: true,
       data: {
-        user,
-        subscription: subscriptionInfo,
+        user: {
+          id:          user.id,
+          email:       user.email,
+          fullName:    user.fullName,
+          avatarUrl:   user.avatarUrl,
+          phone:       user.phone,
+          memberSince: user.createdAt,
+        },
+
+        subscription: buildSubscriptionInfo(user, billingEnabled, requestsUsed, bookingsUsed),
+
         requests: {
-          total: totalRequests,
-          byStatus: requestStatusMap,
-          recent: mappedRecentRequests,
+          total:     totalRequests,
+          active:    activeRequests,
+          completed: completedRequests,
+          byStatus:  requestByStatusMap,
+          recent:    recentRequestsRaw.map((r): RecentRequestItem => ({
+            id:               r.id,
+            status:           r.status,
+            description:      r.description,
+            productLink:      r.productLink,
+            quantity:         r.quantity,
+            shippingCountry:  r.shippingCountry,
+            createdAt:        r.createdAt,
+            updatedAt:        r.updatedAt,
+            quotesCount:      r._count.quotes,
+            hasAcceptedQuote: !!r.acceptedQuoteId,
+            latestQuote: r.quotes[0]
+              ? { id: r.quotes[0].id, price: r.quotes[0].price.toString(), currency: r.quotes[0].currency, status: r.quotes[0].status }
+              : null,
+          })),
         },
+
         bookings: {
-          total: totalBookings,
-          byStatus: bookingStatusMap,
-          recent: recentBookings,
+          total:     totalBookings,
+          upcoming:  upcomingBookings,
+          completed: completedBookings,
+          byStatus:  bookingByStatusMap,
+          recent:    recentBookingsRaw.map((b): RecentBookingItem => ({
+            id:               b.id,
+            type:             b.type,
+            status:           b.status,
+            scheduledAt:      b.scheduledAt,
+            durationMinutes:  b.durationMinutes,
+            meetingLink:      b.meetingLink,
+            meetingProvider:  b.meetingProvider,
+            meetingPassword:  b.meetingPassword,
+            requestNotes:     b.requestNotes,
+            clientConfirmedAt: b.clientConfirmedAt,
+            createdAt:        b.createdAt,
+          })),
         },
+
         quotes: {
-          total: quotesTotal,
-          byStatus: quoteStatusMap,
-          recent: mappedRecentQuotes,
+          total:    totalQuotes,
+          pending:  pendingQuotes,
+          byStatus: quoteByStatusMap,
+          recent:   recentQuotesRaw.map((q): RecentQuoteItem => ({
+            id:         q.id,
+            status:     q.status,
+            price:      q.price.toString(),
+            currency:   q.currency,
+            revision:   q.revision,
+            validUntil: q.validUntil,
+            adminNotes: q.adminNotes,
+            createdAt:  q.createdAt,
+            request: {
+              id:          q.request.id,
+              description: q.request.description,
+              status:      q.request.status,
+            },
+          })),
         },
-        files: {
-          total: filesTotal,
-          recent: recentFiles,
-        },
+
         notifications: {
           unreadCount: unreadNotifications,
-          recent: recentNotifications,
         },
       },
     }
-  } catch (error) {
-    console.error('Client dashboard stats error:', error)
-    return { success: false, error: 'Failed to fetch dashboard data' }
+  } catch (err) {
+    console.error('[getClientDashboardStats]', err)
+    return { success: false, error: 'Failed to load dashboard' }
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 2. refreshDashboardKpi ────────────────────────────────────────────────────
+//    Lightweight poll — 4 queries. Call from useEffect interval in ClientDashboard.
+// ─────────────────────────────────────────────────────────────────────────────
 
+export type DashboardKpiSnapshot = {
+  activeRequests:      number
+  pendingQuotes:       number
+  upcomingBookings:    number
+  unreadNotifications: number
+}
 
-export async function markNotificationAsRead(notificationId: string) {
+export async function refreshDashboardKpi(): Promise<ActionResult<DashboardKpiSnapshot>> {
   try {
-    const clientId = await requireClient()
+    const user = await requireClient()
 
-    const notification = await prisma.notification.findUnique({
-      where: { id: notificationId },
-    })
+    const [requestKpi, bookingKpi, pendingQuotes, unreadNotifications] = await Promise.all([
+      prisma.productRequest.groupBy({
+        by:    ['status'],
+        where: { clientId: user.id, isDeleted: false },
+        _count: { _all: true },
+      }),
+      prisma.videoBooking.groupBy({
+        by:    ['status'],
+        where: { clientId: user.id, isDeleted: false },
+        _count: { _all: true },
+      }),
+      prisma.quote.count({
+        where: { request: { clientId: user.id, isDeleted: false }, status: 'SENT', isDeleted: false },
+      }),
+      prisma.notification.count({ where: { userId: user.id, isRead: false } }),
+    ])
 
-    if (!notification) {
-      return { success: false, error: 'Notification not found' }
+    let activeRequests  = 0
+    let upcomingBookings = 0
+    for (const r of requestKpi) {
+      if (ACTIVE_REQUEST_STATUSES.includes(r.status)) activeRequests += r._count._all
+    }
+    for (const b of bookingKpi) {
+      if (['PROPOSED', 'CONFIRMED'].includes(b.status)) upcomingBookings += b._count._all
     }
 
-    if (notification.userId !== clientId) {
-      return { success: false, error: 'Unauthorized' }
+    return {
+      success: true,
+      data: { activeRequests, pendingQuotes, upcomingBookings, unreadNotifications },
     }
-
-    await prisma.notification.update({
-      where: { id: notificationId },
-      data: { isRead: true },
-    })
-
-    return { success: true }
-  } catch (error) {
-    console.error('Mark notification as read error:', error)
-    return { success: false, error: 'Failed to mark notification as read' }
+  } catch (err) {
+    console.error('[refreshDashboardKpi]', err)
+    return { success: false, error: 'Failed to refresh' }
   }
 }
 
-export async function markAllNotificationsAsRead() {
-  try {
-    const clientId = await requireClient()
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 3. updateUserProfile ──────────────────────────────────────────────────────
+//    Editable fields: fullName, phone, avatarUrl. Revalidates dashboard.
+// ─────────────────────────────────────────────────────────────────────────────
 
-    await prisma.notification.updateMany({
-      where: { userId: clientId, isRead: false },
-      data: { isRead: true },
+const updateProfileSchema = z.object({
+  fullName:  z.string().min(1, 'Name is required').max(100).optional(),
+  phone:     z.string().max(30).optional().or(z.literal('')),
+  avatarUrl: z.string().url('Invalid URL').optional().or(z.literal('')),
+})
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
+
+export async function updateUserProfile(
+  input: UpdateProfileInput,
+): Promise<ActionResult<{ fullName: string | null; phone: string | null; avatarUrl: string | null }>> {
+  try {
+    const user      = await requireClient()
+    const validated = updateProfileSchema.parse(input)
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...(validated.fullName  !== undefined && { fullName:  validated.fullName  || null }),
+        ...(validated.phone     !== undefined && { phone:     validated.phone     || null }),
+        ...(validated.avatarUrl !== undefined && { avatarUrl: validated.avatarUrl || null }),
+      },
+      select: { fullName: true, phone: true, avatarUrl: true },
     })
 
-    return { success: true }
-  } catch (error) {
-    console.error('Mark all notifications as read error:', error)
-    return { success: false, error: 'Failed to mark all as read' }
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/profile')
+    revalidatePath('/dashboard/settings')
+
+    return { success: true, data: updated }
+  } catch (err) {
+    console.error('[updateUserProfile]', err)
+    if (err instanceof z.ZodError) return { success: false, error: err.issues[0].message }
+    return { success: false, error: 'Failed to update profile' }
   }
 }
 
-export async function deleteNotification(notificationId: string) {
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 4. getPendingActions ──────────────────────────────────────────────────────
+//    Items requiring client action now. For the urgent banner.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PendingAction = {
+  type:     'CONFIRM_BOOKING' | 'REVIEW_QUOTE' | 'EXPIRING_QUOTE'
+  title:    string
+  body:     string
+  urgency:  'high' | 'medium' | 'low'
+  // Routing
+  bookingId: string | null
+  requestId: string | null
+  quoteId:   string | null
+}
+
+export async function getPendingActions(): Promise<ActionResult<PendingAction[]>> {
   try {
-    const clientId = await requireClient()
+    const user = await requireClient()
+    const now  = new Date()
 
-    const notification = await prisma.notification.findUnique({
-      where: { id: notificationId },
-    })
+    const [proposedBookings, sentQuotes] = await Promise.all([
+      prisma.videoBooking.findMany({
+        where:  { clientId: user.id, isDeleted: false, status: 'PROPOSED' },
+        select: { id: true, type: true, scheduledAt: true, durationMinutes: true },
+      }),
+      prisma.quote.findMany({
+        where: {
+          request:   { clientId: user.id, isDeleted: false },
+          status:    'SENT',
+          isDeleted: false,
+        },
+        orderBy: { validUntil: 'asc' },
+        select: {
+          id: true, price: true, currency: true, validUntil: true,
+          request: { select: { id: true, description: true } },
+        },
+      }),
+    ])
 
-    if (!notification) {
-      return { success: false, error: 'Notification not found' }
+    const actions: PendingAction[] = []
+
+    for (const b of proposedBookings) {
+      const hoursUntil = b.scheduledAt
+        ? (new Date(b.scheduledAt).getTime() - now.getTime()) / 3_600_000
+        : null
+
+      actions.push({
+        type:      'CONFIRM_BOOKING',
+        title:     `Confirm your ${b.type.toLowerCase().replace(/_/g, ' ')} call`,
+        body:      b.scheduledAt
+          ? `Scheduled for ${new Date(b.scheduledAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+          : 'Time to be confirmed — please respond to accept.',
+        urgency:   hoursUntil !== null && hoursUntil < 24 ? 'high' : 'medium',
+        bookingId: b.id,
+        requestId: null,
+        quoteId:   null,
+      })
     }
 
-    if (notification.userId !== clientId) {
-      return { success: false, error: 'Unauthorized' }
+    for (const q of sentQuotes) {
+      const daysLeft = q.validUntil
+        ? (new Date(q.validUntil).getTime() - now.getTime()) / 86_400_000
+        : null
+
+      if (daysLeft !== null && daysLeft < 0) continue  // already expired
+
+      const isExpiring = daysLeft !== null && daysLeft <= 3
+
+      actions.push({
+        type:      isExpiring ? 'EXPIRING_QUOTE' : 'REVIEW_QUOTE',
+        title:     `Quote for "${q.request.description?.slice(0, 40) ?? 'your request'}"`,
+        body:      isExpiring
+          ? `Expires in ${Math.ceil(daysLeft!)} day${Math.ceil(daysLeft!) !== 1 ? 's' : ''} — ${Number(q.price).toLocaleString('en-US', { style: 'currency', currency: q.currency })}`
+          : `${Number(q.price).toLocaleString('en-US', { style: 'currency', currency: q.currency })} — waiting for your response`,
+        urgency:   isExpiring ? 'high' : 'low',
+        bookingId: null,
+        requestId: q.request.id,
+        quoteId:   q.id,
+      })
     }
 
-    await prisma.notification.delete({
-      where: { id: notificationId },
-    })
+    const urgencyRank = { high: 0, medium: 1, low: 2 }
+    actions.sort((a, b) => urgencyRank[a.urgency] - urgencyRank[b.urgency])
 
-    return { success: true }
-  } catch (error) {
-    console.error('Delete notification error:', error)
-    return { success: false, error: 'Failed to delete notification' }
+    return { success: true, data: actions }
+  } catch (err) {
+    console.error('[getPendingActions]', err)
+    return { success: false, error: 'Failed to load pending actions' }
   }
 }
 
-export async function deleteAllNotifications() {
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 5. searchDashboard ────────────────────────────────────────────────────────
+//    Global search: requests + bookings + notifications in parallel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const searchSchema = z.object({
+  query: z.string().min(1).max(200).trim(),
+  take:  z.number().int().min(1).max(20).default(8),
+})
+
+export type SearchResultItem = {
+  type:        'REQUEST' | 'BOOKING' | 'NOTIFICATION'
+  id:          string
+  title:       string
+  description: string
+  status:      string
+  createdAt:   Date
+  route:       string
+}
+
+export async function searchDashboard(
+  raw: z.infer<typeof searchSchema>,
+): Promise<ActionResult<SearchResultItem[]>> {
   try {
-    const clientId = await requireClient()
+    const user = await requireClient()
+    const { query, take } = searchSchema.parse(raw)
 
-    await prisma.notification.deleteMany({
-      where: { userId: clientId },
-    })
+    const [requests, bookings, notifications] = await Promise.all([
+      prisma.productRequest.findMany({
+        where: {
+          clientId:  user.id,
+          isDeleted: false,
+          OR: [
+            { description:     { contains: query, mode: 'insensitive' } },
+            { productLink:     { contains: query, mode: 'insensitive' } },
+            { customNotes:     { contains: query, mode: 'insensitive' } },
+            { shippingCountry: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        take,
+        select: { id: true, description: true, status: true, createdAt: true },
+      }),
 
-    return { success: true }
-  } catch (error) {
-    console.error('Delete all notifications error:', error)
-    return { success: false, error: 'Failed to delete all notifications' }
+      prisma.videoBooking.findMany({
+        where: {
+          clientId:     user.id,
+          isDeleted:    false,
+          requestNotes: { contains: query, mode: 'insensitive' },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take,
+        select: { id: true, type: true, status: true, createdAt: true, requestNotes: true },
+      }),
+
+      prisma.notification.findMany({
+        where: {
+          userId: user.id,
+          OR: [
+            { title:   { contains: query, mode: 'insensitive' } },
+            { message: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take,
+        select: { id: true, title: true, message: true, type: true, createdAt: true },
+      }),
+    ])
+
+    const results: SearchResultItem[] = [
+      ...requests.map((r): SearchResultItem => ({
+        type:        'REQUEST',
+        id:          r.id,
+        title:       r.description?.slice(0, 60) ?? 'Product Request',
+        description: `Status: ${r.status.toLowerCase().replace(/_/g, ' ')}`,
+        status:      r.status,
+        createdAt:   r.createdAt,
+        route:       '/dashboard/requests',
+      })),
+      ...bookings.map((b): SearchResultItem => ({
+        type:        'BOOKING',
+        id:          b.id,
+        title:       `${b.type.charAt(0) + b.type.slice(1).toLowerCase()} Video Call`,
+        description: b.requestNotes?.slice(0, 80) ?? `Status: ${b.status.toLowerCase()}`,
+        status:      b.status,
+        createdAt:   b.createdAt,
+        route:       '/dashboard/video-bookings',
+      })),
+      ...notifications.map((n): SearchResultItem => ({
+        type:        'NOTIFICATION',
+        id:          n.id,
+        title:       n.title,
+        description: n.message.slice(0, 80),
+        status:      n.type,
+        createdAt:   n.createdAt,
+        route:       '/dashboard/notifications',
+      })),
+    ]
+
+    results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    return { success: true, data: results.slice(0, take) }
+  } catch (err) {
+    console.error('[searchDashboard]', err)
+    if (err instanceof z.ZodError) return { success: false, error: err.issues[0].message }
+    return { success: false, error: 'Search failed' }
   }
 }

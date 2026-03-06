@@ -42,9 +42,9 @@ const mainNavItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
-  { icon: Bell, label: "Notifications", href: "/dashoard/notifications", badge: 5 },
-  { icon: Settings, label: "Settings", href: "/dashoard/settings" },
-  { icon: HelpCircle, label: "Help", href: "/dashoard/help" },
+  { icon: Bell, label: "Notifications", href: "/dashboard/notifications", badge: 5 },
+  { icon: Settings, label: "Settings", href: "/dashboard/settings" },
+  { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
 ];
 
 export function Sidebar() {

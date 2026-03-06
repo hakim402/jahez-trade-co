@@ -17,7 +17,6 @@ import {
 import { useSidebar } from "@/context/sidebar-context";
 import { ThemeToggle } from "@/app/[locale]/_components/Theme/theme-toggle";
 import { UserButton, useUser } from "@clerk/nextjs";
-import { NotificationsPanel } from "./Overview/NotificationsPanel";
 import { LanguageSwitcher } from "../../_components/Language/LanguageSwitcher";
 
 export function ClientHeader() {
@@ -56,7 +55,6 @@ export function ClientHeader() {
         <div className="flex items-center gap-2 sm:gap-4">
           <LanguageSwitcher />
           <ThemeToggle />
-          <NotificationsPanel />
           {/* User Profile */}
           <div className="flex items-center gap-3">
             <UserButton
