@@ -1,3 +1,11 @@
+import type { LucideIcon } from 'lucide-react'
+import {
+  CalendarClock, CheckCircle2, Trophy, Ban, UserX,
+  RefreshCw, ClipboardList, CircleCheck, XCircle,
+  ReceiptText, FilePen, MessageCircle, Settings2, Megaphone,
+  Bell,
+} from 'lucide-react'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,57 +36,72 @@ export type PaginationInfo = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NOTIFICATION TYPE CONFIG
-// Covers all types emitted by admin actions across the codebase
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type NotificationTypeConfig = {
   label:       string
-  icon:        string           // emoji for quick rendering
-  color:       string           // tailwind classes for the icon wrapper bg
-  textColor:   string           // tailwind text class
+  icon:        LucideIcon
+  /** bg class for the icon badge wrapper  e.g. "bg-blue-500/10" */
+  iconBg:      string
+  /** icon color class e.g. "text-blue-400" */
+  iconColor:   string
+  /** dot color class for unread indicator e.g. "bg-blue-400" */
+  dot:         string
+  /** chip classes for the label pill */
+  chip:        string
   description: string
-  route:       (n: ClientNotification) => string | null   // click-through URL
+  route:       (n: ClientNotification) => string | null
 }
 
 export const NOTIFICATION_TYPE_CONFIG: Record<string, NotificationTypeConfig> = {
   // ── Video Bookings ────────────────────────────────────────────────────────
   BOOKING_SCHEDULED: {
     label:       'Call Scheduled',
-    icon:        '🗓️',
-    color:       'bg-blue-100',
-    textColor:   'text-blue-700',
+    icon:        CalendarClock,
+    iconBg:      'bg-blue-500/10',
+    iconColor:   'text-blue-400',
+    dot:         'bg-blue-400',
+    chip:        'text-blue-400 bg-blue-500/10 border-blue-400/20',
     description: 'A time slot has been proposed for your video call.',
     route:       (n) => n.bookingId ? `/dashboard/video-bookings` : null,
   },
   BOOKING_CONFIRMED: {
     label:       'Call Confirmed',
-    icon:        '✅',
-    color:       'bg-green-100',
-    textColor:   'text-green-700',
+    icon:        CheckCircle2,
+    iconBg:      'bg-green-500/10',
+    iconColor:   'text-green-400',
+    dot:         'bg-green-400',
+    chip:        'text-green-400 bg-green-500/10 border-green-400/20',
     description: 'Your video call booking is confirmed.',
     route:       (n) => n.bookingId ? `/dashboard/video-bookings` : null,
   },
   BOOKING_COMPLETED: {
     label:       'Call Completed',
-    icon:        '🎉',
-    color:       'bg-emerald-100',
-    textColor:   'text-emerald-700',
+    icon:        Trophy,
+    iconBg:      'bg-teal-500/10',
+    iconColor:   'text-teal-400',
+    dot:         'bg-teal-400',
+    chip:        'text-teal-400 bg-teal-500/10 border-teal-400/20',
     description: 'Your video call has been marked as completed.',
     route:       (n) => n.bookingId ? `/dashboard/video-bookings` : null,
   },
   BOOKING_CANCELLED: {
     label:       'Call Cancelled',
-    icon:        '🚫',
-    color:       'bg-red-100',
-    textColor:   'text-red-700',
+    icon:        Ban,
+    iconBg:      'bg-red-500/10',
+    iconColor:   'text-red-400',
+    dot:         'bg-red-400',
+    chip:        'text-red-400 bg-red-500/10 border-red-400/20',
     description: 'Your video call booking has been cancelled.',
     route:       (n) => n.bookingId ? `/dashboard/video-bookings` : null,
   },
   BOOKING_NO_SHOW: {
     label:       'Missed Call',
-    icon:        '👻',
-    color:       'bg-orange-100',
-    textColor:   'text-orange-700',
+    icon:        UserX,
+    iconBg:      'bg-orange-500/10',
+    iconColor:   'text-orange-400',
+    dot:         'bg-orange-400',
+    chip:        'text-orange-400 bg-orange-500/10 border-orange-400/20',
     description: 'You missed your scheduled video call.',
     route:       (n) => n.bookingId ? `/dashboard/video-bookings` : null,
   },
@@ -86,33 +109,41 @@ export const NOTIFICATION_TYPE_CONFIG: Record<string, NotificationTypeConfig> = 
   // ── Product Requests ──────────────────────────────────────────────────────
   REQUEST_STATUS_UPDATED: {
     label:       'Request Updated',
-    icon:        '📦',
-    color:       'bg-purple-100',
-    textColor:   'text-purple-700',
+    icon:        RefreshCw,
+    iconBg:      'bg-violet-500/10',
+    iconColor:   'text-violet-400',
+    dot:         'bg-violet-400',
+    chip:        'text-violet-400 bg-violet-500/10 border-violet-400/20',
     description: 'The status of your product request has changed.',
     route:       (n) => n.requestId ? `/dashboard/requests` : null,
   },
   REQUEST_SUBMITTED: {
     label:       'Request Submitted',
-    icon:        '📋',
-    color:       'bg-violet-100',
-    textColor:   'text-violet-700',
+    icon:        ClipboardList,
+    iconBg:      'bg-indigo-500/10',
+    iconColor:   'text-indigo-400',
+    dot:         'bg-indigo-400',
+    chip:        'text-indigo-400 bg-indigo-500/10 border-indigo-400/20',
     description: 'Your product request has been received.',
     route:       (n) => n.requestId ? `/dashboard/requests` : null,
   },
   REQUEST_APPROVED: {
     label:       'Request Approved',
-    icon:        '🟢',
-    color:       'bg-green-100',
-    textColor:   'text-green-700',
+    icon:        CircleCheck,
+    iconBg:      'bg-green-500/10',
+    iconColor:   'text-green-400',
+    dot:         'bg-green-400',
+    chip:        'text-green-400 bg-green-500/10 border-green-400/20',
     description: 'Your product request has been approved.',
     route:       (n) => n.requestId ? `/dashboard/requests` : null,
   },
   REQUEST_REJECTED: {
     label:       'Request Rejected',
-    icon:        '🔴',
-    color:       'bg-red-100',
-    textColor:   'text-red-700',
+    icon:        XCircle,
+    iconBg:      'bg-red-500/10',
+    iconColor:   'text-red-400',
+    dot:         'bg-red-400',
+    chip:        'text-red-400 bg-red-500/10 border-red-400/20',
     description: 'Your product request was not approved.',
     route:       (n) => n.requestId ? `/dashboard/requests` : null,
   },
@@ -120,17 +151,21 @@ export const NOTIFICATION_TYPE_CONFIG: Record<string, NotificationTypeConfig> = 
   // ── Quotes ────────────────────────────────────────────────────────────────
   QUOTE_SENT: {
     label:       'Quote Received',
-    icon:        '💰',
-    color:       'bg-amber-100',
-    textColor:   'text-amber-700',
+    icon:        ReceiptText,
+    iconBg:      'bg-amber-500/10',
+    iconColor:   'text-amber-400',
+    dot:         'bg-amber-400',
+    chip:        'text-amber-400 bg-amber-500/10 border-amber-400/20',
     description: 'A quote has been sent for your request.',
     route:       (n) => n.requestId ? `/dashboard/requests` : null,
   },
   QUOTE_UPDATED: {
     label:       'Quote Updated',
-    icon:        '📝',
-    color:       'bg-yellow-100',
-    textColor:   'text-yellow-700',
+    icon:        FilePen,
+    iconBg:      'bg-yellow-500/10',
+    iconColor:   'text-yellow-400',
+    dot:         'bg-yellow-400',
+    chip:        'text-yellow-400 bg-yellow-500/10 border-yellow-400/20',
     description: 'A quote for your request has been updated.',
     route:       (n) => n.requestId ? `/dashboard/requests` : null,
   },
@@ -138,9 +173,11 @@ export const NOTIFICATION_TYPE_CONFIG: Record<string, NotificationTypeConfig> = 
   // ── Messages ──────────────────────────────────────────────────────────────
   NEW_MESSAGE: {
     label:       'New Message',
-    icon:        '💬',
-    color:       'bg-sky-100',
-    textColor:   'text-sky-700',
+    icon:        MessageCircle,
+    iconBg:      'bg-sky-500/10',
+    iconColor:   'text-sky-400',
+    dot:         'bg-sky-400',
+    chip:        'text-sky-400 bg-sky-500/10 border-sky-400/20',
     description: 'You have a new message from the team.',
     route:       () => `/dashboard/messages`,
   },
@@ -148,17 +185,21 @@ export const NOTIFICATION_TYPE_CONFIG: Record<string, NotificationTypeConfig> = 
   // ── System ────────────────────────────────────────────────────────────────
   SYSTEM: {
     label:       'System',
-    icon:        '⚙️',
-    color:       'bg-gray-100',
-    textColor:   'text-gray-600',
+    icon:        Settings2,
+    iconBg:      'bg-muted/40',
+    iconColor:   'text-muted-foreground',
+    dot:         'bg-muted-foreground',
+    chip:        'text-muted-foreground bg-muted/30 border-border/20',
     description: 'A system notification.',
     route:       () => null,
   },
   ANNOUNCEMENT: {
     label:       'Announcement',
-    icon:        '📣',
-    color:       'bg-indigo-100',
-    textColor:   'text-indigo-700',
+    icon:        Megaphone,
+    iconBg:      'bg-indigo-500/10',
+    iconColor:   'text-indigo-400',
+    dot:         'bg-indigo-400',
+    chip:        'text-indigo-400 bg-indigo-500/10 border-indigo-400/20',
     description: 'A platform announcement.',
     route:       () => null,
   },
@@ -168,9 +209,11 @@ export const NOTIFICATION_TYPE_CONFIG: Record<string, NotificationTypeConfig> = 
 export function getNotificationConfig(type: string): NotificationTypeConfig {
   return NOTIFICATION_TYPE_CONFIG[type] ?? {
     label:       type.replace(/_/g, ' '),
-    icon:        '🔔',
-    color:       'bg-muted',
-    textColor:   'text-muted-foreground',
+    icon:        Bell,
+    iconBg:      'bg-muted/40',
+    iconColor:   'text-muted-foreground',
+    dot:         'bg-muted-foreground',
+    chip:        'text-muted-foreground bg-muted/30 border-border/20',
     description: '',
     route:       () => null,
   }
@@ -191,10 +234,9 @@ export const FILTER_TABS = [
 
 export type FilterTab = (typeof FILTER_TABS)[number]['id']
 
-// Map filter tab → notification types
 export const FILTER_TYPE_MAP: Record<FilterTab, string[] | null> = {
   all:      null,
-  unread:   null, // handled via isRead=false
+  unread:   null,
   bookings: ['BOOKING_SCHEDULED', 'BOOKING_CONFIRMED', 'BOOKING_COMPLETED', 'BOOKING_CANCELLED', 'BOOKING_NO_SHOW'],
   requests: ['REQUEST_STATUS_UPDATED', 'REQUEST_SUBMITTED', 'REQUEST_APPROVED', 'REQUEST_REJECTED'],
   quotes:   ['QUOTE_SENT', 'QUOTE_UPDATED'],

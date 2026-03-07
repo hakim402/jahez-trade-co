@@ -136,61 +136,7 @@ function StatusBadge({ status }: { status: RequestStatus }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PLAN BANNER
-// ─────────────────────────────────────────────────────────────────────────────
 
-function PlanBanner({ plan }: { plan: UserPlanInfo }) {
-  if (plan.limit === Infinity) return null;
-  const pct = Math.round((plan.usedCount / plan.limit) * 100);
-  const isWarning = pct >= 80;
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border p-4 flex items-center gap-4",
-        isWarning
-          ? "border-amber-400/20 bg-amber-500/5"
-          : "border-border/10 bg-card/30",
-      )}
-    >
-      <div
-        className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-          isWarning ? "bg-amber-500/15" : "bg-muted/30",
-        )}
-      >
-        <Crown
-          size={16}
-          className={isWarning ? "text-amber-400" : "text-muted-foreground"}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-foreground">
-            {plan.planName} plan
-          </p>
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {plan.usedCount} / {plan.limit} requests
-          </p>
-        </div>
-        <div className="h-1.5 bg-border/20 rounded-full overflow-hidden">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              isWarning ? "bg-amber-400" : "bg-color",
-            )}
-            style={{ width: `${Math.min(100, pct)}%` }}
-          />
-        </div>
-      </div>
-      {isWarning && (
-        <button className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors shrink-0">
-          <Crown size={11} /> Upgrade
-        </button>
-      )}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILE UPLOAD ZONE
@@ -1501,7 +1447,7 @@ export function MyRequestsClient({
   initialRequests,
   initialPagination,
   filters,
-  plan,
+  plan
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1591,8 +1537,6 @@ export function MyRequestsClient({
 
   return (
     <div className="space-y-5">
-      <PlanBanner plan={plan} />
-
       {/* Action bar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -1656,7 +1600,7 @@ export function MyRequestsClient({
             <div
               key={i}
               className="rounded-2xl border border-border/8 bg-card/40 h-44 animate-pulse"
-              style={{ animationDelay: `${i * 60}ms` }}
+
             />
           ))}
         </div>

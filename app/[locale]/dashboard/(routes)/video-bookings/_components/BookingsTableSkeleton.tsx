@@ -27,7 +27,7 @@ export function BookingsTableSkeleton() {
           <div
             key={i}
             className="h-7 rounded-xl bg-muted/20 animate-pulse"
-            style={{ width: `${52 + i * 8}px`, animationDelay: `${i * 40}ms` }}
+            
           />
         ))}
       </div>
@@ -40,7 +40,7 @@ export function BookingsTableSkeleton() {
             <div
               key={i}
               className="h-3 rounded bg-muted/30 animate-pulse shrink-0"
-              style={{ width: `${w}px`, animationDelay: `${i * 30}ms` }}
+              
             />
           ))}
         </div>
@@ -50,15 +50,20 @@ export function BookingsTableSkeleton() {
           <div
             key={i}
             className="flex items-center gap-4 px-4 py-3.5 border-b border-border/5 last:border-0"
-            style={{ animationDelay: `${i * 55}ms` }}
+            
           >
             {/* type */}
-            <div className="flex items-center gap-2 shrink-0" style={{ width: 100 }}>
+            <div
+              className="flex items-center gap-2 shrink-0"
+              
+            >
               <div className="h-7 w-7 rounded-lg bg-muted/30 animate-pulse" />
               <div className="h-3.5 w-14 rounded bg-muted/30 animate-pulse" />
             </div>
             {/* status badge */}
-            <div className="h-5 w-24 rounded-full bg-muted/30 animate-pulse shrink-0" style={{ width: 90 }} />
+            <div
+              className="h-5 w-24 rounded-full bg-muted/30 animate-pulse shrink-0"
+            />
             {/* scheduled */}
             <div className="h-3.5 w-32 rounded bg-muted/25 animate-pulse hidden sm:block shrink-0" />
             {/* duration */}
@@ -81,5 +86,5 @@ export function BookingsTableSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }

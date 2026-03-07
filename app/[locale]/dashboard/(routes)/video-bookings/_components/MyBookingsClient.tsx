@@ -9,7 +9,7 @@ import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, type Variants } from "motion/react";
 import { cn } from "@/lib/utils";
 import {
   Plus,
@@ -111,78 +111,6 @@ function StatusBadge({ status }: { status: BookingStatus }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PLAN BANNER
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PlanBanner({ planInfo }: { planInfo: UserPlanInfo }) {
-  const { planName, limit, usedCount, billingEnabled } = planInfo;
-  if (!billingEnabled) return null;
-
-  const isUnlimited = limit === Infinity;
-  const pct = isUnlimited ? 0 : Math.min(100, (usedCount / limit) * 100);
-  const isAtLimit = !isUnlimited && usedCount >= limit;
-
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border p-4 flex items-center gap-4",
-        isAtLimit
-          ? "border-amber-400/20 bg-amber-500/5"
-          : "border-border/10 bg-card/30",
-      )}
-    >
-      <div
-        className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-          isAtLimit ? "bg-amber-500/15" : "bg-muted/30",
-        )}
-      >
-        <Crown
-          size={16}
-          className={isAtLimit ? "text-amber-400" : "text-muted-foreground"}
-        />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-foreground capitalize">
-            {isUnlimited
-              ? `${planName} plan — unlimited bookings`
-              : `${planName} plan`}
-          </p>
-          {!isUnlimited && (
-            <p className="text-xs text-muted-foreground tabular-nums">
-              {usedCount} / {limit} used
-            </p>
-          )}
-        </div>
-        {!isUnlimited && (
-          <div className="h-1.5 bg-border/20 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                isAtLimit ? "bg-amber-400" : "bg-color",
-              )}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-        )}
-        {isAtLimit && (
-          <p className="text-[10px] text-amber-400/80 mt-1.5">
-            You've reached your plan limit. Upgrade to request more calls.
-          </p>
-        )}
-      </div>
-
-      {isAtLimit && (
-        <button className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors shrink-0">
-          <Crown size={11} /> Upgrade
-        </button>
-      )}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BOOKING DETAIL MODAL
@@ -907,7 +835,7 @@ function ConfirmBookingDialog({
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 bg-muted/5">
           <Button
-          variant={'ghost'}
+            variant={"ghost"}
             onClick={() => onOpenChange(false)}
             disabled={loading}
             className="h-8 px-3.5 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
@@ -915,7 +843,7 @@ function ConfirmBookingDialog({
             Back
           </Button>
           <Button
-          variant={'ghost'}
+            variant={"ghost"}
             onClick={handle}
             disabled={loading}
             className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-60"
@@ -995,7 +923,7 @@ function CancelBookingDialog({
             No, keep it
           </button>
           <Button
-          variant={'ghost'}
+            variant={"ghost"}
             onClick={handle}
             disabled={loading}
             className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-60"
@@ -1155,7 +1083,7 @@ function BookingRow({
   onClick: () => void;
   onConfirm: () => void;
   onCancel: () => void;
-  variants?: object;
+  variants?: Variants;
 }) {
   const cfg = BOOKING_STATUS_CONFIG[booking.status];
   const needsAction = booking.status === "PROPOSED";
@@ -1345,9 +1273,6 @@ export function MyBookingsClient({
 
   return (
     <div className="space-y-5">
-      {/* Plan banner */}
-      <PlanBanner planInfo={initialPlanInfo} />
-
       {/* Action bar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">

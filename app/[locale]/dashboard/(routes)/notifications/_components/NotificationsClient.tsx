@@ -1,71 +1,82 @@
-// app/[locale]/dashboard/(routes)/notifications/_components/NotificationsClient.tsx
+"use client";
 
-'use client'
-
+import { useState, useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
-  useState, useEffect, useCallback, useTransition, useRef,
-} from 'react'
-import { useRouter } from 'next/navigation'
-import { formatDistanceToNow, isToday, isYesterday, isThisWeek, format } from 'date-fns'
+  formatDistanceToNow,
+  isToday,
+  isYesterday,
+  isThisWeek,
+  format,
+} from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Bell, BellOff, Check, CheckCheck, Trash2, Loader2,
-  ChevronRight, X, RefreshCw, Filter,
-} from 'lucide-react'
-import { Button }  from '@/components/ui/button'
-import { Badge }   from '@/components/ui/badge'
+  Bell,
+  BellOff,
+  Check,
+  CheckCheck,
+  Trash2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  X,
+  Sparkles,
+} from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+  listClientNotifications,
+  markNotificationsRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  deleteAllReadNotifications,
+} from "../actions";
 import {
-  Pagination, PaginationContent, PaginationEllipsis,
-  PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
-} from '@/components/ui/pagination'
-import { cn }      from '@/lib/utils'
-import { toast }   from 'sonner'
-import {
-  listClientNotifications, markNotificationsRead, markAllNotificationsRead,
-  deleteNotification, deleteAllReadNotifications,
-} from '../actions'
-import {
-  FILTER_TABS, FILTER_TYPE_MAP, getNotificationConfig,
-  type ClientNotification, type PaginationInfo, type FilterTab,
-} from './types'
+  FILTER_TABS,
+  FILTER_TYPE_MAP,
+  getNotificationConfig,
+  type ClientNotification,
+  type PaginationInfo,
+  type FilterTab,
+} from "./types";
+import { Button } from "@/components/ui/button";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function timeAgo(d: Date | string) {
-  return formatDistanceToNow(new Date(d), { addSuffix: true })
+  return formatDistanceToNow(new Date(d), { addSuffix: true });
 }
 
 function groupLabel(d: Date | string) {
-  const date = new Date(d)
-  if (isToday(date))           return 'Today'
-  if (isYesterday(date))       return 'Yesterday'
-  if (isThisWeek(date))        return 'This Week'
-  return format(date, 'MMMM yyyy')
+  const date = new Date(d);
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  if (isThisWeek(date)) return "This Week";
+  return format(date, "MMMM yyyy");
 }
 
 function groupNotifications(items: ClientNotification[]) {
-  const groups: { label: string; items: ClientNotification[] }[] = []
-  const seen = new Map<string, ClientNotification[]>()
-
+  const groups: { label: string; items: ClientNotification[] }[] = [];
+  const seen = new Map<string, ClientNotification[]>();
   for (const item of items) {
-    const label = groupLabel(item.createdAt)
+    const label = groupLabel(item.createdAt);
     if (!seen.has(label)) {
-      seen.set(label, [])
-      groups.push({ label, items: seen.get(label)! })
+      seen.set(label, []);
+      groups.push({ label, items: seen.get(label)! });
     }
-    seen.get(label)!.push(item)
+    seen.get(label)!.push(item);
   }
-  return groups
+  return groups;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,34 +88,50 @@ function NotificationItem({
   onRead,
   onDelete,
 }: {
-  notification: ClientNotification
-  onRead:       (id: string) => void
-  onDelete:     (id: string) => void
+  notification: ClientNotification;
+  onRead: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
-  const router = useRouter()
-  const cfg    = getNotificationConfig(notification.type)
-  const route  = cfg.route(notification)
+  const router = useRouter();
+  const cfg = getNotificationConfig(notification.type);
+  const route = cfg.route(notification);
+  const Icon = cfg.icon;
 
   const handleClick = () => {
-    if (!notification.isRead) onRead(notification.id)
-    if (route) router.push(route)
-  }
+    if (!notification.isRead) onRead(notification.id);
+    if (route) router.push(route);
+  };
 
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.15 }}
       className={cn(
-        'group relative rounded-xl border transition-all duration-200',
+        "group relative rounded-2xl border transition-all duration-200",
         notification.isRead
-          ? 'bg-card border-border/50 hover:border-border'
-          : 'bg-primary/3 border-primary/20 hover:border-primary/40 shadow-sm',
-        route && 'cursor-pointer'
+          ? "bg-card/40 border-border/10 hover:border-border/20 hover:bg-card/60"
+          : "bg-card/60 border-color/15 hover:border-color/25 shadow-sm",
+        route && "cursor-pointer",
       )}
       onClick={route ? handleClick : undefined}
     >
-      <div className="flex items-start gap-3 p-4">
-        {/* Icon */}
-        <div className={cn('rounded-lg p-2 text-lg shrink-0 leading-none', cfg.color)}>
-          {cfg.icon}
+      {/* Unread left accent */}
+      {!notification.isRead && (
+        <div className="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-color/60" />
+      )}
+
+      <div className="flex items-start gap-3 px-4 py-3.5">
+        {/* Icon badge */}
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            cfg.iconBg,
+          )}
+        >
+          <Icon size={16} className={cfg.iconColor} strokeWidth={2} />
         </div>
 
         {/* Content */}
@@ -112,56 +139,136 @@ function NotificationItem({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               {!notification.isRead && (
-                <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                <span
+                  className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)}
+                />
               )}
-              <p className={cn(
-                'text-sm leading-snug truncate',
-                notification.isRead ? 'font-normal text-foreground/80' : 'font-semibold text-foreground'
-              )}>
+              <p
+                className={cn(
+                  "text-sm leading-snug",
+                  notification.isRead
+                    ? "font-normal text-foreground/70"
+                    : "font-semibold text-foreground",
+                )}
+              >
                 {notification.title}
               </p>
             </div>
 
-            {/* Actions — visible on hover */}
+            {/* Hover actions */}
             <div
-              className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+              className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               onClick={(e) => e.stopPropagation()}
             >
               {!notification.isRead && (
                 <button
                   title="Mark as read"
                   onClick={() => onRead(notification.id)}
-                  className="h-6 w-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                  className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
                 >
-                  <Check className="h-3.5 w-3.5" />
+                  <Check size={12} />
                 </button>
               )}
               <button
                 title="Delete"
                 onClick={() => onDelete(notification.id)}
-                className="h-6 w-6 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
-                <X className="h-3.5 w-3.5" />
+                <X size={12} />
               </button>
-              {route && (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 pr-4">
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 pr-1">
             {notification.message}
           </p>
 
           <div className="flex items-center gap-2 mt-2">
-            <span className={cn('text-xs font-medium', cfg.textColor)}>{cfg.label}</span>
-            <span className="text-muted-foreground text-xs">·</span>
-            <span className="text-xs text-muted-foreground">{timeAgo(notification.createdAt)}</span>
+            {/* Type chip */}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border",
+                cfg.chip,
+              )}
+            >
+              <Icon size={9} strokeWidth={2.5} />
+              {cfg.label}
+            </span>
+            <span className="text-muted-foreground/40 text-[10px]">·</span>
+            <span className="text-[11px] text-muted-foreground">
+              {timeAgo(notification.createdAt)}
+            </span>
           </div>
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIRM CLEAR DIALOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ClearReadDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  loading,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onConfirm: () => void;
+  loading: boolean;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onOpenChange(false);
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.16 }}
+        className="w-full max-w-sm rounded-2xl border border-border/15 bg-card shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-start gap-3.5 px-5 pt-5 pb-4 border-b border-red-400/15 bg-red-500/5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
+            <Trash2 size={18} className="text-red-400" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-foreground">
+              Clear Read Notifications
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              All read notifications will be permanently deleted. This cannot be
+              undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-4 bg-muted/5">
+          <button
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+            className="h-8 px-3.5 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-60"
+          >
+            {loading && <Loader2 size={12} className="animate-spin" />}
+            Clear All Read
+          </button>
+        </div>
+      </motion.div>
     </div>
-  )
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,53 +276,62 @@ function NotificationItem({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function NotificationPagination({
-  pagination, onPageChange,
+  pagination,
+  onPageChange,
 }: {
-  pagination:   PaginationInfo
-  onPageChange: (p: number) => void
+  pagination: PaginationInfo;
+  onPageChange: (p: number) => void;
 }) {
-  const { page, totalPages } = pagination
-  if (totalPages <= 1) return null
-
-  const pages: (number | 'e')[] = []
-  for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) pages.push(i)
-    else if (pages[pages.length - 1] !== 'e') pages.push('e')
-  }
+  const { page, totalPages, totalCount, pageSize } = pagination;
+  if (totalPages <= 1) return null;
+  const rangeStart = (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, totalCount);
 
   return (
-    <Pagination>
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious
-            href="#"
-            onClick={(e) => { e.preventDefault(); if (page > 1) onPageChange(page - 1) }}
-            className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
-          />
-        </PaginationItem>
-        {pages.map((p, i) => p === 'e' ? (
-          <PaginationEllipsis key={`e${i}`} />
-        ) : (
-          <PaginationItem key={p}>
-            <PaginationLink
-              href="#"
-              isActive={p === page}
-              onClick={(e) => { e.preventDefault(); onPageChange(p) }}
-            >
-              {p}
-            </PaginationLink>
-          </PaginationItem>
-        ))}
-        <PaginationItem>
-          <PaginationNext
-            href="#"
-            onClick={(e) => { e.preventDefault(); if (page < totalPages) onPageChange(page + 1) }}
-            className={page >= totalPages ? 'pointer-events-none opacity-50' : ''}
-          />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
-  )
+    <div className="flex items-center justify-between pt-2">
+      <p className="text-xs text-muted-foreground">
+        Showing{" "}
+        <span className="font-semibold text-foreground tabular-nums">
+          {rangeStart}–{rangeEnd}
+        </span>{" "}
+        of{" "}
+        <span className="font-semibold text-foreground tabular-nums">
+          {totalCount.toLocaleString()}
+        </span>
+      </p>
+      <div className="flex items-center gap-1">
+        <Button
+        variant={'ghost'}
+          onClick={() => page > 1 && onPageChange(page - 1)}
+          disabled={page <= 1}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg border text-muted-foreground transition-all",
+            page > 1
+              ? "border-border/20 hover:border-border/40 hover:text-foreground hover:bg-muted/20"
+              : "border-border/10 opacity-40 cursor-not-allowed",
+          )}
+        >
+          <ChevronLeft size={14} />
+        </Button>
+        <span className="text-xs text-muted-foreground px-3 tabular-nums">
+          {page} / {totalPages}
+        </span>
+        <Button
+        variant={'ghost'}
+          onClick={() => page < totalPages && onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg border text-muted-foreground transition-all",
+            page < totalPages
+              ? "border-border/20 hover:border-border/40 hover:text-foreground hover:bg-muted/20"
+              : "border-border/10 opacity-40 cursor-not-allowed",
+          )}
+        >
+          <ChevronRight size={14} />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -223,9 +339,9 @@ function NotificationPagination({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface NotificationsClientProps {
-  initialItems:      ClientNotification[]
-  initialPagination: PaginationInfo
-  initialUnread:     number
+  initialItems: ClientNotification[];
+  initialPagination: PaginationInfo;
+  initialUnread: number;
 }
 
 export function NotificationsClient({
@@ -233,181 +349,212 @@ export function NotificationsClient({
   initialPagination,
   initialUnread,
 }: NotificationsClientProps) {
-  const [items,      setItems]      = useState(initialItems)
-  const [pagination, setPagination] = useState(initialPagination)
-  const [unread,     setUnread]     = useState(initialUnread)
-  const [activeTab,  setActiveTab]  = useState<FilterTab>('all')
-  const [page,       setPage]       = useState(1)
-  const [loading,    setLoading]    = useState(false)
-  const [isPending,  startTransition] = useTransition()
-  const [clearOpen,  setClearOpen]  = useState(false)
+  const [items, setItems] = useState(initialItems);
+  const [pagination, setPagination] = useState(initialPagination);
+  const [unread, setUnread] = useState(initialUnread);
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   // ── Fetch ────────────────────────────────────────────────────────────────
 
-  const fetch = useCallback(async (tab: FilterTab, p: number) => {
-    setLoading(true)
-    const types  = FILTER_TYPE_MAP[tab] ?? undefined
-    const isRead = tab === 'unread' ? false : undefined
-
-    const r = await listClientNotifications({ page: p, pageSize: 20, types, isRead })
+  const fetchPage = useCallback(async (tab: FilterTab, p: number) => {
+    setLoading(true);
+    const types = FILTER_TYPE_MAP[tab] ?? undefined;
+    const isRead = tab === "unread" ? false : undefined;
+    const r = await listClientNotifications({
+      page: p,
+      pageSize: 20,
+      types,
+      isRead,
+    });
     if (r.success) {
-      setItems(r.data.items)
-      setPagination(r.data.pagination)
-      setUnread(r.data.unreadCount)
+      setItems(r.data.items);
+      setPagination(r.data.pagination);
+      setUnread(r.data.unreadCount);
     }
-    setLoading(false)
-  }, [])
+    setLoading(false);
+  }, []);
 
   const handleTabChange = (tab: FilterTab) => {
-    setActiveTab(tab)
-    setPage(1)
-    fetch(tab, 1)
-  }
+    setActiveTab(tab);
+    setPage(1);
+    fetchPage(tab, 1);
+  };
 
   const handlePageChange = (p: number) => {
-    setPage(p)
-    fetch(activeTab, p)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    setPage(p);
+    fetchPage(activeTab, p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // ── Mark read ────────────────────────────────────────────────────────────
 
   const handleMarkRead = (id: string) => {
-    // Optimistic update
-    setItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n))
-    setUnread((prev) => Math.max(0, prev - 1))
-
+    setItems((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+    );
+    setUnread((prev) => Math.max(0, prev - 1));
     startTransition(async () => {
-      const r = await markNotificationsRead([id])
+      const r = await markNotificationsRead([id]);
       if (!r.success) {
-        // Revert
-        setItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: false } : n))
-        setUnread((prev) => prev + 1)
-        toast.error('Failed to mark as read')
+        setItems((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, isRead: false } : n)),
+        );
+        setUnread((prev) => prev + 1);
+        toast.error("Failed to mark as read");
       }
-    })
-  }
+    });
+  };
 
   const handleMarkAllRead = () => {
     startTransition(async () => {
-      const r = await markAllNotificationsRead()
+      const r = await markAllNotificationsRead();
       if (r.success) {
-        setItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
-        setUnread(0)
-        toast.success(`${r.data.count} notifications marked as read`)
+        setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        setUnread(0);
+        toast.success(`${r.data.count} notifications marked as read`);
       } else {
-        toast.error('Failed to mark all as read')
+        toast.error("Failed to mark all as read");
       }
-    })
-  }
+    });
+  };
 
   // ── Delete ───────────────────────────────────────────────────────────────
 
   const handleDelete = (id: string) => {
-    const item = items.find((n) => n.id === id)
-    setItems((prev) => prev.filter((n) => n.id !== id))
-    if (item && !item.isRead) setUnread((prev) => Math.max(0, prev - 1))
-
+    const item = items.find((n) => n.id === id);
+    setItems((prev) => prev.filter((n) => n.id !== id));
+    if (item && !item.isRead) setUnread((prev) => Math.max(0, prev - 1));
     startTransition(async () => {
-      const r = await deleteNotification(id)
+      const r = await deleteNotification(id);
       if (!r.success) {
-        // Revert
         if (item) {
           setItems((prev) => {
-            const copy = [...prev, item]
-            copy.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            return copy
-          })
-          if (!item.isRead) setUnread((prev) => prev + 1)
+            const copy = [...prev, item];
+            copy.sort(
+              (a, b) =>
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
+            );
+            return copy;
+          });
+          if (!item.isRead) setUnread((prev) => prev + 1);
         }
-        toast.error('Failed to delete notification')
+        toast.error("Failed to delete notification");
       }
-    })
-  }
+    });
+  };
 
   const handleClearRead = async () => {
-    const r = await deleteAllReadNotifications()
+    setClearLoading(true);
+    const r = await deleteAllReadNotifications();
+    setClearLoading(false);
     if (r.success) {
-      toast.success(`${r.data.count} read notifications cleared`)
-      fetch(activeTab, 1)
-      setPage(1)
+      toast.success(`${r.data.count} read notifications cleared`);
+      fetchPage(activeTab, 1);
+      setPage(1);
     } else {
-      toast.error('Failed to clear notifications')
+      toast.error("Failed to clear notifications");
     }
-    setClearOpen(false)
-  }
+    setClearOpen(false);
+  };
 
   // ── Groups ───────────────────────────────────────────────────────────────
 
-  const groups = groupNotifications(items)
+  const groups = groupNotifications(items);
 
   return (
-    <div className="space-y-4">
-      {/* Filter tabs */}
-      <div className="flex gap-0 border-b border-border/50 overflow-x-auto scrollbar-none">
-        {FILTER_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors shrink-0',
-              activeTab === tab.id
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {tab.label}
-            {tab.id === 'unread' && unread > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                {unread > 99 ? '99+' : unread}
-              </span>
-            )}
-          </button>
-        ))}
+    <div className="space-y-5">
+      {/* ── Filter tabs ──────────────────────────────────────────────────── */}
+      <div className="flex gap-1.5 flex-wrap">
+        {FILTER_TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
+                isActive
+                  ? "bg-color/15 text-color border-color/25"
+                  : "text-muted-foreground bg-muted/15 border-transparent hover:border-border/20 hover:text-foreground",
+              )}
+            >
+              {tab.label}
+              {tab.id === "unread" && unread > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-color/20 text-color px-1 text-[10px] font-bold tabular-nums">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Toolbar */}
+      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {pagination.totalCount > 0
-            ? `${pagination.totalCount} notification${pagination.totalCount !== 1 ? 's' : ''}`
-            : 'No notifications'}
-          {unread > 0 && ` · ${unread} unread`}
+        <p className="text-xs text-muted-foreground">
+          {pagination.totalCount > 0 ? (
+            <>
+              <span className="font-semibold text-foreground tabular-nums">
+                {pagination.totalCount}
+              </span>{" "}
+              notification{pagination.totalCount !== 1 ? "s" : ""}
+            </>
+          ) : (
+            "No notifications"
+          )}
+          {unread > 0 && (
+            <>
+              {" "}
+              ·{" "}
+              <span className="font-semibold text-color">{unread} unread</span>
+            </>
+          )}
         </p>
 
         <div className="flex items-center gap-2">
-          {/* Refresh */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-muted-foreground"
-            onClick={() => fetch(activeTab, page)}
+          <button
+            onClick={() => fetchPage(activeTab, page)}
             disabled={loading}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/15 text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors disabled:opacity-40"
+            title="Refresh"
           >
-            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-            <span className="sr-only">Refresh</span>
-          </Button>
+            <RefreshCw size={13} className={cn(loading && "animate-spin")} />
+          </button>
 
-          {/* Bulk actions */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-sm" disabled={isPending}>
-                <Filter className="h-3.5 w-3.5" />
+              <button
+                disabled={isPending}
+                className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors disabled:opacity-40"
+              >
                 Actions
-              </Button>
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleMarkAllRead} disabled={unread === 0 || isPending}>
-                <CheckCheck className="mr-2 h-4 w-4 text-green-600" />
+            <DropdownMenuContent
+              align="end"
+              className="rounded-xl border-border/20 bg-card/95 backdrop-blur-sm shadow-xl p-1 min-w-45"
+            >
+              <DropdownMenuItem
+                onClick={handleMarkAllRead}
+                disabled={unread === 0 || isPending}
+                className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer"
+              >
+                <CheckCheck size={13} className="text-green-400" />
                 Mark all as read
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="bg-border/15 my-1" />
               <DropdownMenuItem
                 onClick={() => setClearOpen(true)}
-                className="text-destructive focus:text-destructive"
                 disabled={isPending}
+                className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer text-red-400 focus:text-red-400"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 size={13} />
                 Clear read notifications
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -415,85 +562,117 @@ export function NotificationsClient({
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Content ──────────────────────────────────────────────────────── */}
       <div className="relative">
+        {/* Loading overlay */}
         {loading && (
-          <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10 rounded-xl">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {items.length === 0 ? (
-          <div className="py-16 text-center rounded-xl border border-dashed bg-muted/20">
-            <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-muted mb-4">
-              {activeTab === 'unread'
-                ? <BellOff className="h-6 w-6 text-muted-foreground" />
-                : <Bell className="h-6 w-6 text-muted-foreground" />}
+          <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border border-border/20 shadow-lg">
+              <Loader2
+                size={16}
+                className="animate-spin text-muted-foreground"
+              />
             </div>
-            <p className="font-medium text-foreground/70">
-              {activeTab === 'unread' ? 'All caught up!' : 'No notifications'}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {activeTab === 'unread'
-                ? 'You have no unread notifications.'
-                : "You'll see updates about your bookings, requests, and more here."}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {groups.map((group) => (
-              <div key={group.label}>
-                {/* Group header */}
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {group.label}
-                  </span>
-                  <div className="flex-1 h-px bg-border/50" />
-                  <span className="text-xs text-muted-foreground">{group.items.length}</span>
-                </div>
-
-                {/* Items */}
-                <div className="space-y-2">
-                  {group.items.map((n) => (
-                    <NotificationItem
-                      key={n.id}
-                      notification={n}
-                      onRead={handleMarkRead}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
           </div>
         )}
+
+        <AnimatePresence mode="wait">
+          {items.length === 0 ? (
+            <motion.div
+              key="empty"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="flex flex-col items-center justify-center py-20 gap-4 text-center rounded-2xl border border-dashed border-border/15 bg-muted/5"
+            >
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 ring-1 ring-border/10">
+                {activeTab === "unread" ? (
+                  <BellOff size={26} className="text-muted-foreground/30" />
+                ) : (
+                  <Bell size={26} className="text-muted-foreground/30" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground/70">
+                  {activeTab === "unread"
+                    ? "All caught up!"
+                    : "No notifications"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {activeTab === "unread"
+                    ? "You have no unread notifications."
+                    : "You'll see updates about your bookings, requests, and more here."}
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-7"
+            >
+              {groups.map((group) => (
+                <div key={group.label}>
+                  {/* Group header */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-2 text-muted-foreground/40">
+                      <Sparkles size={10} />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">
+                        {group.label}
+                      </span>
+                    </div>
+                    <div className="flex-1 h-px bg-border/10" />
+                    <span className="text-[10px] font-medium text-muted-foreground/40 tabular-nums">
+                      {group.items.length}
+                    </span>
+                  </div>
+
+                  {/* Items */}
+                  <motion.div
+                    className="space-y-2"
+                    initial="hidden"
+                    animate="show"
+                    variants={{
+                      hidden: {},
+                      show: { transition: { staggerChildren: 0.04 } },
+                    }}
+                  >
+                    {group.items.map((n) => (
+                      <NotificationItem
+                        key={n.id}
+                        notification={n}
+                        onRead={handleMarkRead}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </motion.div>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <NotificationPagination pagination={pagination} onPageChange={handlePageChange} />
-      )}
+      {/* ── Pagination ───────────────────────────────────────────────────── */}
+      <NotificationPagination
+        pagination={pagination}
+        onPageChange={handlePageChange}
+      />
 
-      {/* Clear read confirmation */}
-      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear Read Notifications</AlertDialogTitle>
-            <AlertDialogDescription>
-              All notifications you've already read will be permanently deleted. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleClearRead}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Clear All Read
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* ── Clear dialog ─────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {clearOpen && (
+          <ClearReadDialog
+            open={clearOpen}
+            onOpenChange={setClearOpen}
+            onConfirm={handleClearRead}
+            loading={clearLoading}
+          />
+        )}
+      </AnimatePresence>
     </div>
-  )
+  );
 }

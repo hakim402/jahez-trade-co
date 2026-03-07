@@ -19,11 +19,12 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 
 interface NavItem {
   icon: React.ElementType;
   labelKey: string;
-  href: string;
+  href?: string; // optional for items without navigation
   badge?: number;
 }
 
@@ -31,27 +32,49 @@ export function Sidebar() {
   const t = useTranslations("Sidebar");
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const pathname = usePathname();
+  const clerk = useClerk();
 
   const handleLinkClick = () => {
     setMobileOpen(false);
   };
 
-  const isActive = (href: string) => {
+  const handleSettingsClick = () => {
+    setMobileOpen(false);
+    clerk.openUserProfile();
+  };
+
+  const isActive = (href?: string) => {
+    if (!href) return false;
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
 
   const mainNavItems: NavItem[] = [
     { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
-    { icon: PackageSearch, labelKey: "myRequests", href: "/dashboard/requests" },
-    { icon: Video, labelKey: "videoBookings", href: "/dashboard/video-bookings" },
-    { icon: BotMessageSquare, labelKey: "support", href: "/dashboard/support", badge: 3 },
+    {
+      icon: PackageSearch,
+      labelKey: "myRequests",
+      href: "/dashboard/requests",
+    },
+    {
+      icon: Video,
+      labelKey: "videoBookings",
+      href: "/dashboard/video-bookings",
+    },
+    {
+      icon: Bell,
+      labelKey: "notifications",
+      href: "/dashboard/notifications",
+    },
   ];
 
   const bottomNavItems: NavItem[] = [
-    { icon: Bell, labelKey: "notifications", href: "/dashboard/notifications", badge: 5 },
-    { icon: Settings, labelKey: "settings", href: "/dashboard/settings" },
-    { icon: HelpCircle, labelKey: "help", href: "/dashboard/help" },
+    {
+      icon: BotMessageSquare,
+      labelKey: "support",
+      href: "/dashboard/support",
+    },
+    { icon: Settings, labelKey: "settings" }, // no href, will trigger modal
   ];
 
   return (
@@ -109,7 +132,11 @@ export function Sidebar() {
             className="hidden lg:flex text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/10 cursor-pointer"
           >
             <span className="inline-block rtl:rotate-180">
-              {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              {collapsed ? (
+                <ChevronRight size={18} />
+              ) : (
+                <ChevronLeft size={18} />
+              )}
             </span>
           </Button>
         </div>
@@ -119,7 +146,7 @@ export function Sidebar() {
             {mainNavItems.map((item) => (
               <Link
                 key={item.labelKey}
-                href={item.href}
+                href={item.href!}
                 onClick={handleLinkClick}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
@@ -144,31 +171,58 @@ export function Sidebar() {
           </div>
 
           <div className="space-y-1 border-t border-sidebar-border/5 pt-4">
-            {bottomNavItems.map((item) => (
-              <Link
-                key={item.labelKey}
-                href={item.href}
-                onClick={handleLinkClick}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
-                  isActive(item.href)
-                    ? "bg-linear-to-br from-indigo-500 to-purple-400 text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/10",
-                )}
-              >
-                <item.icon size={20} />
-                {!collapsed && (
-                  <>
-                    <span>{t(item.labelKey)}</span>
-                    {item.badge && (
-                      <span className="ms-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
-                        {item.badge}
-                      </span>
+            {bottomNavItems.map((item) => {
+              if (item.href) {
+                return (
+                  <Link
+                    key={item.labelKey}
+                    href={item.href}
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                      isActive(item.href)
+                        ? "bg-linear-to-br from-indigo-500 to-purple-400 text-sidebar-primary-foreground"
+                        : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/10",
                     )}
-                  </>
-                )}
-              </Link>
-            ))}
+                  >
+                    <item.icon size={20} />
+                    {!collapsed && (
+                      <>
+                        <span>{t(item.labelKey)}</span>
+                        {item.badge && (
+                          <span className="ms-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </Link>
+                );
+              }
+              // Settings button without href
+              return (
+                <button
+                  key={item.labelKey}
+                  onClick={handleSettingsClick}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all w-full text-left",
+                    "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/10",
+                  )}
+                >
+                  <item.icon size={20} />
+                  {!collapsed && (
+                    <>
+                      <span>{t(item.labelKey)}</span>
+                      {item.badge && (
+                        <span className="ms-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </nav>
       </aside>
