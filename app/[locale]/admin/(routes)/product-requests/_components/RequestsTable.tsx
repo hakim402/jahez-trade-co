@@ -48,6 +48,7 @@ import {
 import { RequestDetailModal } from "./RequestDetailModal";
 import { ConfirmDialog } from "./ConfirmDialog";
 import type { RequestWithRelations } from "./types";
+import { RequestFilters } from "./RequestFilters";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUS CONFIG  (keys = real Prisma enum values)
@@ -365,6 +366,7 @@ export function RequestsTable({ requests, onActionComplete }: Props) {
   };
 
   if (requests.length === 0) return null;
+  
 
   return (
     <>

@@ -7,7 +7,7 @@ import type {
   RecentActivity,
   RevenueBreakdown,
   UserOverview,
-} from '../actions'
+} from '../actions/actions'
 
 export type { DashboardStats, PendingWorkload, RecentActivity, RevenueBreakdown, UserOverview }
 

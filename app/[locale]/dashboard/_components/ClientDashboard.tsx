@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'   // <-- added
 import { format, formatDistanceToNow } from 'date-fns'
 import {
   RefreshCw, Loader2, AlertTriangle, ChevronRight,
@@ -39,6 +40,8 @@ const KPI_POLL_MS = 60_000   // refresh KPI counts every 60s
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PendingActionsBanner({ actions }: { actions: PendingAction[] }) {
+  const t = useTranslations('ClientDashboard.pendingActions')   // <-- added
+
   if (!actions.length) return null
 
   const highUrgency = actions.filter((a) => a.urgency === 'high')
@@ -78,8 +81,8 @@ function PendingActionsBanner({ actions }: { actions: PendingAction[] }) {
             )}
           >
             <Link href={action.bookingId ? '/dashboard/video-bookings' : '/dashboard/requests'}>
-              {action.type === 'CONFIRM_BOOKING' ? 'Confirm' : 'Review'}
-              <ChevronRight className="h-3 w-3 ml-0.5" />
+              {action.type === 'CONFIRM_BOOKING' ? t('confirm') : t('review')}
+              <ChevronRight className="h-3 w-3 ms-0.5" />   {/* ms-* for margin-inline-start */}
             </Link>
           </Button>
         </div>
@@ -113,7 +116,7 @@ function StatusBreakdownCard({
       </CardHeader>
       <CardContent className="px-4 pb-4">
         {entries.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 italic">No data</p>
+          <p className="text-xs text-muted-foreground/60 italic">No data</p>   // will be replaced by translation in parent
         ) : (
           <div className="space-y-1.5">
             {entries.map(([status, count]) => (
@@ -136,27 +139,29 @@ function StatusBreakdownCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function QuickActions() {
+  const t = useTranslations('ClientDashboard.quickActions')   // <-- added
+
   const actions = [
     {
-      label: 'New Request',
+      label: t('newRequest'),
       href:  '/dashboard/requests/new',
       icon:  PackageSearch,
       color: 'from-indigo-500 to-purple-500',
     },
     {
-      label: 'Book a Call',
+      label: t('bookCall'),
       href:  '/dashboard/video-bookings/new',
       icon:  Video,
       color: 'from-sky-500 to-cyan-500',
     },
     {
-      label: 'My Quotes',
+      label: t('myQuotes'),
       href:  '/dashboard/requests',
       icon:  MessageSquareQuote,
       color: 'from-amber-500 to-orange-500',
     },
     {
-      label: 'Files',
+      label: t('files'),
       href:  '/dashboard/files',
       icon:  FileText,
       color: 'from-emerald-500 to-teal-500',
@@ -188,10 +193,11 @@ function QuickActions() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MemberChip({ memberSince }: { memberSince: Date }) {
+  const t = useTranslations('ClientDashboard')   // <-- added
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border/50 rounded-full px-2.5 py-1 bg-muted/30">
       <Sparkles className="h-3 w-3 text-indigo-500" />
-      Member since {format(new Date(memberSince), 'MMM yyyy')}
+      {t('memberSince', { date: format(new Date(memberSince), 'MMM yyyy') })}
     </span>
   )
 }
@@ -205,6 +211,7 @@ interface ClientDashboardProps {
 }
 
 export function ClientDashboard({ stats }: ClientDashboardProps) {
+  const t = useTranslations('ClientDashboard')        // <-- added
   const [activeTab,     setActiveTab]     = useState('requests')
   const [kpi,           setKpi]           = useState<DashboardKpiSnapshot | null>(null)
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([])
@@ -230,7 +237,6 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
       })
     }
 
-    // Poll immediately then on interval
     poll()
     const interval = setInterval(poll, KPI_POLL_MS)
     return () => clearInterval(interval)
@@ -246,11 +252,10 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
     if (kpiResult.success)    { setKpi(kpiResult.data); setLastRefreshed(new Date()) }
     if (actionsResult.success)  setPendingActions(actionsResult.data)
     setIsRefreshing(false)
-    toast.success('Dashboard refreshed')
+    toast.success('Dashboard refreshed')   // can also be translated if needed
   }
 
   // ── Merge KPI snapshot into displayed stats ───────────────────────────────
-  // Live poll overrides SSR values for the 4 KPI numbers
   const liveStats: ClientDashboardStats = kpi
     ? {
         ...stats,
@@ -268,16 +273,15 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
       <ClientHeader />
 
       <div className="container mx-auto px-4 md:px-6 lg:px-8 py-6 space-y-6 max-w-7xl">
-
         {/* ── Welcome row ──────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl font-bold bg-linear-to-r from-indigo-600 via-purple-600 to-indigo-400 dark:from-indigo-400 dark:via-purple-400 dark:to-indigo-300 bg-clip-text text-transparent leading-tight">
-              Welcome back, {firstName}!
+              {t('welcome', { name: firstName })}
             </h1>
             <div className="flex items-center gap-3 flex-wrap">
               <p className="text-sm text-muted-foreground">
-                Here's what's happening with your account.
+                {t('subtitle')}
               </p>
               <MemberChip memberSince={stats.user.memberSince} />
             </div>
@@ -286,7 +290,7 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
           {/* Refresh button + last updated */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs text-muted-foreground hidden sm:block">
-              Updated {formatDistanceToNow(lastRefreshed, { addSuffix: true })}
+              {t('updated', { relative: formatDistanceToNow(lastRefreshed, { addSuffix: true }) })}
             </span>
             <Button
               variant="outline"
@@ -296,7 +300,7 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
               disabled={isRefreshing}
             >
               <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
-              Refresh
+              {t('refresh')}
             </Button>
           </div>
         </div>
@@ -321,9 +325,9 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
             <TabsList className="h-9 bg-muted/60 border border-border/40">
               <TabsTrigger value="requests" className="text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <PackageSearch className="h-3.5 w-3.5" />
-                Requests
+                {t('tabs.requests')}
                 {liveStats.requests.active > 0 && (
-                  <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[9px] font-bold text-white">
+                  <span className="ms-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-500 px-1 text-[9px] font-bold text-white">
                     {liveStats.requests.active}
                   </span>
                 )}
@@ -331,9 +335,9 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
 
               <TabsTrigger value="bookings" className="text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <Video className="h-3.5 w-3.5" />
-                Video Calls
+                {t('tabs.videoCalls')}
                 {liveStats.bookings.upcoming > 0 && (
-                  <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-500 px-1 text-[9px] font-bold text-white">
+                  <span className="ms-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-500 px-1 text-[9px] font-bold text-white">
                     {liveStats.bookings.upcoming}
                   </span>
                 )}
@@ -341,9 +345,9 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
 
               <TabsTrigger value="quotes" className="text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <MessageSquareQuote className="h-3.5 w-3.5" />
-                Quotes
+                {t('tabs.quotes')}
                 {liveStats.quotes.pending > 0 && (
-                  <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                  <span className="ms-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
                     {liveStats.quotes.pending}
                   </span>
                 )}
@@ -351,7 +355,7 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
 
               <TabsTrigger value="files" className="text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 <FileText className="h-3.5 w-3.5" />
-                Files
+                {t('tabs.files')}
               </TabsTrigger>
             </TabsList>
 
@@ -362,8 +366,8 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
                 activeTab === 'files'    ? '/dashboard/files' :
                 '/dashboard/requests'
               }>
-                View all
-                <ArrowUpRight className="h-3 w-3" />
+                {t('viewAll')}
+                <ArrowUpRight className="h-3 w-3 ms-0.5" />   {/* margin-inline-start */}
               </Link>
             </Button>
           </div>
@@ -402,19 +406,19 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
             {/* ── Side panel (1 col) — always visible ───────────────────── */}
             <div className="space-y-4">
               <StatusBreakdownCard
-                title="Requests by Status"
+                title={t('statusBreakdown.requestsByStatus')}
                 icon={PackageSearch}
                 iconColor="text-indigo-500"
                 byStatus={liveStats.requests.byStatus}
               />
               <StatusBreakdownCard
-                title="Bookings by Status"
+                title={t('statusBreakdown.bookingsByStatus')}
                 icon={Video}
                 iconColor="text-sky-500"
                 byStatus={liveStats.bookings.byStatus}
               />
               <StatusBreakdownCard
-                title="Quotes by Status"
+                title={t('statusBreakdown.quotesByStatus')}
                 icon={MessageSquareQuote}
                 iconColor="text-amber-500"
                 byStatus={liveStats.quotes.byStatus}
@@ -425,16 +429,16 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
                 <CardHeader className="pb-2 pt-4 px-4">
                   <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-                    Summary
+                    {t('summary.title')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 pb-4 space-y-1.5">
                   {[
-                    { label: 'Total Requests',  value: liveStats.requests.total },
-                    { label: 'Completed Orders', value: liveStats.requests.completed },
-                    { label: 'Total Bookings',  value: liveStats.bookings.total },
-                    { label: 'Calls Completed', value: liveStats.bookings.completed },
-                    { label: 'Total Quotes',    value: liveStats.quotes.total },
+                    { label: t('summary.totalRequests'),  value: liveStats.requests.total },
+                    { label: t('summary.completedOrders'), value: liveStats.requests.completed },
+                    { label: t('summary.totalBookings'),  value: liveStats.bookings.total },
+                    { label: t('summary.callsCompleted'), value: liveStats.bookings.completed },
+                    { label: t('summary.totalQuotes'),    value: liveStats.quotes.total },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">{label}</span>
@@ -460,6 +464,7 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FilesPlaceholder() {
+  const t = useTranslations('ClientDashboard.filesPlaceholder')
   return (
     <Card className="border border-dashed border-border/60 bg-muted/20">
       <CardContent className="py-16 flex flex-col items-center gap-3 text-center">
@@ -467,14 +472,14 @@ function FilesPlaceholder() {
           <FileText className="h-6 w-6 text-muted-foreground" />
         </div>
         <div>
-          <p className="text-sm font-medium text-foreground/70">Files coming soon</p>
+          <p className="text-sm font-medium text-foreground/70">{t('comingSoon')}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Your shared documents and deliverables will appear here.
+            {t('description')}
           </p>
         </div>
         <Button asChild size="sm" variant="outline" className="h-8 text-xs mt-1">
           <Link href="/dashboard/requests">
-            Go to Requests
+            {t('goToRequests')}
           </Link>
         </Button>
       </CardContent>

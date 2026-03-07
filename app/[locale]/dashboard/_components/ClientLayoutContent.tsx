@@ -1,5 +1,3 @@
-// app/[locale]/dashboard/_components/ClientLayoutContent.tsx
-
 'use client';
 
 import { SidebarProvider, useSidebar } from '@/context/sidebar-context';
@@ -15,9 +13,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           'min-h-screen transition-all duration-300 bg-background backdrop-blur-sm',
-          'lg:ml-0',
-          collapsed ? 'lg:ml-20' : 'lg:ml-64'
-          // No margin on mobile
+          // Use margin-inline-start for RTL compatibility
+          'lg:ms-0',
+          collapsed ? 'lg:ms-20' : 'lg:ms-64'
         )}
       >
         {children}
@@ -26,7 +24,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+export default function ClientLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <LayoutContent>{children}</LayoutContent>

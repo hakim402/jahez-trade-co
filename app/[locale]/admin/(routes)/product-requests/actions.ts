@@ -1,4 +1,5 @@
 'use server'
+// app/[locale]/admin/(routes)/product-requests/actions.ts
 
 import { prisma }       from '@/lib/prisma'
 import { requireAdmin } from '@/lib/admin-guard'

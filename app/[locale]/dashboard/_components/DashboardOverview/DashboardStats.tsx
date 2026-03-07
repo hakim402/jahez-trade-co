@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'   // <-- added
 import {
   PackageSearch, Video, MessageSquareQuote, Bell,
   TrendingUp, CheckCircle2, Clock, ArrowRight,
@@ -18,14 +19,14 @@ interface DashboardStatsCardsProps {
 }
 
 type StatCard = {
-  label:       string
+  labelKey:    string          // translation key for the main label
   value:       number
-  sublabel:    string
+  sublabelKey: string          // translation key for the sublabel
   subvalue:    number | string
   icon:        React.ElementType
-  gradient:    string          // from-X to-Y tailwind gradient
+  gradient:    string
   href:        string
-  urgent?:     boolean         // highlight if > 0
+  urgent?:     boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,57 +34,60 @@ type StatCard = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DashboardStatsCards({ stats }: DashboardStatsCardsProps) {
+  const t = useTranslations('DashboardStats')
+
   const cards: StatCard[] = [
     {
-      label:    'Active Requests',
-      value:    stats.requests.active,
-      sublabel: 'Total',
-      subvalue: stats.requests.total,
-      icon:     PackageSearch,
-      gradient: 'from-indigo-500 to-purple-500',
-      href:     '/dashboard/requests',
+      labelKey:    'activeRequests',
+      value:       stats.requests.active,
+      sublabelKey: 'total',
+      subvalue:    stats.requests.total,
+      icon:        PackageSearch,
+      gradient:    'from-indigo-500 to-purple-500',
+      href:        '/dashboard/requests',
     },
     {
-      label:    'Upcoming Calls',
-      value:    stats.bookings.upcoming,
-      sublabel: 'Completed',
-      subvalue: stats.bookings.completed,
-      icon:     Video,
-      gradient: 'from-sky-500 to-cyan-500',
-      href:     '/dashboard/video-bookings',
+      labelKey:    'upcomingCalls',
+      value:       stats.bookings.upcoming,
+      sublabelKey: 'completed',
+      subvalue:    stats.bookings.completed,
+      icon:        Video,
+      gradient:    'from-sky-500 to-cyan-500',
+      href:        '/dashboard/video-bookings',
     },
     {
-      label:    'Pending Quotes',
-      value:    stats.quotes.pending,
-      sublabel: 'Total quotes',
-      subvalue: stats.quotes.total,
-      icon:     MessageSquareQuote,
-      gradient: 'from-amber-500 to-orange-500',
-      href:     '/dashboard/requests',
-      urgent:   stats.quotes.pending > 0,
+      labelKey:    'pendingQuotes',
+      value:       stats.quotes.pending,
+      sublabelKey: 'totalQuotes',
+      subvalue:    stats.quotes.total,
+      icon:        MessageSquareQuote,
+      gradient:    'from-amber-500 to-orange-500',
+      href:        '/dashboard/requests',
+      urgent:      stats.quotes.pending > 0,
     },
     {
-      label:    'Notifications',
-      value:    stats.notifications.unreadCount,
-      sublabel: 'Requests done',
-      subvalue: stats.requests.completed,
-      icon:     Bell,
-      gradient: 'from-rose-500 to-pink-500',
-      href:     '/dashboard/notifications',
-      urgent:   stats.notifications.unreadCount > 0,
+      labelKey:    'notifications',
+      value:       stats.notifications.unreadCount,
+      sublabelKey: 'requestsDone',
+      subvalue:    stats.requests.completed,
+      icon:        Bell,
+      gradient:    'from-rose-500 to-pink-500',
+      href:        '/dashboard/notifications',
+      urgent:      stats.notifications.unreadCount > 0,
     },
   ]
 
   return (
     <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <StatCard key={card.label} card={card} />
+        <StatCard key={card.labelKey} card={card} />
       ))}
     </div>
   )
 }
 
 function StatCard({ card }: { card: StatCard }) {
+  const t = useTranslations('DashboardStats')
   const Icon = card.icon
 
   return (
@@ -109,8 +113,11 @@ function StatCard({ card }: { card: StatCard }) {
               <Icon className="h-4 w-4" />
             </div>
 
-            {/* Arrow on hover */}
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-all -translate-x-1 group-hover:translate-x-0 mt-0.5" />
+            {/* Arrow – flipped in RTL */}
+            <ArrowRight className={cn(
+              'h-3.5 w-3.5 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-all -translate-x-1 group-hover:translate-x-0 mt-0.5',
+              'rtl:rotate-180'   // flip in RTL
+            )} />
           </div>
 
           {/* Main value */}
@@ -123,13 +130,13 @@ function StatCard({ card }: { card: StatCard }) {
             )}>
               {card.value}
             </p>
-            <p className="text-sm font-medium text-foreground/80 mt-0.5">{card.label}</p>
+            <p className="text-sm font-medium text-foreground/80 mt-0.5">{t(card.labelKey)}</p>
           </div>
 
           {/* Sub-stat */}
           <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="font-semibold text-foreground/70">{card.subvalue}</span>
-            <span>{card.sublabel}</span>
+            <span>{t(card.sublabelKey)}</span>
           </div>
         </CardContent>
       </Card>

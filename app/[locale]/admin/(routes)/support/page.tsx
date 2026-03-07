@@ -3,7 +3,13 @@
 import { AdminHeader } from "../../_components/AdminHeader";
 import { MessagesClient } from "./_components/MessagesClient";
 import { getMessagesStats } from "./actions";
-import { MessageSquare, Zap, Hash, CalendarDays } from "lucide-react";
+import {
+  MessageSquare,
+  Zap,
+  Hash,
+  CalendarDays,
+  BotMessageSquare,
+} from "lucide-react";
 
 export const metadata = { title: "Messages — Admin" };
 
@@ -44,20 +50,25 @@ export default async function MessagesPage() {
 
   return (
     // Use flex-col on the outermost shell; MessagesClient owns the remaining height
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div className="flex flex-col h-screen overflow-hidden">
       <AdminHeader />
 
       {/* Page body — scrollable header zone + fixed-height messenger */}
       <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 lg:px-8 pt-6 pb-4 gap-5 max-w-screen-2xl mx-auto w-full">
         {/* ── Page header ──────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Messages
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Monitor and respond to user chat sessions in real time.
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
+              <BotMessageSquare className="h-5 w-5 text-[#7b57fc]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-color">
+                Support
+              </h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
+                Monitor and respond to user chat sessions in real time.
+              </p>
+            </div>
           </div>
 
           {stats && stats.activeSessions > 0 && (

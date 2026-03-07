@@ -42,7 +42,7 @@ import {
 import {
   listSessions,
   type SessionListItem,
-} from "../(routes)/messages/actions";
+} from "../(routes)/support/actions";
 
 const UserButton = dynamic(
   () => import("@clerk/nextjs").then((m) => m.UserButton),
@@ -263,12 +263,13 @@ function NotificationsPopover() {
               />
             )}
             {unread > 0 && (
-              <button
+              <Button
+                variant={"ghost"}
                 onClick={handleMarkAll}
                 className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-[#7b57fc] transition-colors px-2 py-1 rounded-lg hover:bg-[#7b57fc]/8"
               >
                 <CheckCheck size={12} /> Mark all read
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -364,21 +365,15 @@ function NotificationsPopover() {
                     {/* Actions */}
                     <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       {!n.isRead && (
-                        <button
+                        <Button
+                          variant={"ghost"}
                           onClick={() => handleMarkOne(n.id)}
                           title="Mark read"
                           className="h-6 w-6 flex items-center justify-center rounded-lg hover:bg-emerald-500/15 text-muted-foreground hover:text-emerald-500 transition-colors"
                         >
                           <Check size={12} />
-                        </button>
+                        </Button>
                       )}
-                      <Link
-                        href={href}
-                        onClick={() => setOpen(false)}
-                        className="h-6 w-6 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <ExternalLink size={12} />
-                      </Link>
                     </div>
                   </motion.div>
                 );
@@ -513,7 +508,7 @@ function MessagesPopover() {
                   transition={{ delay: i * 0.03 }}
                 >
                   <Link
-                    href={`/admin/messages/${s.id}`}
+                    href={`/admin/support/`}
                     onClick={() => setOpen(false)}
                     className="flex items-start gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors group"
                   >
@@ -638,6 +633,7 @@ function HeaderSearch() {
         />
         {query && (
           <Button
+            variant={"ghost"}
             onClick={() => setQuery("")}
             className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
           >

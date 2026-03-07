@@ -236,7 +236,7 @@ export async function createSlot(input: z.infer<typeof createSlotSchema>) {
 }
 
 // ------------------------------------------------------------------
-// deleteSlot — only if not booked
+// deleteSlot — only if not currently locked by an active booking
 // ------------------------------------------------------------------
 export async function deleteSlot(input: z.infer<typeof deleteSlotSchema>) {
   try {
@@ -244,11 +244,16 @@ export async function deleteSlot(input: z.infer<typeof deleteSlotSchema>) {
     const { slotId } = deleteSlotSchema.parse(input)
 
     const slot = await prisma.availabilitySlot.findUnique({
-      where: { id: slotId },
-      include: { booking: { select: { id: true } } },
+      where:   { id: slotId },
+      include: { booking: { select: { id: true, status: true } } },
     })
     if (!slot) return { success: false as const, error: 'Slot not found' }
-    if (slot.booking) return { success: false as const, error: 'Cannot delete a slot that has a booking assigned' }
+
+    // Block deletion only while the booking is still active (not yet terminal)
+    const TERMINAL_STATUSES: string[] = ['COMPLETED', 'CANCELED', 'NO_SHOW', 'REJECTED']
+    if (slot.booking && !TERMINAL_STATUSES.includes(slot.booking.status)) {
+      return { success: false as const, error: 'Cannot delete a slot that has an active booking assigned' }
+    }
 
     await prisma.availabilitySlot.delete({ where: { id: slotId } })
     return { success: true as const }
@@ -364,6 +369,8 @@ export async function scheduleBooking(input: z.infer<typeof scheduleBookingSchem
 
 // ------------------------------------------------------------------
 // completeBooking
+// FIX: release the slot (isBooked → false, disconnect) so it becomes
+//      available again for future bookings after the call ends.
 // ------------------------------------------------------------------
 export async function completeBooking(input: z.infer<typeof completeBookingSchema>) {
   try {
@@ -380,12 +387,23 @@ export async function completeBooking(input: z.infer<typeof completeBookingSchem
         throw new Error('Booking must be PROPOSED or CONFIRMED to complete')
       }
 
+      // ── RELEASE THE SLOT ──────────────────────────────────────────
+      // Free the slot so the admin can reuse, toggle, or delete it.
+      if (booking.slotId) {
+        await tx.availabilitySlot.update({
+          where: { id: booking.slotId },
+          data:  { isBooked: false },
+        })
+      }
+
       const updated = await tx.videoBooking.update({
         where: { id: validated.bookingId },
         data: {
           status:        'COMPLETED',
           transcriptUrl: validated.transcriptUrl || null,
-          aiSummary:     validated.aiSummary || null,
+          aiSummary:     validated.aiSummary     || null,
+          // Nullify the FK directly — more reliable than { disconnect: true }
+          slotId:        null,
         },
       })
 
@@ -430,6 +448,7 @@ export async function completeBooking(input: z.infer<typeof completeBookingSchem
 
 // ------------------------------------------------------------------
 // cancelBookingByAdmin
+// (already released the slot correctly — no change needed)
 // ------------------------------------------------------------------
 export async function cancelBookingByAdmin(input: z.infer<typeof cancelBookingSchema>) {
   try {
@@ -459,7 +478,7 @@ export async function cancelBookingByAdmin(input: z.infer<typeof cancelBookingSc
         where: { id: validated.bookingId },
         data: {
           status: 'CANCELED',
-          slot:   booking.slotId ? { disconnect: true } : undefined,
+          slotId: null,
         },
       })
 
@@ -504,6 +523,8 @@ export async function cancelBookingByAdmin(input: z.infer<typeof cancelBookingSc
 
 // ------------------------------------------------------------------
 // markNoShow
+// FIX: release the slot (isBooked → false, disconnect) so it becomes
+//      available again after the no-show is recorded.
 // ------------------------------------------------------------------
 export async function markNoShow(input: z.infer<typeof markNoShowSchema>) {
   try {
@@ -520,9 +541,21 @@ export async function markNoShow(input: z.infer<typeof markNoShowSchema>) {
         throw new Error('Booking must be PROPOSED or CONFIRMED to mark as no-show')
       }
 
+      // ── RELEASE THE SLOT ──────────────────────────────────────────
+      // Client didn't show up — free the slot for future use.
+      if (booking.slotId) {
+        await tx.availabilitySlot.update({
+          where: { id: booking.slotId },
+          data:  { isBooked: false },
+        })
+      }
+
       const updated = await tx.videoBooking.update({
         where: { id: validated.bookingId },
-        data:  { status: 'NO_SHOW' },
+        data: {
+          status: 'NO_SHOW',
+          slotId: null,
+        },
       })
 
       await tx.bookingStatusHistory.create({

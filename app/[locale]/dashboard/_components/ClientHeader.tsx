@@ -36,19 +36,6 @@ export function ClientHeader() {
           >
             <Menu size={20} />
           </Button>
-
-          {/* Search */}
-          <div className="relative hidden sm:block">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              size={18}
-            />
-            <Input
-              type="search"
-              placeholder="Search anything..."
-              className="w-64 lg:w-80 pl-10 bg-background/10 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
-            />
-          </div>
         </div>
 
         {/* Right Section */}

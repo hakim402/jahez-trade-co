@@ -73,12 +73,19 @@ export default async function UsersPage() {
         {/* ── Page header ──────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Users
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Manage accounts, subscriptions, and access.
-            </p>
+            <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
+              <Users className="h-5 w-5 text-[#7b57fc]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-color">
+                Manage Customers
+              </h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
+               Manage accounts, subscriptions, and access.
+              </p>
+            </div>
+          </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 border border-border/50 self-start sm:self-auto">
             <Users size={14} className="text-muted-foreground" />

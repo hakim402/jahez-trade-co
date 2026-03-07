@@ -1,25 +1,17 @@
-// app/[locale]/dashboard/_components/Sidebar.tsx
-
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useSidebar } from "@/context/sidebar-context";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  BarChart3,
-  Users,
-  Wallet,
   Settings,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
   Bell,
   MessageSquare,
-  FileText,
-  Calendar,
   PackageSearch,
-  MessageSquareQuote,
-  File,
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,25 +21,13 @@ import { usePathname } from "next/navigation";
 
 interface NavItem {
   icon: React.ElementType;
-  label: string;
+  labelKey: string;
   href: string;
   badge?: number;
 }
 
-const mainNavItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: PackageSearch, label: "My Requests", href: "/dashboard/requests" },
-  { icon: Video, label: "Video Bookings", href: "/dashboard/video-bookings" },
-  { icon: MessageSquare, label: "Messages", href: "/dashboard/messages", badge: 3 },
-];
-
-const bottomNavItems: NavItem[] = [
-  { icon: Bell, label: "Notifications", href: "/dashboard/notifications", badge: 5 },
-  { icon: Settings, label: "Settings", href: "/dashboard/settings" },
-  { icon: HelpCircle, label: "Help", href: "/dashboard/help" },
-];
-
 export function Sidebar() {
+  const t = useTranslations("Sidebar");
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const pathname = usePathname();
 
@@ -55,13 +35,23 @@ export function Sidebar() {
     setMobileOpen(false);
   };
 
-  // Helper to check if a link is active
   const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
-    }
+    if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
+
+  const mainNavItems: NavItem[] = [
+    { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
+    { icon: PackageSearch, labelKey: "myRequests", href: "/dashboard/requests" },
+    { icon: Video, labelKey: "videoBookings", href: "/dashboard/video-bookings" },
+    { icon: MessageSquare, labelKey: "messages", href: "/dashboard/messages", badge: 3 },
+  ];
+
+  const bottomNavItems: NavItem[] = [
+    { icon: Bell, labelKey: "notifications", href: "/dashboard/notifications", badge: 5 },
+    { icon: Settings, labelKey: "settings", href: "/dashboard/settings" },
+    { icon: HelpCircle, labelKey: "help", href: "/dashboard/help" },
+  ];
 
   return (
     <>
@@ -75,11 +65,18 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          "fixed left- top-0 z-50 h-screen bg-sidebar/90 border-r border-sidebar-border/5 transition-all duration-300",
-          "lg:translate-x-0",
-          collapsed ? "lg:w-18" : "lg:w-64",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "fixed top-0 z-50 h-screen bg-sidebar/90 border-sidebar-border/5 transition-all duration-300",
+          // Desktop positioning – always visible
+          "lg:block lg:translate-x-0",
+          "ltr:lg:left-0 rtl:lg:right-0",
+          "ltr:border-r rtl:border-l",
+          collapsed ? "lg:w-22" : "lg:w-64",
+          // Base width (mobile uses this)
           "w-64",
+          // Mobile transforms – only apply below lg breakpoint
+          mobileOpen
+            ? "max-lg:translate-x-0"
+            : "ltr:max-lg:-translate-x-full rtl:max-lg:translate-x-full",
         )}
       >
         <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border/5">
@@ -94,7 +91,7 @@ export function Sidebar() {
                 alt="mewan logo"
                 width={60}
                 height={60}
-                className="object-contain "
+                className="object-contain"
               />
             </div>
             {!collapsed && (
@@ -104,14 +101,15 @@ export function Sidebar() {
             )}
           </Link>
 
-          {/* Toggle button */}
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => setCollapsed(!collapsed)}
             className="hidden lg:flex text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/10 cursor-pointer"
           >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            <span className="inline-block rtl:rotate-180">
+              {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </span>
           </Button>
         </div>
 
@@ -119,7 +117,7 @@ export function Sidebar() {
           <div className="space-y-1">
             {mainNavItems.map((item) => (
               <Link
-                key={item.label}
+                key={item.labelKey}
                 href={item.href}
                 onClick={handleLinkClick}
                 className={cn(
@@ -132,9 +130,9 @@ export function Sidebar() {
                 <item.icon size={20} />
                 {!collapsed && (
                   <>
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                     {item.badge && (
-                      <span className="ml-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
+                      <span className="ms-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
                         {item.badge}
                       </span>
                     )}
@@ -147,7 +145,7 @@ export function Sidebar() {
           <div className="space-y-1 border-t border-sidebar-border/5 pt-4">
             {bottomNavItems.map((item) => (
               <Link
-                key={item.label}
+                key={item.labelKey}
                 href={item.href}
                 onClick={handleLinkClick}
                 className={cn(
@@ -160,9 +158,9 @@ export function Sidebar() {
                 <item.icon size={20} />
                 {!collapsed && (
                   <>
-                    <span>{item.label}</span>
+                    <span>{t(item.labelKey)}</span>
                     {item.badge && (
-                      <span className="ml-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
+                      <span className="ms-auto text-xs bg-sidebar-primary/20 text-sidebar-primary-foreground px-1.5 py-0.5 rounded-full">
                         {item.badge}
                       </span>
                     )}

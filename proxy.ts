@@ -21,7 +21,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const pathname = req.nextUrl.pathname;
 
   // =====================================================
-  // 🚨 1. BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
+  // BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
   // =====================================================
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
@@ -49,14 +49,14 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // 🔐 3. Protect Dashboard & Admin Routes
+  // Protect Dashboard & Admin Routes
   // =====================================================
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
 
   // =====================================================
-  // 🛡 4. Admin Role Check (Database)
+  // Admin Role Check (Database)
   // =====================================================
   if (isAdminRoute(req)) {
     if (!userId) {
@@ -74,14 +74,14 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // 🌐 5. Run Internationalization Middleware
+  // Run Internationalization Middleware
   // =====================================================
   return intlMiddleware(req);
 });
 
 
 // =====================================================
-// ✅ CLEAN MATCHER CONFIG
+// CLEAN MATCHER CONFIG
 // =====================================================
 export const config = {
   matcher: [

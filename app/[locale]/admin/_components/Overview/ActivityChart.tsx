@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { containerVariants, cardVariants } from '@/lib/motion'
-import type { RevenueBreakdown, DashboardStats } from '../../actions'
+import type { RevenueBreakdown, DashboardStats } from '../../actions/actions'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {

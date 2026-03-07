@@ -24,7 +24,7 @@ import {
   getPendingWorkload,
   getRecentActivity,
   getRevenueBreakdown,
-} from "../actions";
+} from "../actions/actions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SKELETON FALLBACKS (unchanged)

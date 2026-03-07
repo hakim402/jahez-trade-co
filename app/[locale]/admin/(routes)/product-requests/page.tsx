@@ -7,7 +7,13 @@ import { RequestsTableSkeleton } from "./_components/RequestsTableSkeleton";
 import { RequestsPageClient } from "./_components/RequestsPageClient";
 import { AdminHeader } from "../../_components/AdminHeader";
 import { RequestStatus } from "@prisma/client";
-import { Package, Clock, FileText, AlertCircle } from "lucide-react";
+import {
+  Package,
+  Clock,
+  FileText,
+  AlertCircle,
+  PackageSearch,
+} from "lucide-react";
 
 interface PageProps {
   searchParams: Promise<{
@@ -91,14 +97,21 @@ export default async function ProductRequestsPage({ searchParams }: PageProps) {
       <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 lg:px-8 pt-6 pb-4 gap-5 max-w-screen-2xl mx-auto w-full">
         {/* ── Page header ─────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 shrink-0">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Product Requests
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Manage client requests, generate AI quotes, and track fulfilment.
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
+              <PackageSearch className="h-5 w-5 text-[#7b57fc]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-color">
+                Product Requests
+              </h1>
+              <p className="text-muted-foreground text-sm mt-0.5">
+                Manage client requests, generate AI quotes, and track
+                fulfilment.
+              </p>
+            </div>
           </div>
+
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 border border-border/50 self-start sm:self-auto">
             <Package size={14} className="text-muted-foreground" />
             <span className="text-sm font-bold text-foreground tabular-nums">

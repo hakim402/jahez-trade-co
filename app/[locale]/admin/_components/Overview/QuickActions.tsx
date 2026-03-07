@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useClerk } from "@clerk/nextjs"; // <-- import useClerk
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Plus,
@@ -12,9 +13,11 @@ import {
   Settings,
   BarChart3,
   MessageCircle,
+  BotMessageSquare,
 } from "lucide-react";
 import { containerVariants, cardVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 const quickActions = [
   {
@@ -22,7 +25,7 @@ const quickActions = [
     label: "Product Requests",
     href: "/admin/product-requests",
     color: "from-[#7b57fc] to-indigo-600",
-  }, // brand gradient
+  },
   {
     icon: Video,
     label: "Video Bookings",
@@ -42,20 +45,26 @@ const quickActions = [
     color: "from-pink-500 to-rose-500",
   },
   {
-    icon: MessageCircle,
-    label: "New Messages",
+    icon: BotMessageSquare,
+    label: "Support",
     href: "/admin/messages/",
     color: "from-cyan-500 to-blue-500",
   },
   {
     icon: Settings,
     label: "Settings",
-    href: "/admin/settings",
+    // href removed – will open modal instead
     color: "from-slate-500 to-slate-400",
   },
 ];
 
 export function QuickActions() {
+  const clerk = useClerk(); // access Clerk methods
+
+  const handleOpenSettings = () => {
+    clerk.openUserProfile(); // opens the manage account modal
+  };
+
   return (
     <motion.div
       variants={cardVariants}
@@ -88,22 +97,44 @@ export function QuickActions() {
                 whileHover={{ scale: 1.05, y: -4 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <Link
-                  href={action.href}
-                  className="flex flex-col items-center justify-center gap-2 h-auto py-4 px-2 bg-muted/20 hover:bg-accent/20 border border-border/5 hover:border-border/10 rounded-xl transition-all group"
-                >
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-lg bg-linear-to-br flex items-center justify-center group-hover:scale-110 transition-transform",
-                      action.color,
-                    )}
+                {action.label === "Settings" ? (
+                  // Render a button that opens the Clerk modal
+                  <Button
+                    variant={"ghost"}
+                    onClick={handleOpenSettings}
+                    className="flex flex-col items-center justify-center gap-2 h-auto py-4 px-2 bg-muted/20 hover:bg-accent/20 border border-border/5 hover:border-border/10 rounded-xl transition-all group w-full cursor-pointer"
                   >
-                    <action.icon size={20} className="text-white" />
-                  </div>
-                  <span className="text-muted-foreground text-xs font-medium text-center">
-                    {action.label}
-                  </span>
-                </Link>
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-lg bg-linear-to-br flex items-center justify-center group-hover:scale-110 transition-transform",
+                        action.color,
+                      )}
+                    >
+                      <action.icon size={20} className="text-white" />
+                    </div>
+                    <span className="text-muted-foreground text-xs font-medium text-center">
+                      {action.label}
+                    </span>
+                  </Button>
+                ) : (
+                  // Render a Link for all other actions
+                  <Link
+                    href={action.href!}
+                    className="flex flex-col items-center justify-center gap-2 h-auto py-4 px-2 bg-muted/20 hover:bg-accent/20 border border-border/5 hover:border-border/10 rounded-xl transition-all group"
+                  >
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-lg bg-linear-to-br flex items-center justify-center group-hover:scale-110 transition-transform",
+                        action.color,
+                      )}
+                    >
+                      <action.icon size={20} className="text-white" />
+                    </div>
+                    <span className="text-muted-foreground text-xs font-medium text-center">
+                      {action.label}
+                    </span>
+                  </Link>
+                )}
               </motion.div>
             ))}
           </motion.div>

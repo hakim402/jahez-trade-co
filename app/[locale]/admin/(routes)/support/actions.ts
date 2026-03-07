@@ -1,4 +1,4 @@
-// app/[locale]/admin/(routes)/messages/actions.ts
+// app/[locale]/admin/(routes)/support/actions.ts
 
 'use server'
 

@@ -1,19 +1,14 @@
 // app/[locale]/dashboard/page.tsx
-import { Suspense } from 'react'
+
 import { getClientDashboardStats } from './actions'
 import { ClientDashboard } from './_components/ClientDashboard'
-import { DashboardSkeleton } from './_components/DashboardSkeleton'
 
 export default async function DashboardPage() {
   const result = await getClientDashboardStats()
 
   if (!result.success) {
-    throw new Error(result.error)
+    throw new Error(result.error || 'Failed to load dashboard stats')
   }
 
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <ClientDashboard stats={result.data} />
-    </Suspense>
-  )
+  return <ClientDashboard stats={result.data} />
 }

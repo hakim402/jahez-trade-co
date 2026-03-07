@@ -3,9 +3,9 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import AdminLayoutContent from './_components/ClientLayoutContent';
+import ClientLayoutContent from './_components/ClientLayoutContent';
 
-export default async function AdminLayout({
+export default async function ClientLayout({
    children,
 }: {
   children: React.ReactNode;
@@ -22,7 +22,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <AdminLayoutContent>{children}</AdminLayoutContent>
+      <ClientLayoutContent>{children}</ClientLayoutContent>
     </div>
   );
 }

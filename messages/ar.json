@@ -418,5 +418,96 @@
     "contactMap": {
       "caption": "قوانغتشو، الصين - المكتب الرئيسي"
     }
+  },
+  "ClientDashboard": {
+    "welcome": "مرحباً بعودتك، {name}!",
+    "subtitle": "إليك ما يحدث في حسابك.",
+    "memberSince": "عضو منذ {date}",
+    "refresh": "تحديث",
+    "updated": "آخر تحديث {relative}",
+    "quickActions": {
+      "newRequest": "طلب جديد",
+      "bookCall": "حجز مكالمة",
+      "myQuotes": "عروض الأسعار",
+      "files": "الملفات"
+    },
+    "tabs": {
+      "requests": "الطلبات",
+      "videoCalls": "مكالمات الفيديو",
+      "quotes": "عروض الأسعار",
+      "files": "الملفات"
+    },
+    "viewAll": "عرض الكل",
+    "statusBreakdown": {
+      "requestsByStatus": "الطلبات حسب الحالة",
+      "bookingsByStatus": "الحجوزات حسب الحالة",
+      "quotesByStatus": "عروض الأسعار حسب الحالة",
+      "noData": "لا توجد بيانات"
+    },
+    "summary": {
+      "title": "ملخص",
+      "totalRequests": "إجمالي الطلبات",
+      "completedOrders": "الطلبات المكتملة",
+      "totalBookings": "إجمالي الحجوزات",
+      "callsCompleted": "المكالمات المكتملة",
+      "totalQuotes": "إجمالي عروض الأسعار"
+    },
+    "filesPlaceholder": {
+      "comingSoon": "قريباً – الملفات",
+      "description": "ستظهر مستنداتك وملفاتك المشتركة هنا.",
+      "goToRequests": "الذهاب إلى الطلبات"
+    },
+    "pendingActions": {
+      "confirm": "تأكيد",
+      "review": "مراجعة"
+    }
+  },
+  "Sidebar": {
+    "dashboard": "لوحة التحكم",
+    "myRequests": "طلباتي",
+    "videoBookings": "حجوزات الفيديو",
+    "messages": "الرسائل",
+    "notifications": "الإشعارات",
+    "settings": "الإعدادات",
+    "help": "المساعدة"
+  },
+   "DashboardStats": {
+    "activeRequests": "الطلبات النشطة",
+    "total": "الإجمالي",
+    "upcomingCalls": "المكالمات القادمة",
+    "completed": "المكتملة",
+    "pendingQuotes": "عروض الأسعار المعلقة",
+    "totalQuotes": "إجمالي عروض الأسعار",
+    "notifications": "الإشعارات",
+    "requestsDone": "الطلبات المنجزة"
+  },
+  "RecentBookings": {
+    "title": "حجوزات الفيديو",
+    "viewAll": "عرض كل الحجوزات",
+    "timeTbd": "الوقت غير محدد",
+    "awaitingSchedule": "في انتظار الجدولة",
+    "today": "اليوم",
+    "tomorrow": "غداً",
+    "soon": "قريباً",
+    "minutes": "{count} دقيقة",
+    "joinMeeting": "انضم إلى الاجتماع",
+    "passwordSet": "كلمة المرور محددة",
+    "emptyTitle": "لا توجد حجوزات بعد",
+    "emptyAction": "احجز مكالمة"
+  },
+  "BookingStatus": {
+    "REQUESTED": "مطلوب",
+    "PROPOSED": "مقترح",
+    "CONFIRMED": "مؤكد",
+    "COMPLETED": "مكتمل",
+    "CANCELED": "ملغي",
+    "NO_SHOW": "لم يحضر",
+    "REJECTED": "مرفوض",
+    "RESCHEDULED": "أعيد جدولته"
+  },
+  "BookingType": {
+    "MARKET": "سوق",
+    "FACTORY": "مصنع",
+    "CUSTOM": "مخصص"
   }
 }

@@ -418,5 +418,96 @@
         "contactMap": {
             "caption": "Guangzhou, China - Main Office"
         }
-    }
+    },
+    "ClientDashboard": {
+        "welcome": "Welcome back, {name}!",
+        "subtitle": "Here's what's happening with your account.",
+        "memberSince": "Member since {date}",
+        "refresh": "Refresh",
+        "updated": "Updated {relative}",
+        "quickActions": {
+            "newRequest": "New Request",
+            "bookCall": "Book a Call",
+            "myQuotes": "My Quotes",
+            "files": "Files"
+        },
+        "tabs": {
+            "requests": "Requests",
+            "videoCalls": "Video Calls",
+            "quotes": "Quotes",
+            "files": "Files"
+        },
+        "viewAll": "View all",
+        "statusBreakdown": {
+            "requestsByStatus": "Requests by Status",
+            "bookingsByStatus": "Bookings by Status",
+            "quotesByStatus": "Quotes by Status",
+            "noData": "No data"
+        },
+        "summary": {
+            "title": "Summary",
+            "totalRequests": "Total Requests",
+            "completedOrders": "Completed Orders",
+            "totalBookings": "Total Bookings",
+            "callsCompleted": "Calls Completed",
+            "totalQuotes": "Total Quotes"
+        },
+        "filesPlaceholder": {
+            "comingSoon": "Files coming soon",
+            "description": "Your shared documents and deliverables will appear here.",
+            "goToRequests": "Go to Requests"
+        },
+        "pendingActions": {
+            "confirm": "Confirm",
+            "review": "Review"
+        }
+    },
+    "Sidebar": {
+    "dashboard": "Dashboard",
+    "myRequests": "My Requests",
+    "videoBookings": "Video Bookings",
+    "messages": "Messages",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "help": "Help"
+  },
+  "DashboardStats": {
+    "activeRequests": "Active Requests",
+    "total": "Total",
+    "upcomingCalls": "Upcoming Calls",
+    "completed": "Completed",
+    "pendingQuotes": "Pending Quotes",
+    "totalQuotes": "Total quotes",
+    "notifications": "Notifications",
+    "requestsDone": "Requests done"
+  },
+   "RecentBookings": {
+    "title": "Video Bookings",
+    "viewAll": "View all bookings",
+    "timeTbd": "Time TBD",
+    "awaitingSchedule": "Awaiting schedule",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "soon": "Soon",
+    "minutes": "{count} min",
+    "joinMeeting": "Join meeting",
+    "passwordSet": "Password set",
+    "emptyTitle": "No bookings yet",
+    "emptyAction": "Book a call"
+  },
+  "BookingStatus": {
+    "REQUESTED": "Requested",
+    "PROPOSED": "Proposed",
+    "CONFIRMED": "Confirmed",
+    "COMPLETED": "Completed",
+    "CANCELED": "Canceled",
+    "NO_SHOW": "No Show",
+    "REJECTED": "Rejected",
+    "RESCHEDULED": "Rescheduled"
+  },
+  "BookingType": {
+    "MARKET": "Market",
+    "FACTORY": "Factory",
+    "CUSTOM": "Custom"
+  }
 }
