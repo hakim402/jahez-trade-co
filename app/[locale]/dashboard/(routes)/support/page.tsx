@@ -14,7 +14,7 @@ export default async function MessagesPage() {
 
   return (
     // Full-height shell — AdminHeader is in the parent layout, so we fill the rest
-    <div className="flex flex-col h-[calc(100vh-4rem)] px-4 md:px-6 lg:px-8 py-4 md:py-6 max-w-screen-2xl mx-auto w-full gap-4">
+    <div className="flex flex-col h-[calc(100vh-4rem)] px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto space-y-7">
       <ClientHeader />
 
       {/* ── Page header ────────────────────────────────────────────── */}

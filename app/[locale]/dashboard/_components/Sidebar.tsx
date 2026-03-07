@@ -13,6 +13,7 @@ import {
   MessageSquare,
   PackageSearch,
   Video,
+  BotMessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -44,7 +45,7 @@ export function Sidebar() {
     { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
     { icon: PackageSearch, labelKey: "myRequests", href: "/dashboard/requests" },
     { icon: Video, labelKey: "videoBookings", href: "/dashboard/video-bookings" },
-    { icon: MessageSquare, labelKey: "messages", href: "/dashboard/messages", badge: 3 },
+    { icon: BotMessageSquare, labelKey: "support", href: "/dashboard/support", badge: 3 },
   ];
 
   const bottomNavItems: NavItem[] = [

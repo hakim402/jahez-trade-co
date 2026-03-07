@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
     <>
       <ClientHeader />
 
-      <div className="py-6 space-y-6 m-3 md:m-7">
+      <div className="px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto space-y-7">
         {/* Page header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">

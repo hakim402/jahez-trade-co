@@ -1,352 +1,500 @@
-'use client'
+"use client";
 
+// All business logic / actions / hooks are identical to the original.
+// Only visual markup has changed.
+
+import { useState, useEffect, useTransition, useCallback } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { format } from "date-fns";
+import { motion, AnimatePresence } from "motion/react";
+import { cn } from "@/lib/utils";
 import {
-  useState, useEffect, useTransition, useCallback,
-} from 'react'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
+  Plus,
+  Loader2,
+  Video,
+  ExternalLink,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  MoreHorizontal,
+  Calendar,
+  Clock,
+  Crown,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Check,
+  ArrowRight,
+  FileText,
+  Link2,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  Plus, Loader2, Video, ExternalLink, Eye, CheckCircle, XCircle,
-  MoreHorizontal, Calendar, Clock, ChevronRight, Crown, AlertTriangle,
-} from 'lucide-react'
-import { Button }   from '@/components/ui/button'
-import { Badge }    from '@/components/ui/badge'
-import { Input }    from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { BookingType, BookingStatus } from "@prisma/client";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Pagination, PaginationContent, PaginationEllipsis,
-  PaginationItem, PaginationLink, PaginationNext, PaginationPrevious,
-} from '@/components/ui/pagination'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { toast } from 'sonner'
-import { BookingType, BookingStatus } from '@prisma/client'
-import {
-  getMyBookings, createBooking, confirmScheduledBooking, cancelMyBooking,
-} from '../actions'
+  getMyBookings,
+  createBooking,
+  confirmScheduledBooking,
+  cancelMyBooking,
+} from "../actions";
 import {
   BOOKING_STATUS_CONFIG,
   type ClientBookingWithRelations,
   type PaginationInfo,
   type UserPlanInfo,
-} from './types'
+} from "./types";
+import { Button } from "@/components/ui/button";
 
-// ------------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
 function fmt(d: Date | string | null | undefined) {
-  if (!d) return '—'
-  return format(new Date(d), 'MMM d, yyyy')
+  if (!d) return "—";
+  return format(new Date(d), "MMM d, yyyy");
 }
 function fmtTime(d: Date | string | null | undefined) {
-  if (!d) return ''
-  return format(new Date(d), 'h:mm a')
+  if (!d) return "";
+  return format(new Date(d), "h:mm a");
 }
 function fmtDateTime(d: Date | string | null | undefined) {
-  if (!d) return '—'
-  return format(new Date(d), 'MMM d, yyyy · h:mm a')
+  if (!d) return "—";
+  return format(new Date(d), "MMM d, yyyy · h:mm a");
+}
+function fmtType(type: string) {
+  return type.charAt(0) + type.slice(1).toLowerCase();
 }
 
-// ------------------------------------------------------------------
-// Status badge
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS BADGE
+// ─────────────────────────────────────────────────────────────────────────────
+
 function StatusBadge({ status }: { status: BookingStatus }) {
-  const cfg = BOOKING_STATUS_CONFIG[status]
+  const cfg = BOOKING_STATUS_CONFIG[status];
+  const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${cfg.color}`}>
-      <span>{cfg.icon}</span>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ring-1 leading-none whitespace-nowrap",
+        cfg.chip,
+      )}
+    >
+      <Icon size={9} />
       {cfg.label}
     </span>
-  )
+  );
 }
 
-// ------------------------------------------------------------------
-// Plan banner
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAN BANNER
+// ─────────────────────────────────────────────────────────────────────────────
+
 function PlanBanner({ planInfo }: { planInfo: UserPlanInfo }) {
-  const { planName, limit, usedCount, billingEnabled } = planInfo
+  const { planName, limit, usedCount, billingEnabled } = planInfo;
+  if (!billingEnabled) return null;
 
-  if (!billingEnabled) return null
-
-  const isUnlimited = limit === Infinity
-  const pct         = isUnlimited ? 0 : Math.min(100, (usedCount / limit) * 100)
-  const isAtLimit   = !isUnlimited && usedCount >= limit
-  const remaining   = isUnlimited ? '∞' : Math.max(0, limit - usedCount)
+  const isUnlimited = limit === Infinity;
+  const pct = isUnlimited ? 0 : Math.min(100, (usedCount / limit) * 100);
+  const isAtLimit = !isUnlimited && usedCount >= limit;
 
   return (
-    <div className={`rounded-xl border p-4 ${isAtLimit ? 'border-amber-300 bg-amber-50' : 'border-border bg-card'}`}>
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <Crown className={`h-4 w-4 shrink-0 ${isAtLimit ? 'text-amber-600' : 'text-muted-foreground'}`} />
-          <div className="min-w-0">
-            <p className={`text-sm font-medium ${isAtLimit ? 'text-amber-800' : ''}`}>
-              {isUnlimited
-                ? `${planName.charAt(0).toUpperCase() + planName.slice(1)} plan — unlimited bookings`
-                : `${usedCount} / ${limit} video booking${limit === 1 ? '' : 's'} used`}
+    <div
+      className={cn(
+        "rounded-2xl border p-4 flex items-center gap-4",
+        isAtLimit
+          ? "border-amber-400/20 bg-amber-500/5"
+          : "border-border/10 bg-card/30",
+      )}
+    >
+      <div
+        className={cn(
+          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+          isAtLimit ? "bg-amber-500/15" : "bg-muted/30",
+        )}
+      >
+        <Crown
+          size={16}
+          className={isAtLimit ? "text-amber-400" : "text-muted-foreground"}
+        />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-foreground capitalize">
+            {isUnlimited
+              ? `${planName} plan — unlimited bookings`
+              : `${planName} plan`}
+          </p>
+          {!isUnlimited && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {usedCount} / {limit} used
             </p>
-            {isAtLimit && (
-              <p className="text-xs text-amber-700 mt-0.5">
-                You've reached your plan limit. Upgrade to request more calls.
-              </p>
-            )}
-          </div>
+          )}
         </div>
         {!isUnlimited && (
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="hidden sm:flex flex-col items-end">
-              <div className="w-32 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${isAtLimit ? 'bg-amber-500' : 'bg-blue-500'}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {remaining} remaining
-              </p>
-            </div>
-            {isAtLimit && (
-              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1">
-                <ChevronRight className="h-3 w-3" />
-                Upgrade
-              </Button>
-            )}
+          <div className="h-1.5 bg-border/20 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                isAtLimit ? "bg-amber-400" : "bg-color",
+              )}
+              style={{ width: `${pct}%` }}
+            />
           </div>
         )}
+        {isAtLimit && (
+          <p className="text-[10px] text-amber-400/80 mt-1.5">
+            You've reached your plan limit. Upgrade to request more calls.
+          </p>
+        )}
       </div>
+
+      {isAtLimit && (
+        <button className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors shrink-0">
+          <Crown size={11} /> Upgrade
+        </button>
+      )}
     </div>
-  )
+  );
 }
 
-// ------------------------------------------------------------------
-// Status filter tabs
-// ------------------------------------------------------------------
-const STATUS_TABS: { id: BookingStatus | 'ALL'; label: string }[] = [
-  { id: 'ALL',        label: 'All' },
-  { id: 'REQUESTED',  label: 'Requested' },
-  { id: 'PROPOSED',   label: 'Proposed' },
-  { id: 'CONFIRMED',  label: 'Confirmed' },
-  { id: 'COMPLETED',  label: 'Completed' },
-  { id: 'CANCELED',   label: 'Cancelled' },
-]
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOKING DETAIL MODAL
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ------------------------------------------------------------------
-// Booking details drawer/dialog
-// ------------------------------------------------------------------
-function BookingDetailsDialog({
-  booking, open, onOpenChange,
-  onConfirm, onCancel,
+type DetailTab = "overview" | "scheduling" | "history" | "ai";
+
+function BookingDetailsModal({
+  booking,
+  open,
+  onOpenChange,
+  onConfirm,
+  onCancel,
 }: {
-  booking: ClientBookingWithRelations | null
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  onConfirm: (b: ClientBookingWithRelations) => void
-  onCancel:  (b: ClientBookingWithRelations) => void
+  booking: ClientBookingWithRelations | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onConfirm: (b: ClientBookingWithRelations) => void;
+  onCancel: (b: ClientBookingWithRelations) => void;
 }) {
-  const [tab, setTab] = useState<'overview' | 'scheduling' | 'history' | 'ai'>('overview')
+  const [tab, setTab] = useState<DetailTab>("overview");
 
-  useEffect(() => { if (open) setTab('overview') }, [open])
+  useEffect(() => {
+    if (open) setTab("overview");
+  }, [open]);
 
-  if (!booking) return null
+  if (!booking) return null;
 
-  const cfg = BOOKING_STATUS_CONFIG[booking.status]
+  const cfg = BOOKING_STATUS_CONFIG[booking.status];
+  const CfgIcon = cfg.icon;
+
   const TABS = [
-    { id: 'overview',   label: 'Overview' },
-    { id: 'scheduling', label: 'Scheduling' },
-    { id: 'history',    label: `History (${booking.statusHistory.length})` },
-    ...(booking.aiSummary ? [{ id: 'ai', label: 'AI Summary' }] : []),
-  ] as const
+    { id: "overview", label: "Overview" },
+    { id: "scheduling", label: "Scheduling" },
+    { id: "history", label: "History", count: booking.statusHistory.length },
+    ...(booking.aiSummary ? [{ id: "ai" as const, label: "AI Summary" }] : []),
+  ] as { id: DetailTab; label: string; count?: number }[];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onOpenChange(false);
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+        className="w-full max-w-xl max-h-[90vh] rounded-2xl border border-border/15 bg-card shadow-2xl flex flex-col overflow-hidden"
+      >
         {/* Header */}
-        <DialogHeader className="px-5 pt-5 pb-3 shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <DialogTitle className="text-base font-semibold">
-                {booking.type.charAt(0) + booking.type.slice(1).toLowerCase()} Video Call
-              </DialogTitle>
-              <DialogDescription className="text-xs mt-0.5">
-                Requested {fmt(booking.createdAt)}
-              </DialogDescription>
-            </div>
-            <StatusBadge status={booking.status} />
+        <div className="flex items-center gap-4 px-5 pt-5 pb-4 border-b border-border/10">
+          <div
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br",
+              cfg.gradient,
+            )}
+          >
+            <CfgIcon size={20} className="text-white" />
           </div>
-        </DialogHeader>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <StatusBadge status={booking.status} />
+              <span className="text-[10px] text-muted-foreground font-mono">
+                #{booking.id.slice(0, 8).toUpperCase()}
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-foreground mt-0.5">
+              {fmtType(booking.type)} Video Call
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Requested {fmt(booking.createdAt)}
+            </p>
+          </div>
+          <Button
+            variant={"ghost"}
+            onClick={() => onOpenChange(false)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all shrink-0"
+          >
+            <X size={16} />
+          </Button>
+        </div>
 
-        {/* Status context */}
-        <div className={`mx-5 rounded-lg border px-3.5 py-2.5 text-xs leading-relaxed ${cfg.borderColor}`}>
-          {cfg.description}
-          {booking.status === 'PROPOSED' && (
-            <div className="flex gap-2 mt-2.5">
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={() => onConfirm(booking)}>
-                <CheckCircle className="h-3 w-3" /> Confirm
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 border-red-300 hover:bg-red-50"
-                onClick={() => onCancel(booking)}>
-                <XCircle className="h-3 w-3" /> Cancel
-              </Button>
+        {/* Status context + action strip */}
+        <div
+          className={cn(
+            "mx-4 mt-3 flex flex-col gap-2.5 px-3.5 py-3 rounded-xl border text-xs leading-relaxed",
+            cfg.chip,
+          )}
+        >
+          <div className="flex items-start gap-2">
+            <CfgIcon size={12} className="shrink-0 mt-0.5" />
+            <p>{cfg.description}</p>
+          </div>
+          {booking.status === "PROPOSED" && (
+            <div className="flex gap-2 pt-0.5">
+              <button
+                onClick={() => onConfirm(booking)}
+                className="flex items-center gap-1 h-7 px-3 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+              >
+                <Check size={11} /> Confirm
+              </button>
+              <button
+                onClick={() => onCancel(booking)}
+                className="flex items-center gap-1 h-7 px-2.5 text-xs font-semibold rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <XCircle size={11} /> Cancel
+              </button>
             </div>
           )}
-          {(booking.status === 'REQUESTED') && (
-            <div className="flex gap-2 mt-2.5">
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 border-red-300 hover:bg-red-50"
-                onClick={() => onCancel(booking)}>
-                <XCircle className="h-3 w-3" /> Cancel Request
-              </Button>
+          {booking.status === "REQUESTED" && (
+            <div className="pt-0.5">
+              <button
+                onClick={() => onCancel(booking)}
+                className="flex items-center gap-1 h-7 px-2.5 text-xs font-semibold rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <XCircle size={11} /> Cancel Request
+              </button>
             </div>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0 px-5 border-b border-border/10 shrink-0 mt-3">
+        <div className="flex border-b border-border/10 px-4 mt-1 shrink-0">
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id as any)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold border-b-2 transition-colors",
                 tab === t.id
-                  ? 'border-foreground text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+                  ? "border-color text-color"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
             >
               {t.label}
+              {t.count !== undefined && t.count > 0 && (
+                <span
+                  className={cn(
+                    "text-[9px] px-1.5 py-0.5 rounded-full font-bold",
+                    tab === t.id
+                      ? "bg-color/15 text-color"
+                      : "bg-muted/50 text-muted-foreground",
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 text-sm">
-
-          {/* --- OVERVIEW --- */}
-          {tab === 'overview' && (
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground">Call Type</p>
-                <p className="font-medium">{booking.type.charAt(0) + booking.type.slice(1).toLowerCase()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Duration</p>
-                <p className="font-medium">{booking.durationMinutes} min</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-xs text-muted-foreground">Notes</p>
-                <p className="mt-0.5 whitespace-pre-wrap leading-relaxed text-foreground/80">
-                  {booking.requestNotes || <span className="italic text-muted-foreground">No notes provided</span>}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+          {/* OVERVIEW */}
+          {tab === "overview" && (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Call Type", value: fmtType(booking.type) },
+                { label: "Duration", value: `${booking.durationMinutes} min` },
+                booking.clientConfirmedAt
+                  ? {
+                      label: "Confirmed At",
+                      value: fmtDateTime(booking.clientConfirmedAt),
+                    }
+                  : null,
+              ]
+                .filter(Boolean)
+                .map((item: any) => (
+                  <div key={item.label} className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      {item.label}
+                    </p>
+                    <p className="text-sm text-foreground/80">{item.value}</p>
+                  </div>
+                ))}
+              <div className="col-span-2 space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Notes
+                </p>
+                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                  {booking.requestNotes ?? (
+                    <span className="italic text-muted-foreground">
+                      No notes provided
+                    </span>
+                  )}
                 </p>
               </div>
-              {booking.clientConfirmedAt && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Confirmed At</p>
-                  <p className="font-medium">{fmtDateTime(booking.clientConfirmedAt)}</p>
-                </div>
-              )}
             </div>
           )}
 
-          {/* --- SCHEDULING --- */}
-          {tab === 'scheduling' && (
-            <div className="space-y-4">
-              {booking.scheduledAt ? (
-                <div className="rounded-lg border bg-muted/30 p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{fmt(booking.scheduledAt)}</p>
-                    <span className="text-muted-foreground">·</span>
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                    <p className="text-muted-foreground">{fmtTime(booking.scheduledAt)}</p>
+          {/* SCHEDULING */}
+          {tab === "scheduling" &&
+            (booking.scheduledAt ? (
+              <div className="rounded-xl border border-border/10 bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-color/15">
+                    <Calendar size={15} className="text-color" />
                   </div>
-                  {booking.meetingProvider && (
-                    <p className="text-xs text-muted-foreground mb-2">
-                      via {booking.meetingProvider.charAt(0) + booking.meetingProvider.slice(1).toLowerCase().replace('_', ' ')}
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {fmt(booking.scheduledAt)}
                     </p>
-                  )}
-                  {booking.meetingLink && (
-                    <a
-                      href={booking.meetingLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-blue-600 hover:underline text-sm"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Join Meeting
-                    </a>
-                  )}
-                  {booking.meetingPassword && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Password: <span className="font-mono">{booking.meetingPassword}</span>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock size={10} /> {fmtTime(booking.scheduledAt)}
                     </p>
-                  )}
+                  </div>
                 </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
-                  <Calendar className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No time scheduled yet.</p>
-                  <p className="text-xs mt-1">Our team will propose a time soon.</p>
+
+                {booking.meetingProvider && (
+                  <p className="text-xs text-muted-foreground">
+                    via{" "}
+                    {booking.meetingProvider.charAt(0) +
+                      booking.meetingProvider
+                        .slice(1)
+                        .toLowerCase()
+                        .replace("_", " ")}
+                  </p>
+                )}
+
+                {booking.meetingLink && (
+                  <a
+                    href={booking.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg bg-color hover:bg-color/90 text-white transition-colors"
+                  >
+                    <Link2 size={12} /> Join Meeting
+                    <ExternalLink size={10} />
+                  </a>
+                )}
+                {booking.meetingPassword && (
+                  <p className="text-xs text-muted-foreground">
+                    Password:{" "}
+                    <span className="font-mono text-foreground/70">
+                      {booking.meetingPassword}
+                    </span>
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/40">
+                  <Calendar size={24} className="text-muted-foreground/30" />
                 </div>
-              )}
-            </div>
-          )}
+                <p className="text-sm font-medium text-foreground/60">
+                  No time scheduled yet
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Our team will propose a time soon.
+                </p>
+              </div>
+            ))}
 
-          {/* --- HISTORY --- */}
-          {tab === 'history' && (
-            <ul className="space-y-0">
-              {booking.statusHistory.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No history yet.</p>
-              ) : (
-                booking.statusHistory.map((entry, i) => (
-                  <li key={entry.id} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-muted-foreground/40 mt-1.5 shrink-0" />
-                      {i < booking.statusHistory.length - 1 && (
-                        <div className="w-px flex-1 bg-border/50 my-1" />
-                      )}
+          {/* HISTORY */}
+          {tab === "history" &&
+            (booking.statusHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-4">
+                No history yet.
+              </p>
+            ) : (
+              <div className="space-y-0">
+                {booking.statusHistory.map((entry, i) => {
+                  const newCfg = BOOKING_STATUS_CONFIG[entry.newStatus];
+                  return (
+                    <div key={entry.id} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center shrink-0 pt-1">
+                        <div
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full shrink-0",
+                            i === 0 ? newCfg.dot : "bg-border/60",
+                          )}
+                        />
+                        {i < booking.statusHistory.length - 1 && (
+                          <div className="w-px flex-1 min-h-6 bg-border/20 my-1" />
+                        )}
+                      </div>
+                      <div className="flex-1 pb-4">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <StatusBadge status={entry.oldStatus} />
+                          <span className="text-xs text-muted-foreground">
+                            →
+                          </span>
+                          <StatusBadge status={entry.newStatus} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                          {fmtDateTime(entry.changedAt)}
+                          <span className="ml-1.5">
+                            by{" "}
+                            {entry.changedBy.fullName ?? entry.changedBy.email}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                    <div className="pb-3">
-                      <p className="text-sm">
-                        <span className="font-medium">
-                          {BOOKING_STATUS_CONFIG[entry.oldStatus].label}
-                        </span>
-                        {' → '}
-                        <span className="font-medium">
-                          {BOOKING_STATUS_CONFIG[entry.newStatus].label}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        by {entry.changedBy.fullName ?? entry.changedBy.email} · {fmtDateTime(entry.changedAt)}
-                      </p>
-                    </div>
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
+                  );
+                })}
+              </div>
+            ))}
 
-          {/* --- AI SUMMARY --- */}
-          {tab === 'ai' && (
+          {/* AI SUMMARY */}
+          {tab === "ai" && (
             <div className="space-y-3">
               {booking.aiSummary && (
-                <div className="rounded-lg border bg-muted/30 p-4">
-                  <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">AI Summary</p>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{booking.aiSummary}</p>
+                <div className="rounded-xl border border-border/10 bg-muted/20 p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                    AI Summary
+                  </p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/80">
+                    {booking.aiSummary}
+                  </p>
                 </div>
               )}
               {booking.transcriptUrl && (
@@ -354,10 +502,9 @@ function BookingDetailsDialog({
                   href={booking.transcriptUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm"
+                  className="inline-flex items-center gap-1.5 text-xs text-color hover:underline font-medium"
                 >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View Full Transcript
+                  <ExternalLink size={12} /> View Full Transcript
                 </a>
               )}
             </div>
@@ -365,400 +512,771 @@ function BookingDetailsDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border/10 shrink-0 flex justify-between items-center">
-          <span className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-border/10 bg-muted/5 shrink-0">
+          <span className="text-[10px] text-muted-foreground">
             ID: <span className="font-mono">{booking.id.slice(0, 8)}</span>
           </span>
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}
-            className="text-sm text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="h-8 px-3.5 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+          >
             Close
-          </Button>
+          </button>
         </div>
-      </DialogContent>
-    </Dialog>
-  )
+      </motion.div>
+    </div>
+  );
 }
 
-// ------------------------------------------------------------------
-// Create booking dialog
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE BOOKING DIALOG
+// ─────────────────────────────────────────────────────────────────────────────
+
 const bookingFormSchema = z.object({
-  type:            z.nativeEnum(BookingType).default('CUSTOM'),
-  requestNotes:    z.string().max(2000).optional(),
+  type: z.nativeEnum(BookingType).default("CUSTOM"),
+  requestNotes: z.string().max(2000).optional(),
   durationMinutes: z.coerce.number().int().positive().default(30),
-  preferredTime:   z.date().optional(),
-})
+  preferredTime: z.date().optional(),
+});
 
 type BookingFormValues = {
-  type:            BookingType
-  requestNotes?:   string
-  durationMinutes: number
-  preferredTime?:  Date
-}
+  type: BookingType;
+  requestNotes?: string;
+  durationMinutes: number;
+  preferredTime?: Date;
+};
 
-const DURATION_OPTIONS = [15, 30, 45, 60, 90] as const
+const DURATION_OPTIONS = [15, 30, 45, 60, 90] as const;
 
 function CreateBookingDialog({
-  open, onOpenChange, onSuccess, planInfo,
+  open,
+  onOpenChange,
+  onSuccess,
+  planInfo,
 }: {
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  onSuccess: () => void
-  planInfo: UserPlanInfo
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess: () => void;
+  planInfo: UserPlanInfo;
 }) {
-  const [isPending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<BookingFormValues>({
-    resolver: zodResolver(bookingFormSchema),
+    resolver: zodResolver(
+      bookingFormSchema,
+    ) as unknown as Resolver<BookingFormValues>,
     defaultValues: {
-      type:            'CUSTOM',
-      requestNotes:    '',
+      type: "CUSTOM",
+      requestNotes: "",
       durationMinutes: 30,
-      preferredTime:   undefined,
+      preferredTime: undefined,
     },
-  })
+  });
 
   const handleClose = () => {
-    form.reset()
-    setError(null)
-    onOpenChange(false)
-  }
+    form.reset();
+    setError(null);
+    onOpenChange(false);
+  };
 
   const onSubmit = (data: BookingFormValues) => {
-    setError(null)
+    setError(null);
     startTransition(async () => {
-      const result = await createBooking(data)
+      const result = await createBooking(data);
       if (result.success) {
-        toast.success('Booking requested', {
-          description: 'Your video call request has been submitted.',
-        })
-        handleClose()
-        onSuccess()
+        toast.success("Booking requested", {
+          description: "Your video call request has been submitted.",
+        });
+        handleClose();
+        onSuccess();
       } else {
-        if (result.error?.startsWith('UPGRADE_REQUIRED')) {
-          setError(result.error.replace('UPGRADE_REQUIRED: ', ''))
+        if (result.error?.startsWith("UPGRADE_REQUIRED")) {
+          setError(result.error.replace("UPGRADE_REQUIRED: ", ""));
         } else {
-          toast.error('Failed to submit', { description: result.error })
+          toast.error("Failed to submit", { description: result.error });
         }
       }
-    })
-  }
+    });
+  };
 
-  const isAtLimit = planInfo.billingEnabled && planInfo.limit !== Infinity && planInfo.usedCount >= planInfo.limit
+  const isAtLimit =
+    planInfo.billingEnabled &&
+    planInfo.limit !== Infinity &&
+    planInfo.usedCount >= planInfo.limit;
+
+  if (!open) return null;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            Request Video Call
-          </DialogTitle>
-          <DialogDescription>
-            Tell us what you'd like to discuss and your preferred time.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Upgrade required gate */}
-        {isAtLimit && (
-          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 flex gap-2.5">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-800">Plan limit reached</p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Your {planInfo.planName} plan allows {planInfo.limit} booking{planInfo.limit === 1 ? '' : 's'}.
-                Please upgrade to request more video calls.
-              </p>
-              <Button size="sm" className="mt-2 h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white">
-                Upgrade Plan
-              </Button>
-            </div>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.18 }}
+        className="w-full max-w-md rounded-2xl border border-border/15 bg-card shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3.5 px-5 pt-5 pb-4 border-b border-border/10">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-color/15">
+            <Video size={18} className="text-color" />
           </div>
-        )}
-
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+          <div className="flex-1">
+            <h2 className="text-base font-semibold text-foreground">
+              Request Video Call
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Tell us what you'd like to discuss
+            </p>
           </div>
-        )}
+          <Button
+            variant={"ghost"}
+            onClick={handleClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+          >
+            <X size={16} />
+          </Button>
+        </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Call type */}
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Call Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.values(BookingType).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t.charAt(0) + t.slice(1).toLowerCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Duration */}
-            <FormField
-              control={form.control}
-              name="durationMinutes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Duration</FormLabel>
-                  <Select
-                    onValueChange={(v) => field.onChange(parseInt(v))}
-                    defaultValue={String(field.value)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {DURATION_OPTIONS.map((d) => (
-                        <SelectItem key={d} value={String(d)}>
-                          {d} minutes
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Preferred time */}
-            <FormField
-              control={form.control}
-              name="preferredTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preferred Time <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                  <FormControl>
-                    <Input
-                      type="datetime-local"
-                      onChange={(e) => {
-                        field.onChange(e.target.value ? new Date(e.target.value) : undefined)
-                      }}
-                      value={field.value ? field.value.toISOString().slice(0, 16) : ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Notes */}
-            <FormField
-              control={form.control}
-              name="requestNotes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="What would you like to discuss? Any specific questions or goals?"
-                      className="resize-none"
-                      rows={3}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isPending || isAtLimit} className="gap-2">
-                {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Submit Request
-              </Button>
+        <div className="px-5 py-5 space-y-4">
+          {/* Upgrade gate */}
+          {isAtLimit && (
+            <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-amber-500/8 border border-amber-400/15">
+              <AlertTriangle
+                size={14}
+                className="text-amber-400 shrink-0 mt-0.5"
+              />
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  Plan limit reached
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Your {planInfo.planName} plan allows {planInfo.limit} booking
+                  {planInfo.limit === 1 ? "" : "s"}. Please upgrade to request
+                  more video calls.
+                </p>
+                <button className="mt-2 flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors">
+                  <Crown size={10} /> Upgrade Plan
+                </button>
+              </div>
             </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-400/15 text-red-400 text-xs">
+              <AlertTriangle size={12} /> {error}
+            </div>
+          )}
+
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-3.5"
+            >
+              {/* Type + Duration row */}
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground">
+                        Call Type
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-9 text-sm bg-muted/20 border-border/20 rounded-xl">
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-xl border-border/20 bg-card/95 backdrop-blur-sm shadow-xl">
+                          {Object.values(BookingType).map((t) => (
+                            <SelectItem
+                              key={t}
+                              value={t}
+                              className="rounded-lg"
+                            >
+                              {fmtType(t)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="durationMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-semibold text-muted-foreground">
+                        Duration
+                      </FormLabel>
+                      <Select
+                        onValueChange={(v) => field.onChange(parseInt(v))}
+                        defaultValue={String(field.value)}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-9 text-sm bg-muted/20 border-border/20 rounded-xl">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="rounded-xl border-border/20 bg-card/95 backdrop-blur-sm shadow-xl">
+                          {DURATION_OPTIONS.map((d) => (
+                            <SelectItem
+                              key={d}
+                              value={String(d)}
+                              className="rounded-lg"
+                            >
+                              {d} minutes
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Preferred time */}
+              <FormField
+                control={form.control}
+                name="preferredTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-muted-foreground">
+                      Preferred Time{" "}
+                      <span className="font-normal text-muted-foreground/60">
+                        (optional)
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        className="h-9 text-sm bg-muted/20 border-border/20 rounded-xl focus-visible:border-color/40 focus-visible:ring-1 focus-visible:ring-color/20"
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value
+                              ? new Date(e.target.value)
+                              : undefined,
+                          )
+                        }
+                        value={
+                          field.value
+                            ? field.value.toISOString().slice(0, 16)
+                            : ""
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              {/* Notes */}
+              <FormField
+                control={form.control}
+                name="requestNotes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-muted-foreground">
+                      Notes{" "}
+                      <span className="font-normal text-muted-foreground/60">
+                        (optional)
+                      </span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="What would you like to discuss? Any specific questions or goals?"
+                        rows={3}
+                        className="resize-none text-sm bg-muted/20 border-border/20 rounded-xl focus-visible:border-color/40 focus-visible:ring-1 focus-visible:ring-color/20"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={isPending}
+                  className="flex-1 h-9 text-sm font-medium rounded-xl border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending || isAtLimit}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-9 text-sm font-semibold rounded-xl bg-color hover:bg-color/90 text-white transition-colors disabled:opacity-60"
+                >
+                  {isPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Plus size={14} />
+                  )}
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </motion.div>
+    </div>
+  );
 }
 
-// ------------------------------------------------------------------
-// Confirm / Cancel alert dialogs
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIRM / CANCEL DIALOGS
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ConfirmBookingDialog({
-  booking, open, onOpenChange, onSuccess,
+  booking,
+  open,
+  onOpenChange,
+  onSuccess,
 }: {
-  booking: ClientBookingWithRelations | null
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  onSuccess: () => void
+  booking: ClientBookingWithRelations | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess: () => void;
 }) {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false);
 
   const handle = async () => {
-    if (!booking) return
-    setLoading(true)
-    const r = await confirmScheduledBooking({ bookingId: booking.id })
-    setLoading(false)
+    if (!booking) return;
+    setLoading(true);
+    const r = await confirmScheduledBooking({ bookingId: booking.id });
+    setLoading(false);
     if (r.success) {
-      toast.success('Booking confirmed', { description: 'Your video call is confirmed.' })
-      onOpenChange(false)
-      onSuccess()
+      toast.success("Booking confirmed", {
+        description: "Your video call is confirmed.",
+      });
+      onOpenChange(false);
+      onSuccess();
     } else {
-      toast.error('Error', { description: r.error })
+      toast.error("Error", { description: r.error });
     }
-  }
+  };
+
+  if (!open) return null;
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Confirm Video Call</AlertDialogTitle>
-          <AlertDialogDescription>
-            {booking?.scheduledAt
-              ? `Confirm your video call on ${fmtDateTime(booking.scheduledAt)}?`
-              : 'Are you sure you want to confirm this video call?'}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Back</AlertDialogCancel>
-          <AlertDialogAction onClick={handle} disabled={loading} className="gap-2">
-            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onOpenChange(false);
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.16 }}
+        className="w-full max-w-sm rounded-2xl border border-border/15 bg-card shadow-2xl overflow-hidden"
+      >
+        {/* Coloured header strip */}
+        <div className="flex items-start gap-3.5 px-5 pt-5 pb-4 border-b border-emerald-400/15 bg-emerald-500/5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+            <CheckCircle2 size={18} className="text-emerald-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-semibold text-foreground">
+              Confirm Video Call
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {booking?.scheduledAt
+                ? `Confirm your call on ${fmtDateTime(booking.scheduledAt)}?`
+                : "Are you sure you want to confirm this video call?"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-4 bg-muted/5">
+          <Button
+          variant={'ghost'}
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+            className="h-8 px-3.5 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
+          >
+            Back
+          </Button>
+          <Button
+          variant={'ghost'}
+            onClick={handle}
+            disabled={loading}
+            className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors disabled:opacity-60"
+          >
+            {loading && <Loader2 size={12} className="animate-spin" />}
             Yes, Confirm
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
 }
 
 function CancelBookingDialog({
-  booking, open, onOpenChange, onSuccess,
+  booking,
+  open,
+  onOpenChange,
+  onSuccess,
 }: {
-  booking: ClientBookingWithRelations | null
-  open: boolean
-  onOpenChange: (v: boolean) => void
-  onSuccess: () => void
+  booking: ClientBookingWithRelations | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSuccess: () => void;
 }) {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(false);
 
   const handle = async () => {
-    if (!booking) return
-    setLoading(true)
-    const r = await cancelMyBooking({ bookingId: booking.id })
-    setLoading(false)
+    if (!booking) return;
+    setLoading(true);
+    const r = await cancelMyBooking({ bookingId: booking.id });
+    setLoading(false);
     if (r.success) {
-      toast.success('Booking cancelled')
-      onOpenChange(false)
-      onSuccess()
+      toast.success("Booking cancelled");
+      onOpenChange(false);
+      onSuccess();
     } else {
-      toast.error('Error', { description: r.error })
+      toast.error("Error", { description: r.error });
     }
-  }
+  };
+
+  if (!open) return null;
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to cancel this booking? This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>No, keep it</AlertDialogCancel>
-          <AlertDialogAction
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) onOpenChange(false);
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.16 }}
+        className="w-full max-w-sm rounded-2xl border border-border/15 bg-card shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-start gap-3.5 px-5 pt-5 pb-4 border-b border-red-400/15 bg-red-500/5">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
+            <XCircle size={18} className="text-red-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-semibold text-foreground">
+              Cancel Booking
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Are you sure you want to cancel this booking? This cannot be
+              undone.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-5 py-4 bg-muted/5">
+          <button
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+            className="h-8 px-3.5 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
+          >
+            No, keep it
+          </button>
+          <Button
+          variant={'ghost'}
             onClick={handle}
             disabled={loading}
-            className="bg-destructive hover:bg-destructive/90 gap-2"
+            className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-60"
           >
-            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {loading && <Loader2 size={12} className="animate-spin" />}
             Yes, Cancel
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
 }
 
-// ------------------------------------------------------------------
-// Pagination helper
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGINATION
+// ─────────────────────────────────────────────────────────────────────────────
+
 function BookingPagination({ pagination }: { pagination: PaginationInfo }) {
-  const router     = useRouter()
-  const pathname   = usePathname()
-  const params     = useSearchParams()
-  const { page, totalPages } = pagination
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const { page, totalPages, totalCount, pageSize } = pagination;
 
   const go = (n: number) => {
-    const p = new URLSearchParams(params)
-    p.set('page', String(n))
-    router.push(`${pathname}?${p.toString()}`)
-  }
+    const p = new URLSearchParams(params);
+    p.set("page", String(n));
+    router.push(`${pathname}?${p.toString()}`);
+  };
 
-  if (totalPages <= 1) return null
+  if (totalPages <= 1) return null;
 
-  const pages: (number | 'ellipsis')[] = []
-  const delta = 1
-  for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - delta && i <= page + delta)) {
-      pages.push(i)
-    } else if (pages[pages.length - 1] !== 'ellipsis') {
-      pages.push('ellipsis')
-    }
-  }
+  const rangeStart = (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, totalCount);
 
   return (
-    <Pagination>
-      <PaginationContent>
-        <PaginationItem>
-          <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (page > 1) go(page - 1) }}
-            className={page <= 1 ? 'pointer-events-none opacity-50' : ''} />
-        </PaginationItem>
-        {pages.map((p, i) =>
-          p === 'ellipsis' ? (
-            <PaginationEllipsis key={`e-${i}`} />
-          ) : (
-            <PaginationItem key={p}>
-              <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); go(p) }}>
-                {p}
-              </PaginationLink>
-            </PaginationItem>
-          )
-        )}
-        <PaginationItem>
-          <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (page < totalPages) go(page + 1) }}
-            className={page >= totalPages ? 'pointer-events-none opacity-50' : ''} />
-        </PaginationItem>
-      </PaginationContent>
-    </Pagination>
-  )
+    <div className="flex items-center justify-between pt-2">
+      <p className="text-xs text-muted-foreground">
+        Showing{" "}
+        <span className="font-semibold text-foreground tabular-nums">
+          {rangeStart}–{rangeEnd}
+        </span>{" "}
+        of{" "}
+        <span className="font-semibold text-foreground tabular-nums">
+          {totalCount.toLocaleString()}
+        </span>
+      </p>
+      <div className="flex items-center gap-1">
+        <Button
+          variant={"ghost"}
+          onClick={() => page > 1 && go(page - 1)}
+          disabled={page <= 1}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg border text-muted-foreground transition-all",
+            page > 1
+              ? "border-border/20 hover:border-border/40 hover:text-foreground hover:bg-muted/20"
+              : "border-border/10 opacity-40 cursor-not-allowed",
+          )}
+        >
+          <ChevronLeft size={14} />
+        </Button>
+        <span className="text-xs text-muted-foreground px-3 tabular-nums">
+          {page} / {totalPages}
+        </span>
+        <Button
+          variant={"ghost"}
+          onClick={() => page < totalPages && go(page + 1)}
+          disabled={page >= totalPages}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg border text-muted-foreground transition-all",
+            page < totalPages
+              ? "border-border/20 hover:border-border/40 hover:text-foreground hover:bg-muted/20"
+              : "border-border/10 opacity-40 cursor-not-allowed",
+          )}
+        >
+          <ChevronRight size={14} />
+        </Button>
+      </div>
+    </div>
+  );
 }
 
-// ------------------------------------------------------------------
-// Root client component
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS FILTER TABS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STATUS_TABS: { id: BookingStatus | "ALL"; label: string }[] = [
+  { id: "ALL", label: "All" },
+  { id: "REQUESTED", label: "Requested" },
+  { id: "PROPOSED", label: "Proposed" },
+  { id: "CONFIRMED", label: "Confirmed" },
+  { id: "COMPLETED", label: "Completed" },
+  { id: "CANCELED", label: "Cancelled" },
+];
+
+function StatusFilterTabs({
+  activeStatus,
+}: {
+  activeStatus: BookingStatus | null;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+
+  const go = (status: BookingStatus | "ALL") => {
+    const p = new URLSearchParams(params);
+    status === "ALL" ? p.delete("status") : p.set("status", status);
+    p.delete("page");
+    router.push(`${pathname}?${p.toString()}`);
+  };
+
+  const active = activeStatus ?? "ALL";
+
+  return (
+    <div className="flex gap-1.5 flex-wrap">
+      {STATUS_TABS.map((t) => {
+        const isActive = active === t.id;
+        const scfg = t.id !== "ALL" ? BOOKING_STATUS_CONFIG[t.id] : null;
+        return (
+          <button
+            key={t.id}
+            onClick={() => go(t.id)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
+              isActive
+                ? "bg-color/15 text-color border-color/25"
+                : "text-muted-foreground bg-muted/15 border-transparent hover:border-border/20 hover:text-foreground",
+            )}
+          >
+            {scfg && (
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full shrink-0",
+                  isActive ? scfg.dot : "bg-muted-foreground/30",
+                )}
+              />
+            )}
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOKING ROW CARD (replaces the plain <tr>)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BookingRow({
+  booking,
+  onClick,
+  onConfirm,
+  onCancel,
+  variants,
+}: {
+  booking: ClientBookingWithRelations;
+  onClick: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variants?: object;
+}) {
+  const cfg = BOOKING_STATUS_CONFIG[booking.status];
+  const needsAction = booking.status === "PROPOSED";
+
+  return (
+    <motion.tr
+      layout
+      variants={variants}
+      onClick={onClick}
+      className={cn(
+        "group cursor-pointer border-b border-border/5 last:border-0 transition-colors",
+        needsAction
+          ? "bg-amber-500/3 hover:bg-amber-500/6"
+          : "hover:bg-muted/15",
+      )}
+    >
+      {/* Type */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-linear-to-br",
+              cfg.gradient,
+            )}
+          >
+            <Video size={12} className="text-white" />
+          </div>
+          <span className="text-sm font-medium text-foreground">
+            {fmtType(booking.type)}
+          </span>
+        </div>
+      </td>
+
+      {/* Status */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <StatusBadge status={booking.status} />
+          {needsAction && (
+            <span className="hidden sm:inline text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-400/20 px-1.5 py-0.5 rounded-full">
+              action needed
+            </span>
+          )}
+        </div>
+      </td>
+
+      {/* Scheduled */}
+      <td className="px-4 py-3 hidden sm:table-cell">
+        <span className="text-xs text-muted-foreground">
+          {booking.scheduledAt ? fmtDateTime(booking.scheduledAt) : "—"}
+        </span>
+      </td>
+
+      {/* Duration */}
+      <td className="px-4 py-3 hidden md:table-cell">
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {booking.durationMinutes} min
+        </span>
+      </td>
+
+      {/* Created */}
+      <td className="px-4 py-3 hidden lg:table-cell">
+        <span className="text-xs text-muted-foreground">
+          {fmt(booking.createdAt)}
+        </span>
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant={"ghost"}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/15 text-muted-foreground "
+            >
+              <MoreHorizontal size={14} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="rounded-xl border-border/20 bg-card/95 backdrop-blur-sm shadow-xl p-1 min-w-35"
+          >
+            <DropdownMenuItem
+              onClick={onClick}
+              className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer"
+            >
+              <Eye size={13} /> View Details
+            </DropdownMenuItem>
+            {booking.status === "PROPOSED" && (
+              <DropdownMenuItem
+                onClick={onConfirm}
+                className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer text-emerald-400 focus:text-emerald-400"
+              >
+                <CheckCircle2 size={13} /> Confirm
+              </DropdownMenuItem>
+            )}
+            {(booking.status === "REQUESTED" ||
+              booking.status === "PROPOSED") && (
+              <DropdownMenuItem
+                onClick={onCancel}
+                className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer text-red-400 focus:text-red-400"
+              >
+                <XCircle size={13} /> Cancel
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </td>
+    </motion.tr>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROOT: MyBookingsClient
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface MyBookingsClientProps {
-  initialBookings:   ClientBookingWithRelations[]
-  initialPagination: PaginationInfo
-  initialPlanInfo:   UserPlanInfo
-  initialStatus:     BookingStatus | null
-  initialPage:       number
+  initialBookings: ClientBookingWithRelations[];
+  initialPagination: PaginationInfo;
+  initialPlanInfo: UserPlanInfo;
+  initialStatus: BookingStatus | null;
+  initialPage: number;
 }
 
 export function MyBookingsClient({
@@ -768,170 +1286,174 @@ export function MyBookingsClient({
   initialStatus,
   initialPage,
 }: MyBookingsClientProps) {
-  const searchParams = useSearchParams()
-  const activeStatus = searchParams.get('status') as BookingStatus | null
-  const activePage   = parseInt(searchParams.get('page') || '1')
+  const searchParams = useSearchParams();
+  const activeStatus = searchParams.get("status") as BookingStatus | null;
+  const activePage = parseInt(searchParams.get("page") || "1");
 
-  const [bookings,   setBookings]   = useState(initialBookings)
-  const [pagination, setPagination] = useState(initialPagination)
-  const [loading,    setLoading]    = useState(false)
+  const [bookings, setBookings] = useState(initialBookings);
+  const [pagination, setPagination] = useState(initialPagination);
+  const [loading, setLoading] = useState(false);
 
   // Dialog states
-  const [isCreateOpen,  setIsCreateOpen]  = useState(false)
-  const [detailBooking, setDetailBooking] = useState<ClientBookingWithRelations | null>(null)
-  const [confirmTarget, setConfirmTarget] = useState<ClientBookingWithRelations | null>(null)
-  const [cancelTarget,  setCancelTarget]  = useState<ClientBookingWithRelations | null>(null)
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [detailBooking, setDetailBooking] =
+    useState<ClientBookingWithRelations | null>(null);
+  const [confirmTarget, setConfirmTarget] =
+    useState<ClientBookingWithRelations | null>(null);
+  const [cancelTarget, setCancelTarget] =
+    useState<ClientBookingWithRelations | null>(null);
 
   const fetchPage = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     const result = await getMyBookings({
-      page:     activePage,
+      page: activePage,
       pageSize: initialPagination.pageSize,
-      status:   activeStatus ?? undefined,
-    })
-    if (result.success) {
-      setBookings(result.data.bookings as ClientBookingWithRelations[])
-      setPagination(result.data.pagination)
+      status: activeStatus ?? undefined,
+    });
+    if (result.success && result.data) {
+      setBookings(result.data.bookings as ClientBookingWithRelations[]);
+      setPagination(result.data.pagination);
     }
-    setLoading(false)
-  }, [activePage, activeStatus, initialPagination.pageSize])
+    setLoading(false);
+  }, [activePage, activeStatus, initialPagination.pageSize]);
 
   useEffect(() => {
-    let cancelled = false
+    if (activePage === initialPage && activeStatus === initialStatus) return;
+    let cancelled = false;
     async function run() {
-      setLoading(true)
+      setLoading(true);
       const result = await getMyBookings({
-        page:     activePage,
+        page: activePage,
         pageSize: initialPagination.pageSize,
-        status:   activeStatus ?? undefined,
-      })
-      if (!cancelled && result.success) {
-        setBookings(result.data.bookings as ClientBookingWithRelations[])
-        setPagination(result.data.pagination)
+        status: activeStatus ?? undefined,
+      });
+      if (!cancelled && result.success && result.data) {
+        setBookings(result.data.bookings as ClientBookingWithRelations[]);
+        setPagination(result.data.pagination);
       }
-      if (!cancelled) setLoading(false)
+      if (!cancelled) setLoading(false);
     }
-    // Skip on very first render (use SSR data)
-    if (activePage !== initialPage || activeStatus !== initialStatus) {
-      run()
-    }
-    return () => { cancelled = true }
-  }, [activePage, activeStatus]) // eslint-disable-line
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, activeStatus]); // eslint-disable-line
 
-  const handleActionComplete = () => fetchPage()
+  const handleActionComplete = () => fetchPage();
 
-  // Count pending actions (PROPOSED) for badge
-  const pendingCount = bookings.filter((b) => b.status === 'PROPOSED').length
+  const pendingCount = bookings.filter((b) => b.status === "PROPOSED").length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Plan banner */}
       <PlanBanner planInfo={initialPlanInfo} />
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">
-          Your Bookings
-          {pendingCount > 0 && (
-            <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 text-xs font-medium">
-              {pendingCount} action required
-            </span>
+      {/* Action bar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            {pagination.totalCount} booking
+            {pagination.totalCount !== 1 ? "s" : ""}
+            {pendingCount > 0 && (
+              <span className="ml-2 text-amber-400 font-semibold">
+                · {pendingCount} action{pendingCount > 1 ? "s" : ""} required
+              </span>
+            )}
+          </p>
+          {loading && (
+            <Loader2 size={12} className="animate-spin text-muted-foreground" />
           )}
-        </h2>
+        </div>
         <Button
+          variant={"ghost"}
           onClick={() => setIsCreateOpen(true)}
-          disabled={initialPlanInfo.billingEnabled && initialPlanInfo.limit !== Infinity && initialPlanInfo.usedCount >= initialPlanInfo.limit}
-          className="gap-2"
+          disabled={
+            initialPlanInfo.billingEnabled &&
+            initialPlanInfo.limit !== Infinity &&
+            initialPlanInfo.usedCount >= initialPlanInfo.limit
+          }
+          className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-xl bg-color hover:bg-color/90 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="h-4 w-4" />
-          Request Call
+          <Plus size={14} /> Request Call
         </Button>
       </div>
 
       {/* Status tabs */}
       <StatusFilterTabs activeStatus={activeStatus} />
 
-      {/* Table */}
-      <div className="rounded-xl border bg-card overflow-hidden relative">
+      {/* Table card */}
+      <div className="rounded-2xl border border-border/10 bg-card/40 overflow-hidden relative">
+        {/* Loading overlay */}
         {loading && (
-          <div className="absolute inset-0 bg-background/60 flex items-center justify-center z-10">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-2xl">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border border-border/20 shadow-lg">
+              <Loader2 size={18} className="animate-spin text-color" />
+            </div>
           </div>
         )}
+
         {bookings.length === 0 ? (
-          <div className="py-16 text-center">
-            <Video className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="text-sm font-medium">No bookings found</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {activeStatus ? 'Try a different filter.' : 'Request your first video call to get started.'}
-            </p>
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <motion.div
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 300, damping: 24 }}
+              className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 ring-1 ring-border/10"
+            >
+              <Video size={26} className="text-muted-foreground/30" />
+            </motion.div>
+            <div>
+              <p className="text-sm font-semibold text-foreground/70">
+                No bookings found
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {activeStatus
+                  ? "Try a different filter."
+                  : "Request your first video call to get started."}
+              </p>
+            </div>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">Type</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden sm:table-cell">Scheduled</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden md:table-cell">Duration</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden lg:table-cell">Created</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">Actions</th>
+              <tr className="border-b border-border/10 bg-muted/10">
+                {["Type", "Status", "Scheduled", "Duration", "Created", ""].map(
+                  (h, i) => (
+                    <th
+                      key={i}
+                      className={cn(
+                        "px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider",
+                        i === 2 && "hidden sm:table-cell",
+                        i === 3 && "hidden md:table-cell",
+                        i === 4 && "hidden lg:table-cell",
+                        i === 5 && "text-right",
+                      )}
+                    >
+                      {h}
+                    </th>
+                  ),
+                )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <motion.tbody
+              initial="hidden"
+              animate="show"
+              variants={{
+                hidden: {},
+                show: { transition: { staggerChildren: 0.04 } },
+              }}
+            >
               {bookings.map((booking) => (
-                <tr
+                <BookingRow
                   key={booking.id}
-                  className="hover:bg-muted/20 transition-colors cursor-pointer"
+                  booking={booking}
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
                   onClick={() => setDetailBooking(booking)}
-                >
-                  <td className="px-4 py-3">
-                    <span className="font-medium">
-                      {booking.type.charAt(0) + booking.type.slice(1).toLowerCase()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={booking.status} />
-                  </td>
-                  <td className="px-4 py-3 hidden sm:table-cell text-muted-foreground">
-                    {booking.scheduledAt ? fmtDateTime(booking.scheduledAt) : '—'}
-                  </td>
-                  <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
-                    {booking.durationMinutes} min
-                  </td>
-                  <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
-                    {fmt(booking.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setDetailBooking(booking)}>
-                          <Eye className="mr-2 h-4 w-4" /> View Details
-                        </DropdownMenuItem>
-                        {booking.status === 'PROPOSED' && (
-                          <DropdownMenuItem onClick={() => setConfirmTarget(booking)}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" /> Confirm
-                          </DropdownMenuItem>
-                        )}
-                        {(booking.status === 'REQUESTED' || booking.status === 'PROPOSED') && (
-                          <DropdownMenuItem
-                            onClick={() => setCancelTarget(booking)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <XCircle className="mr-2 h-4 w-4" /> Cancel
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
+                  onConfirm={() => setConfirmTarget(booking)}
+                  onCancel={() => setCancelTarget(booking)}
+                />
               ))}
-            </tbody>
+            </motion.tbody>
           </table>
         )}
       </div>
@@ -940,74 +1462,62 @@ export function MyBookingsClient({
       <BookingPagination pagination={pagination} />
 
       {/* Dialogs */}
-      <BookingDetailsDialog
-        booking={detailBooking}
-        open={!!detailBooking}
-        onOpenChange={(v) => { if (!v) setDetailBooking(null) }}
-        onConfirm={(b) => { setDetailBooking(null); setConfirmTarget(b) }}
-        onCancel={(b)  => { setDetailBooking(null); setCancelTarget(b) }}
-      />
+      <AnimatePresence>
+        {detailBooking && (
+          <BookingDetailsModal
+            booking={detailBooking}
+            open={!!detailBooking}
+            onOpenChange={(v) => {
+              if (!v) setDetailBooking(null);
+            }}
+            onConfirm={(b) => {
+              setDetailBooking(null);
+              setConfirmTarget(b);
+            }}
+            onCancel={(b) => {
+              setDetailBooking(null);
+              setCancelTarget(b);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
-      <CreateBookingDialog
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        onSuccess={handleActionComplete}
-        planInfo={initialPlanInfo}
-      />
+      <AnimatePresence>
+        {isCreateOpen && (
+          <CreateBookingDialog
+            open={isCreateOpen}
+            onOpenChange={setIsCreateOpen}
+            onSuccess={handleActionComplete}
+            planInfo={initialPlanInfo}
+          />
+        )}
+      </AnimatePresence>
 
-      <ConfirmBookingDialog
-        booking={confirmTarget}
-        open={!!confirmTarget}
-        onOpenChange={(v) => { if (!v) setConfirmTarget(null) }}
-        onSuccess={handleActionComplete}
-      />
+      <AnimatePresence>
+        {confirmTarget && (
+          <ConfirmBookingDialog
+            booking={confirmTarget}
+            open={!!confirmTarget}
+            onOpenChange={(v) => {
+              if (!v) setConfirmTarget(null);
+            }}
+            onSuccess={handleActionComplete}
+          />
+        )}
+      </AnimatePresence>
 
-      <CancelBookingDialog
-        booking={cancelTarget}
-        open={!!cancelTarget}
-        onOpenChange={(v) => { if (!v) setCancelTarget(null) }}
-        onSuccess={handleActionComplete}
-      />
+      <AnimatePresence>
+        {cancelTarget && (
+          <CancelBookingDialog
+            booking={cancelTarget}
+            open={!!cancelTarget}
+            onOpenChange={(v) => {
+              if (!v) setCancelTarget(null);
+            }}
+            onSuccess={handleActionComplete}
+          />
+        )}
+      </AnimatePresence>
     </div>
-  )
-}
-
-// ------------------------------------------------------------------
-// Status filter tabs — separate component to use useSearchParams cleanly
-// ------------------------------------------------------------------
-function StatusFilterTabs({ activeStatus }: { activeStatus: BookingStatus | null }) {
-  const router   = useRouter()
-  const pathname = usePathname()
-  const params   = useSearchParams()
-
-  const go = (status: BookingStatus | 'ALL') => {
-    const p = new URLSearchParams(params)
-    if (status === 'ALL') {
-      p.delete('status')
-    } else {
-      p.set('status', status)
-    }
-    p.delete('page')
-    router.push(`${pathname}?${p.toString()}`)
-  }
-
-  const active = activeStatus ?? 'ALL'
-
-  return (
-    <div className="flex gap-0 border-b border-border/50 overflow-x-auto scrollbar-none">
-      {STATUS_TABS.map((t) => (
-        <button
-          key={t.id}
-          onClick={() => go(t.id)}
-          className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-            active === t.id
-              ? 'border-foreground text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  )
+  );
 }

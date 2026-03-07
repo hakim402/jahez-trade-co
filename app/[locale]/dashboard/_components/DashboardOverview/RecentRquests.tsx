@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'   // <-- added
 import { formatDistanceToNow } from 'date-fns'
 import {
   PackageSearch, ArrowRight, ExternalLink, CheckCircle2,
@@ -24,13 +25,15 @@ interface RecentRequestsProps {
 }
 
 export function RecentRequests({ requests, total }: RecentRequestsProps) {
+  const t = useTranslations('RecentRequests')
+
   return (
     <Card className="border border-border/50">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <PackageSearch className="h-4 w-4 text-indigo-500" />
-            Recent Requests
+            {t('title')}
           </CardTitle>
           {total > 0 && (
             <Badge variant="secondary" className="font-mono text-xs h-5">
@@ -43,8 +46,8 @@ export function RecentRequests({ requests, total }: RecentRequestsProps) {
       <CardContent className="p-0">
         {requests.length === 0 ? (
           <EmptyState
-            message="No requests yet"
-            cta="Submit your first request"
+            message={t('emptyMessage')}
+            cta={t('emptyCta')}
             href="/dashboard/requests/new"
           />
         ) : (
@@ -60,8 +63,8 @@ export function RecentRequests({ requests, total }: RecentRequestsProps) {
         <CardFooter className="pt-3 pb-3">
           <Button asChild variant="ghost" size="sm" className="w-full h-8 text-xs text-muted-foreground hover:text-foreground gap-1.5">
             <Link href="/dashboard/requests">
-              View all requests
-              <ArrowRight className="h-3 w-3" />
+              {t('viewAll')}
+              <ArrowRight className="h-3 w-3 rtl:rotate-180" />   {/* flip in RTL */}
             </Link>
           </Button>
         </CardFooter>
@@ -75,6 +78,10 @@ export function RecentRequests({ requests, total }: RecentRequestsProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RequestRow({ request: r }: { request: RecentRequestItem }) {
+  const t = useTranslations('RecentRequests')
+  const tQuote = useTranslations('QuoteStatus')   // if needed, but we use quoteCfg.label which already uses translation via its own config
+  // Note: statusCfg.label and quoteCfg.label come from status configs that already use translations (assumed from earlier setup)
+
   const statusCfg = getRequestStatusConfig(r.status)
   const quoteCfg  = r.latestQuote ? getQuoteStatusConfig(r.latestQuote.status) : null
 
@@ -93,7 +100,7 @@ function RequestRow({ request: r }: { request: RecentRequestItem }) {
         <div className="flex items-start justify-between gap-2">
           {/* Description */}
           <p className="text-sm font-medium leading-snug line-clamp-1 text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-            {r.description?.slice(0, 60) ?? 'Product Request'}
+            {r.description?.slice(0, 60) ?? t('productRequestFallback')}
           </p>
 
           {/* Status badge */}
@@ -108,7 +115,7 @@ function RequestRow({ request: r }: { request: RecentRequestItem }) {
         <div className="flex items-center gap-3 mt-1 flex-wrap">
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Hash className="h-2.5 w-2.5" />
-            Qty {r.quantity}
+            {t('qty', { count: r.quantity })}
           </span>
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Globe className="h-2.5 w-2.5" />
@@ -137,7 +144,7 @@ function RequestRow({ request: r }: { request: RecentRequestItem }) {
         )}
         {r.quotesCount > 0 && !r.latestQuote && (
           <p className="text-[11px] text-muted-foreground mt-1">
-            {r.quotesCount} quote{r.quotesCount !== 1 ? 's' : ''}
+            {t('quotesCount', { count: r.quotesCount })}
           </p>
         )}
       </div>
@@ -159,7 +166,7 @@ function EmptyState({ message, cta, href }: { message: string; cta: string; href
       <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5">
         <Link href={href}>
           {cta}
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="h-3 w-3 rtl:rotate-180" />   {/* flip in RTL */}
         </Link>
       </Button>
     </div>

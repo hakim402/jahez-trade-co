@@ -1,48 +1,84 @@
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
+// app/[locale]/dashboard/(routes)/video-bookings/_components/BookingsTableSkeleton.tsx
 
 export function BookingsTableSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Plan banner skeleton */}
-      <div className="rounded-xl border bg-card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-8 w-24 rounded-lg" />
+      <div className="rounded-2xl border border-border/10 bg-card/30 p-4 flex items-center gap-4">
+        <div className="h-10 w-10 rounded-xl bg-muted/30 animate-pulse shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="h-3.5 w-32 rounded-lg bg-muted/40 animate-pulse" />
+            <div className="h-3 w-20 rounded-lg bg-muted/30 animate-pulse" />
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted/30 animate-pulse" />
         </div>
-        <Skeleton className="h-2 w-full rounded-full" />
       </div>
 
-      {/* Table skeleton */}
-      <div className="rounded-xl border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Scheduled</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={i}>
-                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell className="text-right">
-                  <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      {/* Action bar skeleton */}
+      <div className="flex items-center justify-between">
+        <div className="h-3.5 w-28 rounded-lg bg-muted/30 animate-pulse" />
+        <div className="h-9 w-32 rounded-xl bg-muted/30 animate-pulse" />
+      </div>
+
+      {/* Status tabs skeleton */}
+      <div className="flex gap-1.5 flex-wrap">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-7 rounded-xl bg-muted/20 animate-pulse"
+            style={{ width: `${52 + i * 8}px`, animationDelay: `${i * 40}ms` }}
+          />
+        ))}
+      </div>
+
+      {/* Table card skeleton */}
+      <div className="rounded-2xl border border-border/10 bg-card/40 overflow-hidden">
+        {/* Column headers */}
+        <div className="flex items-center gap-4 px-4 py-3 border-b border-border/10 bg-muted/10">
+          {[100, 90, 140, 70, 100, 40].map((w, i) => (
+            <div
+              key={i}
+              className="h-3 rounded bg-muted/30 animate-pulse shrink-0"
+              style={{ width: `${w}px`, animationDelay: `${i * 30}ms` }}
+            />
+          ))}
+        </div>
+
+        {/* Rows */}
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-4 px-4 py-3.5 border-b border-border/5 last:border-0"
+            style={{ animationDelay: `${i * 55}ms` }}
+          >
+            {/* type */}
+            <div className="flex items-center gap-2 shrink-0" style={{ width: 100 }}>
+              <div className="h-7 w-7 rounded-lg bg-muted/30 animate-pulse" />
+              <div className="h-3.5 w-14 rounded bg-muted/30 animate-pulse" />
+            </div>
+            {/* status badge */}
+            <div className="h-5 w-24 rounded-full bg-muted/30 animate-pulse shrink-0" style={{ width: 90 }} />
+            {/* scheduled */}
+            <div className="h-3.5 w-32 rounded bg-muted/25 animate-pulse hidden sm:block shrink-0" />
+            {/* duration */}
+            <div className="h-3.5 w-14 rounded bg-muted/25 animate-pulse hidden md:block shrink-0" />
+            {/* created */}
+            <div className="h-3.5 w-20 rounded bg-muted/20 animate-pulse hidden lg:block shrink-0" />
+            {/* actions */}
+            <div className="h-7 w-7 rounded-lg bg-muted/20 animate-pulse ml-auto shrink-0" />
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination skeleton */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="h-3 w-32 rounded bg-muted/25 animate-pulse" />
+        <div className="flex items-center gap-1">
+          <div className="h-8 w-8 rounded-lg bg-muted/20 animate-pulse" />
+          <div className="h-3 w-12 rounded bg-muted/20 animate-pulse mx-2" />
+          <div className="h-8 w-8 rounded-lg bg-muted/20 animate-pulse" />
+        </div>
       </div>
     </div>
   )

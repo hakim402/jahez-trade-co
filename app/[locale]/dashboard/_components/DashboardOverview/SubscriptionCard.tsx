@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Crown, Zap, Clock, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge }    from '@/components/ui/badge'
@@ -18,6 +19,9 @@ interface SubscriptionCardProps {
 }
 
 export function SubscriptionCard({ subscription: s }: SubscriptionCardProps) {
+  const t = useTranslations('SubscriptionCard')
+  const tInterval = useTranslations('Interval')
+
   const requestPct  = s.requestLimit === Infinity ? 0 : Math.min((s.requestsUsed / s.requestLimit) * 100, 100)
   const bookingPct  = s.bookingLimit === Infinity ? 0 : Math.min((s.bookingsUsed / s.bookingLimit) * 100, 100)
   const isLow       = (pct: number) => pct >= 80
@@ -55,12 +59,12 @@ export function SubscriptionCard({ subscription: s }: SubscriptionCardProps) {
                 <CardTitle className="text-base">{s.planName}</CardTitle>
                 {s.isTrial && (
                   <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 dark:text-amber-400 h-4 px-1.5">
-                    Trial
+                    {t('trial')}
                   </Badge>
                 )}
                 {!s.hasAccess && (
                   <Badge variant="destructive" className="text-[10px] h-4 px-1.5">
-                    Inactive
+                    {t('inactive')}
                   </Badge>
                 )}
               </div>
@@ -68,10 +72,13 @@ export function SubscriptionCard({ subscription: s }: SubscriptionCardProps) {
                 {s.billingEnabled
                   ? s.hasAccess
                     ? s.isDefaultPlan
-                      ? 'Free plan'
-                      : `${formatCurrency(s.planAmount, s.currency)} / ${s.interval ?? 'month'}`
-                    : 'No active subscription'
-                  : 'All features unlocked'}
+                      ? t('freePlan')
+                      : t('price', { 
+                          price: formatCurrency(s.planAmount, s.currency), 
+                          interval: tInterval(s.interval ?? 'month')
+                        })
+                    : t('noActive')
+                  : t('allUnlocked')}
               </p>
             </div>
           </div>
@@ -81,19 +88,20 @@ export function SubscriptionCard({ subscription: s }: SubscriptionCardProps) {
             {s.isTrial && s.trialEndsAt && (
               <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                 <Clock className="h-3 w-3" />
-                Trial ends {format(new Date(s.trialEndsAt), 'MMM d')}
+                {t('trialEnds', { date: format(new Date(s.trialEndsAt), 'MMM d') })}
               </span>
             )}
             {!s.isTrial && s.periodEndsAt && (
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3 text-green-500" />
-                Renews {format(new Date(s.periodEndsAt), 'MMM d, yyyy')}
+                {t('renews', { date: format(new Date(s.periodEndsAt), 'MMM d, yyyy') })}
               </span>
             )}
             {s.billingEnabled && s.isDefaultPlan && (
               <Button asChild size="sm" variant="default" className="h-7 text-xs bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 border-0">
                 <Link href="/dashboard/billing">
-                  Upgrade <ExternalLink className="ml-1 h-3 w-3" />
+                  {t('upgrade')}
+                  <ExternalLink className="ms-1 h-3 w-3 rtl:rotate-180" />
                 </Link>
               </Button>
             )}
@@ -105,7 +113,7 @@ export function SubscriptionCard({ subscription: s }: SubscriptionCardProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Requests usage */}
           <UsageBar
-            label="Product Requests"
+            label={t('productRequests')}
             used={s.requestsUsed}
             limit={s.requestLimit}
             pct={requestPct}
@@ -114,7 +122,7 @@ export function SubscriptionCard({ subscription: s }: SubscriptionCardProps) {
           />
           {/* Bookings usage */}
           <UsageBar
-            label="Video Bookings"
+            label={t('videoBookings')}
             used={s.bookingsUsed}
             limit={s.bookingLimit}
             pct={bookingPct}
@@ -137,6 +145,8 @@ function UsageBar({
   label: string; used: number; limit: number; pct: number
   isUnlimited: boolean; isLow: boolean
 }) {
+  const t = useTranslations('SubscriptionCard')
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
@@ -150,7 +160,7 @@ function UsageBar({
             <span className="text-muted-foreground font-normal"> / {limit}</span>
           )}
           {isUnlimited && (
-            <span className="text-muted-foreground font-normal"> / ∞</span>
+            <span className="text-muted-foreground font-normal"> / {t('unlimited')}</span>
           )}
         </span>
       </div>
@@ -178,13 +188,13 @@ function UsageBar({
       {isLow && !isUnlimited && pct < 100 && (
         <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <AlertTriangle className="h-2.5 w-2.5" />
-          Approaching limit
+          {t('approachingLimit')}
         </p>
       )}
       {pct >= 100 && (
         <p className="text-[10px] text-red-600 dark:text-red-400 flex items-center gap-1">
           <AlertTriangle className="h-2.5 w-2.5" />
-          Limit reached
+          {t('limitReached')}
         </p>
       )}
     </div>
