@@ -1,31 +1,26 @@
 // app/[locale]/page.tsx
 
 import { Header } from "./_components/Header/Header";
-import HeroSection from "./_components/Hero/HomeHero";
-import FooterSection from "./_components/Footer/FooterSection";
 import Pricing from "./_components/Pricing/Pricing";
-import CTA from "./_components/CTA/CTA";
-import Features from "./_components/Features/features";
-import HomeHero from "./_components/Hero/HomeHero";
-import StatsSection from "./_components/Stats/StatsSections";
-import HowItWorksSection from "./_components/HowItWork/HowItWork";
-import TestimonialsCarousel from "./_components/Testimonials/Testimonials";
-import Testimonials from "./_components/Testimonials/Testimonials";
-import FAQs from "./_components/FAQs/Faqs";
-
+import { FeatureSections } from "./_components/Features/FeaturesSection";
+import { VideoBookingSections } from "./_components/Features/VideoBookingSection";
+import { HomeHero } from "./_components/Hero/HomeHero";
+import { HowItWorks } from "./_components/HowItWork/HowItWorks";
+import { FooterSection } from "./_components/Footer/FooterSection";
+import { TrendingProductsSection } from "./(pages)/products/_components/TrendingProductsSection";
+import { FooterHero } from "./_components/Footer/FooterHero";
 
 export default function Home() {
   return (
     <div>
       <Header />
       <HomeHero />
-      <StatsSection />
-      <Features />
-      <HowItWorksSection />
+      <TrendingProductsSection />
+      <FeatureSections />
+      <VideoBookingSections />
+      <HowItWorks />
       {/* <Pricing /> */}
-      <Testimonials />
-      <FAQs />
-      <CTA />
+      <FooterHero />
       <FooterSection />
     </div>
   );

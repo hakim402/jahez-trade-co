@@ -1,8 +1,8 @@
 {
     "Header": {
         "home": "Home",
-        "quote": "Quote",
-        "videoBooking": "Video Booking",
+        "products":"Products",
+        "consulting": "Consulting",
         "about": "About",
         "contact": "Contact",
         "profile": "Profile",
@@ -417,6 +417,20 @@
         },
         "contactMap": {
             "caption": "Guangzhou, China - Main Office"
+        }
+    },
+    "ProductsPageHero": {
+        "title": "Source Products",
+        "highlight": "From Global Markets",
+        "description": "Connect with trusted manufacturers and suppliers worldwide to source high-quality products for your business.",
+        "badges": {
+            "verified": "Verified Suppliers",
+            "fastShipping": "Fast Shipping",
+            "globalSourcing": "Global Sourcing"
+        },
+        "buttons": {
+            "requestQuote": "Request Quote",
+            "findProducts": "Find Products"
         }
     },
     "ClientDashboard": {

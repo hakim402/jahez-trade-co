@@ -10,6 +10,7 @@ export default function FAQs() {
 
   return (
     <section className="py-16 md:py-24">
+      
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-8 md:grid-cols-5 md:gap-12">
           <div className="md:col-span-2">

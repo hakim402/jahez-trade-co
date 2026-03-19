@@ -13,6 +13,7 @@ import {
   UserRole,
   BookingType,
   MeetingProvider,
+  Prisma,
 } from '@prisma/client'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -546,9 +547,9 @@ export async function broadcastNotification(payload: {
     const targets = userIds?.length
       ? userIds
       : (await prisma.user.findMany({
-          where: { isDeleted: false, isActive: true },
-          select: { id: true },
-        })).map(u => u.id)
+        where: { isDeleted: false, isActive: true },
+        select: { id: true },
+      })).map(u => u.id)
 
     if (!targets.length) {
       return { success: false, error: 'No target users found' }
@@ -560,7 +561,7 @@ export async function broadcastNotification(payload: {
         title,
         message,
         type,
-        metadata: metadata ?? {},
+        metadata: (metadata ?? {}) as Prisma.InputJsonValue,
       })),
     })
 

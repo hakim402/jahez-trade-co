@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+
 @custom-variant dark (&:is(.dark *));
 
 
@@ -81,6 +82,7 @@
   --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
   --sidebar-border: oklch(0.928 0.006 264.531);
   --sidebar-ring: oklch(0.707 0.022 261.325);
+  --font-sans: var(--font-en);
 
   /* CUSTOM COLORS */
   --brand: #7b57fc;
@@ -125,6 +127,15 @@
   --brand: #7b57fc;
 }
 
+
+html[dir="rtl"] {
+  --font-sans: var(--font-ar);
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
 /* BASE STYLE */
 @layer base {
   * {
@@ -142,71 +153,4 @@
 .text-color {
   color: #7b57fc !important;
 }
-.text-gradient {
-  background: -webkit-linear-gradient(#7b57fc, #2b1cff) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-}
 
-/* ANIMATED GRADIENT BACKGROUND FOR HERO AND FOOTER*/
-@keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
-}
-.animate-blob {
-  animation: blob 7s infinite;
-}
-.animation-delay-2000 { animation-delay: 2s; }
-.animation-delay-4000 { animation-delay: 4s; }
-
-/* ADMIN DASHBOARD UTILITIES */
-.card { padding: 2em; }
-.read-the-docs { color: #888; }
-
-@layer utilities {
-  /* ADMIN DASHBOARD OVERVIEW GRADIENT COLOR */
-  .gradient-purple-blue { background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); }
-  .gradient-purple-pink { background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); }
-  .gradient-blue-cyan { background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%); }
-  .gradient-amber-orange { background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); }
-  .gradient-emerald-teal { background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%); }
-  .text-gradient-admin {
-    background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .glass-effect {
-    background: rgba(30, 41, 59, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-  .card-hover {
-    transition: all 0.3s ease;
-  }
-  .card-hover:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 40px -15px rgba(139, 92, 246, 0.3);
-  }
-
-  /* BRAND UTILITIES */
-  .bg-brand { background-color: var(--brand); }
-  .text-brand { color: var(--brand); }
-  .border-brand { border-color: var(--brand); }
-
-  /* BACKGROUND PATTERN*/
-  .bg-brand-pattern {
-    background-image: radial-gradient(circle at 1px 1px, var(--brand) 1px, transparent 0);
-    background-size: 40px 40px;
-  }
-
-  /*GRADIENT ORBS*/
-  .orb-brand {
-    background: var(--brand);
-    filter: blur(3rem);
-    opacity: 0.2;
-  }
-  .dark .orb-brand { opacity: 0.15; }
-}

@@ -1,146 +1,301 @@
 "use client";
 
-import React from "react";
+// app/[locale]/_components/hero.tsx
+
+import { useState, useEffect, useRef } from "react";
+import { motion, useInView, animate } from "motion/react";
+import { useLocale } from "next-intl";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Header } from "../Header/Header";
-import { ChevronRight, CirclePlay } from "lucide-react";
-import Image from "next/image";
-import Carousel from "../Carousel/carousel";
-import { useTranslations, useLocale } from "next-intl";
+import {
+  ArrowRight,
+  Package,
+  Video,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  Zap,
+  Star,
+  ChevronRight,
+  FileText,
+  Truck,
+  MessageSquare,
+  Factory,
+  Store,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const productImages = [
-  "/Products/product-1.png",
-  "/Products/product-2.png",
-  "/Products/product-3.png",
-  "/Products/product-4.png",
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// Animated counter hook
+// ─────────────────────────────────────────────────────────────────────────────
+function useCountUp(to: number, duration = 1.4, suffix = "") {
+  const [display, setDisplay] = useState("0");
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
 
-export default function HomeHero() {
-  const t = useTranslations("HomeHero");
-  const locale = useLocale();
-  const isRTL = locale === 'ar';
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, to, {
+      duration,
+      ease: "easeOut",
+      onUpdate(v) {
+        setDisplay(Math.round(v).toLocaleString() + suffix);
+      },
+    });
+    return () => controls.stop();
+  }, [inView, to, duration, suffix]);
 
-  const slides = productImages.map((src, index) => (
+  return { ref, display };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Floating status badge
+// ─────────────────────────────────────────────────────────────────────────────
+function StatusBadge({
+  icon: Icon,
+  label,
+  color,
+  className,
+}: {
+  icon: React.ElementType;
+  label: string;
+  color: string;
+  className?: string;
+}) {
+  return (
     <div
-      key={`slide-${index}`}
-      className="relative h-50 sm:h-62.5 md:h-75 lg:h-87.5 xl:h-100 w-full flex items-center justify-center"
+      className={cn(
+        "flex items-center gap-2 bg-white dark:bg-card rounded-full pl-2 pr-3.5 py-1.5",
+        "shadow-lg shadow-black/8 border border-border/50",
+        className,
+      )}
     >
-      <Image
-        src={src}
-        alt={`Product ${index + 1}`}
-        fill
-        sizes="(max-width: 640px) 100vw, (max-width: 768px) 75vw, (max-width: 1024px) 60vw, 50vw"
-        className="object-contain p-4 sm:p-6 md:p-8"
-        priority={index === 0}
-      />
+      <div
+        className={cn(
+          "w-5 h-5 rounded-full flex items-center justify-center",
+          color,
+        )}
+      >
+        <Icon className="w-3 h-3 text-white" />
+      </div>
+      <span className="text-[11px] font-semibold text-foreground whitespace-nowrap">
+        {label}
+      </span>
     </div>
-  ));
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stat counter card
+// ─────────────────────────────────────────────────────────────────────────────
+function StatCard({
+  to,
+  suffix,
+  label,
+  icon: Icon,
+  delay,
+}: {
+  to: number;
+  suffix?: string;
+  label: string;
+  icon: React.ElementType;
+  delay: number;
+}) {
+  const { ref, display } = useCountUp(to, 1.6, suffix ?? "");
 
   return (
-    <>
-      <Header />
-      <main className="overflow-hidden">
-        <section className="relative overflow-hidden bg-linear-to-b from-background to-muted">
-          {/* Animated gradient background */}
-          <div className="absolute inset-0 bg-linear-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-950 dark:to-purple-950/30">
-            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 dark:opacity-20" />
-            {/* Floating shapes */}
-            <div className="absolute top-20 left-10 w-72 h-72 bg-linear-to-r from-blue-400/30 to-purple-400/30 rounded-full blur-3xl animate-blob" />
-            <div className="absolute top-40 right-10 w-80 h-80 bg-linear-to-r from-purple-400/30 to-pink-400/30 rounded-full blur-3xl animate-blob animation-delay-2000" />
-            <div className="absolute bottom-20 left-1/3 w-96 h-96 bg-linear-to-r from-cyan-400/30 to-blue-400/30 rounded-full blur-3xl animate-blob animation-delay-4000" />
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 0.4 }}
+      className="flex flex-col items-center gap-1.5 px-5 py-4 rounded-2xl bg-card border border-border/50 hover:border-[#7b57fc]/30 transition-colors"
+    >
+      <Icon className="w-4 h-4 text-[#7b57fc] mb-0.5" />
+      <span
+        ref={ref}
+        className="text-2xl font-bold text-foreground tabular-nums"
+      >
+        {display}
+      </span>
+      <span className="text-[10px] text-muted-foreground text-center leading-tight">
+        {label}
+      </span>
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Service pill row
+// ─────────────────────────────────────────────────────────────────────────────
+function ServicePills({ isAr }: { isAr: boolean }) {
+  const services = isAr
+    ? [
+        { icon: Package, label: "استيراد المنتجات", color: "bg-violet-500" },
+        { icon: Video, label: "جلسات فيديو", color: "bg-blue-500" },
+        { icon: Store, label: "جولات السوق", color: "bg-orange-500" },
+        { icon: Factory, label: "زيارات المصانع", color: "bg-emerald-500" },
+        { icon: TrendingUp, label: "منتجات رائجة", color: "bg-rose-500" },
+        {
+          icon: MessageSquare,
+          label: "استشارات تجارية",
+          color: "bg-amber-500",
+        },
+      ]
+    : [
+        { icon: Package, label: "Product Sourcing", color: "bg-violet-500" },
+        { icon: Video, label: "Video Sessions", color: "bg-blue-500" },
+        { icon: Store, label: "Market Tours", color: "bg-orange-500" },
+        { icon: Factory, label: "Factory Visits", color: "bg-emerald-500" },
+        { icon: TrendingUp, label: "Trending Products", color: "bg-rose-500" },
+        { icon: MessageSquare, label: "Consulting", color: "bg-amber-500" },
+      ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 1.1, duration: 0.5 }}
+      className="flex flex-wrap justify-center gap-2"
+    >
+      {services.map(({ icon: Icon, label, color }, i) => (
+        <motion.div
+          key={label}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 1.1 + i * 0.06 }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/50 bg-background/80 backdrop-blur-sm text-xs font-medium text-muted-foreground hover:text-foreground hover:border-[#7b57fc]/40 transition-colors cursor-default"
+        >
+          <div
+            className={cn(
+              "w-3.5 h-3.5 rounded-full flex items-center justify-center",
+              color,
+            )}
+          >
+            <Icon className="w-2 h-2 text-white" />
           </div>
-          <div className="relative py-36">
-            <div className="relative mx-auto w-full max-w-5xl px-6">
-              <div className="md:w-1/2">
-                <div>
-                  <h1 className="max-w-md text-balance text-5xl font-medium md:text-6xl z-10">
-                    {t("title")}{" "}
-                    <span className="text-color">{t("titleHighlight")}</span>{" "}
-                    {t("titleSuffix")}
-                  </h1>
+          {label}
+        </motion.div>
+      ))}
+    </motion.div>
+  );
+}
 
-                  <p className="text-muted-foreground my-8 max-w-2xl text-balance text-xl">
-                    {t("subtitle")}
-                  </p>
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Hero
+// ─────────────────────────────────────────────────────────────────────────────
+export function HomeHero() {
+  const locale = useLocale();
+  const isAr = locale === "ar";
 
-                  <div className="flex items-center gap-3">
-                    <Button
-                      asChild
-                      size="lg"
-                      className="bg-color hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg px-8"
-                    >
-                      <Link href="#link">
-                        <span className="text-nowrap">{t("startForFree")}</span>
-                        <ChevronRight className="opacity-50" />
-                      </Link>
-                    </Button>
-                    <Button
-                      key={2}
-                      asChild
-                      size="lg"
-                      variant="outline"
-                      className="border-2 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 px-8"
-                    >
-                      <Link href="#link">
-                        <CirclePlay className="fill-primary/25 stroke-primary" />
-                        <span className="text-nowrap">{t("seeHowItWorks")}</span>
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+  // Map emoji to country code for flag-icons
+  const flagMap: Record<string, string> = {
+    "🇸🇦": "sa",
+    "🇾🇪": "ye",
+    "🇦🇪": "ae",
+    "🇨🇳": "cn",
+    "🇺🇸": "us",
+  };
 
-            {/* Carousel container with conditional positioning for RTL */}
-            <div
-              className={`perspective-near mt-24 translate-x-12 md:absolute md:bottom-16 md:top-40 md:mt-0 md:translate-x-0 ${
-                isRTL
-                  ? 'md:right-1/2 md:-left-6'
-                  : 'md:-right-6 md:left-1/2'
-              }`}
-            >
-              <div className="before:border-foreground/5 before:bg-foreground/5 relative h-full before:absolute before:-inset-x-4 before:bottom-7 before:top-0 before:skew-x-6 before:rounded-[calc(var(--radius)+1rem)] before:border">
-                <div className="bg-background rounded-lg shadow-foreground/10 ring-foreground/5 relative h-full -translate-y-12 skew-x-6 overflow-hidden border border-transparent shadow-md ring-1">
-                  <Carousel
-                    className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl mx-auto"
-                    opts={{
-                      loop: true,
-                      duration: 30,
-                      startIndex: 0,
-                      containScroll: "trimSnaps",
-                      watchResize: true,
-                      breakpoints: {
-                        "(min-width: 640px)": { dragFree: false },
-                        "(min-width: 768px)": { dragFree: false },
-                      },
-                    }}
-                    autoplay={true}
-                    autoplayDelay={3000}
-                    showControls={false}
-                    showDots={false}
-                    showProgress={false}
-                    effect="slide"
-                    itemClassName="basis-full"
-                  >
-                    {slides}
-                  </Carousel>
+  return (
+    <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-16 pb-10">
+      {/* ── Background effects ── */}
+      <div className="absolute inset-0 bg-brand-pattern opacity-[0.025] pointer-events-none" />
+      <div className="absolute -top-48 left-1/2 -translate-x-1/2 w-175 h-175 rounded-full orb-brand pointer-events-none" />
 
-                  {/* Mobile indicator dots */}
-                  <div className="sm:hidden flex justify-center gap-1.5 mt-4 pb-2">
-                    {slides.map((_, index) => (
-                      <div
-                        key={index}
-                        className="w-1.5 h-1.5 rounded-full bg-muted"
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Subtle grid lines */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
+          backgroundSize: "64px 64px",
+        }}
+      />
+
+      <div
+        className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 w-full flex flex-col items-center gap-10 md:gap-14"
+        dir={isAr ? "rtl" : "ltr"}
+      >
+        {/* ── Trust badge ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8"
+        >
+          <div className="flex space-x-1">
+            {["🇸🇦", "🇾🇪", "🇦🇪", "🇨🇳", "🇺🇸"].map((f, i) => (
+              <span key={i} className={`fi fi-${flagMap[f]} text-sm`}></span>
+            ))}
           </div>
-        </section>
-      </main>
-    </>
+
+          <span className="text-xs font-semibold text-[#7b57fc]">
+            {isAr ? "نعمل في ٥ دول حول العالم" : "Operating across 5 countries"}
+          </span>
+          <Zap className="w-3 h-3 text-[#7b57fc]" />
+        </motion.div>
+
+        {/* ── Main headline ── */}
+        <div className="text-center space-y-5 max-w-3xl">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground leading-[1.1] tracking-tight"
+          >
+            {isAr ? (
+              <>
+                استورد أي منتج <span className="text-color">بثقة وسهولة</span>{" "}
+                من الصين وأمريكا
+              </>
+            ) : (
+              <>
+                Source any product{" "}
+                <span className="text-color">with confidence</span> from China &
+                beyond
+              </>
+            )}
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35, duration: 0.5 }}
+            className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed"
+          >
+            {isAr
+              ? "أرسل طلبك، شاهد المصنع عبر الفيديو، استلم عرض سعر دقيق — كل شيء في منصة واحدة مع فريق متخصص في الصين وأمريكا."
+              : "Submit your request, watch the factory live, receive an accurate quote — all in one platform with our specialist team on the ground in China and the USA."}
+          </motion.p>
+        </div>
+
+        {/* ── CTA buttons ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="flex flex-col sm:flex-row items-center gap-3"
+        >
+          <Link
+            href={`/${locale}/dashboard/requests/new`}
+            className="group flex items-center gap-2 px-7 py-3.5 rounded-full bg-[#7b57fc] text-white text-sm font-semibold shadow-lg shadow-[#7b57fc]/30 hover:bg-[#6a48eb] hover:shadow-xl hover:shadow-[#7b57fc]/35 hover:-translate-y-0.5 transition-all"
+          >
+            <Package className="w-4 h-4" />
+            {isAr ? "ابدأ طلبك الآن" : "Start your request"}
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+
+          <Link
+            href={`/${locale}/dashboard/bookings/new`}
+            className="group flex items-center gap-2 px-7 py-3.5 rounded-full border border-border/70 bg-background/80 backdrop-blur-sm text-sm font-semibold text-foreground hover:border-[#7b57fc]/50 hover:text-[#7b57fc] hover:-translate-y-0.5 transition-all"
+          >
+            <Video className="w-4 h-4" />
+            {isAr ? "احجز جلسة فيديو" : "Book a video session"}
+          </Link>
+        </motion.div>
+
+        {/* ── Service pills ── */}
+        <ServicePills isAr={isAr} />
+      </div>
+    </section>
   );
 }

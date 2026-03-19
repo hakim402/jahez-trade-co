@@ -21,19 +21,19 @@ export const Header = () => {
   // Menu items with translated names
   const menuItems = [
     { name: t("home"), href: "/" },
-    { name: t("quote"), href: "/request-quote" },
-    { name: t("videoBooking"), href: "/video-booking" },
+    { name: t("products"), href: "/products" },
+    { name: t("consulting"), href: "/consulting" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
   ];
 
   const menuItemsSignedIn = [
     { name: t("home"), href: "/" },
-    { name: t("quote"), href: "/request-quote" },
-    { name: t("videoBooking"), href: "/video-booking" },
+    { name: t("profile"), href: "/dashboard" },
+    { name: t("products"), href: "/products" },
+    { name: t("consulting"), href: "/consulting" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
-    { name: t("profile"), href: "/dashboard" },
   ];
 
   React.useEffect(() => {
@@ -58,7 +58,7 @@ export const Header = () => {
         className={cn(
           "fixed top-0 z-50 w-full transition-all duration-300",
           scrolled
-            ? "bg-background/80 border-border/40 backdrop-blur-lg border-b shadow-sm"
+            ? "border-border/40 backdrop-blur-lg border-b shadow-sm"
             : "bg-transparent"
         )}
       >

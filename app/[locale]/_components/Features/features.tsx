@@ -24,14 +24,7 @@ export default async function Features() {
   ];
 
   return (
-    <section className="relative py-24 overflow-hidden bg-white dark:bg-neutral-950">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 bg-brand-pattern opacity-5" />
-
-      {/* Gradient orbs for depth */}
-      <div className="absolute top-20 left-0 w-96 h-96 rounded-full orb-brand mix-blend-multiply" />
-      <div className="absolute bottom-20 right-0 w-96 h-96 rounded-full orb-brand mix-blend-multiply" />
-
+    <section className="relative py-24 overflow-hidden">
       <div className="container relative mx-auto max-w-7xl px-6">
         {/* Section header */}
         <div className="mx-auto max-w-2xl text-center mb-16">

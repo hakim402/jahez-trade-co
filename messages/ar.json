@@ -1,8 +1,8 @@
 {
   "Header": {
     "home": "الرئيسية",
-    "quote": "طلب عرض سعر",
-    "videoBooking": "حجز فيديو",
+    "products": "منتجات",
+    "consulting": "استشارات",
     "about": "حول",
     "contact": "اتصل بنا",
     "profile": "الملف الشخصي",
@@ -329,6 +329,20 @@
         "fastShipping": "شحن سريع",
         "globalSourcing": "توريد عالمي"
       }
+    }
+  },
+  "ProductsPageHero": {
+    "title": "استورد المنتجات",
+    "highlight": "من الأسواق العالمية",
+    "description": "تواصل مع المصنعين والموردين الموثوقين حول العالم للحصول على منتجات عالية الجودة لعملك.",
+    "badges": {
+      "verified": "موردون موثوقون",
+      "fastShipping": "شحن سريع",
+      "globalSourcing": "توريد عالمي"
+    },
+    "buttons": {
+      "requestQuote": "طلب عرض سعر",
+      "findProducts": "تصفح المنتجات"
     }
   },
   "AboutPage": {

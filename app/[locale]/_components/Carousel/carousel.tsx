@@ -1,7 +1,8 @@
 "use client";
 
+// app/[locale]/_components/Carousel/carousel.tsx
+
 import * as React from "react";
-import useEmblaCarousel from "embla-carousel-react";
 import type { EmblaCarouselType, EmblaOptionsType } from "embla-carousel";
 import Autoplay from "embla-carousel-autoplay";
 import Fade from "embla-carousel-fade";
@@ -14,8 +15,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useLocale } from "next-intl"; // <-- import useLocale
+import { useLocale } from "next-intl";
 
 interface CarouselProps {
   children: React.ReactNode | React.ReactNode[];
@@ -70,22 +70,19 @@ export default function Carousel({
   onApiReady,
   itemClassName = "basis-full",
 }: CarouselProps) {
-  const locale = useLocale(); // Get current locale
-  const isRTL = locale === 'ar';
+  const locale = useLocale();
+  const isRTL = locale === "ar";
 
-  // Adjust direction in Embla options
   const emblaOptions: EmblaOptionsType = {
     axis: vertical ? "y" : "x",
-    direction: isRTL ? 'rtl' : 'ltr', // <-- set RTL when Arabic
+    direction: isRTL ? "rtl" : "ltr",
     ...opts,
   };
 
-  // Autoplay plugin
   const autoplayPlugin = React.useRef(
-    Autoplay({ delay: autoplayDelay, stopOnInteraction: true })
+    Autoplay({ delay: autoplayDelay, stopOnInteraction: true }),
   );
 
-  // Prepare plugins
   const plugins = React.useMemo(() => {
     const list: any[] = [];
     if (autoplay) list.push(autoplayPlugin.current);
@@ -93,14 +90,11 @@ export default function Carousel({
     return list;
   }, [autoplay, effect]);
 
-  // State for Embla API
   const [emblaApi, setEmblaApi] = React.useState<EmblaCarouselType>();
-
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [scrollSnaps, setScrollSnaps] = React.useState<number[]>([]);
   const [scrollProgress, setScrollProgress] = React.useState(0);
 
-  // Setup event listeners when API is ready
   React.useEffect(() => {
     if (!emblaApi) return;
 
@@ -108,12 +102,8 @@ export default function Carousel({
     setScrollSnaps(emblaApi.scrollSnapList());
     setSelectedIndex(emblaApi.selectedScrollSnap());
 
-    const onSelect = () => {
-      setSelectedIndex(emblaApi.selectedScrollSnap());
-    };
-    const onScroll = () => {
-      setScrollProgress(emblaApi.scrollProgress());
-    };
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    const onScroll = () => setScrollProgress(emblaApi.scrollProgress());
 
     emblaApi.on("select", onSelect);
     emblaApi.on("scroll", onScroll);
@@ -124,21 +114,16 @@ export default function Carousel({
     };
   }, [emblaApi, onApiReady]);
 
-  // Determine default previous/next symbols based on RTL
   const defaultPrev = isRTL ? "❯" : "❮";
   const defaultNext = isRTL ? "❮" : "❯";
 
   return (
     <div className={cn("relative", className)}>
-      <ShadCarousel
-        setApi={setEmblaApi} // Use shadcn's setApi to capture embla instance
-        opts={emblaOptions} // Pass our options including direction
-        plugins={plugins}
-      >
+      <ShadCarousel setApi={setEmblaApi} opts={emblaOptions} plugins={plugins}>
         <CarouselContent
           className={cn(
             vertical ? "flex-col -mt-4" : "-ml-4",
-            effect === "fade" && "ml-0"
+            effect === "fade" && "ml-0",
           )}
         >
           {React.Children.map(children, (child, idx) => (
@@ -147,7 +132,7 @@ export default function Carousel({
               className={cn(
                 vertical ? "pt-4" : "pl-4",
                 "shrink-0",
-                itemClassName
+                itemClassName,
               )}
               style={
                 effect === "parallax"
@@ -176,26 +161,29 @@ export default function Carousel({
         )}
       </ShadCarousel>
 
-      {/* Progress Bar */}
+      {/* Progress bar */}
       {showProgress && (
-        <div className="mt-3 h-1 w-full bg-muted overflow-hidden rounded">
+        <div className="mt-3 h-1 w-full bg-muted overflow-hidden rounded-full">
           <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${scrollProgress * 100}%` }}
+            className="h-full bg-[#7b57fc] transition-all duration-150 rounded-full"
+            style={{ width: `${Math.max(scrollProgress * 100, 4)}%` }}
           />
         </div>
       )}
 
-      {/* Dots */}
+      {/* FIX: dots were h-0 w-0 — now proper sized clickable dots */}
       {showDots && scrollSnaps.length > 1 && (
         <div className="mt-4 flex justify-center gap-2">
           {scrollSnaps.map((_, index) => (
-            <Button
+            <button
               key={index}
               onClick={() => emblaApi?.scrollTo(index)}
+              aria-label={`Go to slide ${index + 1}`}
               className={cn(
-                "h-0 w-0 rounded-full transition-all",
-                index === selectedIndex ? "bg-color w-1" : "bg-muted"
+                "rounded-full transition-all duration-200",
+                index === selectedIndex
+                  ? "w-6 h-2 bg-[#7b57fc]"
+                  : "w-2 h-2 bg-muted-foreground/30 hover:bg-muted-foreground/60",
               )}
             />
           ))}
@@ -206,16 +194,16 @@ export default function Carousel({
       {thumbnails && thumbnails.length > 0 && (
         <div className="mt-4 flex gap-2 justify-center">
           {thumbnails.map((thumb, index) => (
-            <Button
+            <button
               key={index}
               onClick={() => emblaApi?.scrollTo(index)}
               className={cn(
-                "border rounded overflow-hidden opacity-60",
-                index === selectedIndex && "opacity-100 ring-2 ring-primary"
+                "border rounded-lg overflow-hidden opacity-60 transition-all",
+                index === selectedIndex && "opacity-100 ring-2 ring-[#7b57fc]",
               )}
             >
               {thumb}
-            </Button>
+            </button>
           ))}
         </div>
       )}

@@ -21,16 +21,24 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const pathname = req.nextUrl.pathname;
 
   // =====================================================
-  // BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
+  // 1️⃣ BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
   // =====================================================
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
+  // =====================================================
+  // 2️⃣ FORCE ADMIN TO ENGLISH
+  // =====================================================
+  if (pathname.startsWith("/admin") && !pathname.startsWith("/en/admin")) {
+    const url = new URL(`/en${pathname}`, req.url);
+    return NextResponse.redirect(url);
+  }
+
   const { userId, sessionClaims } = await auth();
 
   // =====================================================
-  // 🌍 2. Handle Locale Redirect for Authenticated Users
+  // 3️⃣ Handle Locale Redirect for Authenticated Users
   // =====================================================
   const pathnameHasLocale = routing.locales.some(
     (locale) =>
@@ -40,6 +48,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
   if (userId && !pathnameHasLocale) {
     const userLocale = (sessionClaims?.publicMetadata as any)?.locale;
+
     const targetLocale = routing.locales.includes(userLocale)
       ? userLocale
       : routing.defaultLocale;
@@ -49,14 +58,14 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // Protect Dashboard & Admin Routes
+  // 4️⃣ Protect Dashboard & Admin Routes
   // =====================================================
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
 
   // =====================================================
-  // Admin Role Check (Database)
+  // 5️⃣ Admin Role Check (Database)
   // =====================================================
   if (isAdminRoute(req)) {
     if (!userId) {
@@ -74,22 +83,22 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // Run Internationalization Middleware
+  // 6️⃣ Run Internationalization Middleware
   // =====================================================
   return intlMiddleware(req);
 });
 
 
 // =====================================================
-// CLEAN MATCHER CONFIG
+// MATCHER CONFIG
 // =====================================================
 export const config = {
   matcher: [
     /*
       Match all routes except:
       - API routes
-      - _next static files
-      - static files (images, etc.)
+      - Next.js static files
+      - Static assets
     */
     "/((?!api|_next|.*\\..*).*)",
   ],

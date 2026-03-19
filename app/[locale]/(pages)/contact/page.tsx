@@ -1,61 +1,49 @@
-import { Globe, Shield, Zap } from "lucide-react";
-import { Header } from "@/app/[locale]/_components/Header/Header";
-import Hero from "@/app/[locale]/_components/Hero/Hero";
-import FooterSection from "@/app/[locale]/_components/Footer/FooterSection";
-import ContactCard from "./_components/ContactCard";
-import ContactForm from "./_components/ContactForm";
-import ContactMap from "./_components/ContactMap";
-import CTA from "@/app/[locale]/_components/CTA/CTA";
-import StatsSection from "@/app/[locale]/_components/Stats/StatsSections";
-import { getTranslations } from "next-intl/server";
+// app/[locale]/(pages)/contact/page.tsx
+
+import { getLocale } from "next-intl/server";
+import { ContactHero } from "./_components/ContactHero";
+import { ContactForm } from "./_components/ContactForm";
+import { ContactMap } from "./_components/ContactMap";
+import { ContactInfo } from "./_components/ContactInfo";
+import type { Metadata } from "next";
+import { Header } from "../../_components/Header/Header";
+import { FooterHero } from "../../_components/Footer/FooterHero";
+import { FooterSection } from "../../_components/Footer/FooterSection";
+
+export const metadata: Metadata = {
+  title: "Contact Us | تواصل معنا",
+  description:
+    "Get in touch with the Mewan team for product sourcing, video bookings, or business consulting.",
+};
 
 export default async function ContactPage() {
-  const t = await getTranslations("ContactPage.hero");
-
-  const badges = [
-    {
-      label: t("badges.verified"),
-      icon: <Shield className="w-4 h-4 mr-2 text-brand" />,
-    },
-    {
-      label: t("badges.fastShipping"),
-      icon: <Zap className="w-4 h-4 mr-2 text-brand" />,
-    },
-    {
-      label: t("badges.globalSourcing"),
-      icon: <Globe className="w-4 h-4 mr-2 text-brand" />,
-    },
-  ];
+  const locale = await getLocale();
+  const isAr = locale === "ar";
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 relative overflow-hidden">
+    <main className="min-h-screen bg-background overflow-x-hidden">
       <Header />
+      <ContactHero isAr={isAr} locale={locale} />
 
-      <Hero
-        title={t("title")}
-        highlight={t("highlight")}
-        description={t("description")}
-        badges={badges}
-        primaryButton={{ label: t("primaryButton"), href: "/about" }}
-        secondaryButton={{ label: t("secondaryButton"), href: "#how-it-works" }}
-        image={"/hero/hero.png"}
-      />
+      <section className="py-12 md:py-16 bg-background">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 pb-20">
+            {/* Left — contact info + map */}
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              <ContactInfo isAr={isAr} locale={locale} />
+              {/* <ContactMap isAr={isAr} /> */}
+            </div>
 
-      <div className="mx-auto md:max-w-7xl md:px-6 relative z-10">
-        <ContactMap />
-        <div className="grid lg:grid-cols-2 gap-12 items-start py-16">
-          <div className="space-y-8">
-            <ContactCard />
+            {/* Right — form */}
+            <div className="lg:col-span-3">
+              <ContactForm isAr={isAr} locale={locale} />
+            </div>
           </div>
-          <div>
-            <ContactForm />
-          </div>
+          <ContactMap isAr={isAr} />
         </div>
-      </div>
-
-      <StatsSection />
-      <CTA />
+      </section>
+      <FooterHero />
       <FooterSection />
-    </div>
+    </main>
   );
 }

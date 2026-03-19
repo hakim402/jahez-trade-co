@@ -149,6 +149,17 @@ model User {
   chatSessions ChatSession[]
 
   // -------------------------
+  // Trending
+  // -------------------------
+  trendingProductRequests TrendingProductRequest[]
+  addedProducts           TrendingProduct[]        @relation("AdminAddedProducts") // FIX: back-relation for addedBy
+
+  // -------------------------
+  // Consulting
+  // -------------------------
+  consultingRequests ConsultingRequest[]
+
+  // -------------------------
   // Subscription (DO NOT TOUCH)
   // -------------------------
   subscription Subscription?
@@ -168,58 +179,45 @@ model Subscription {
   id                  String @id @default(cuid())
   clerkSubscriptionId String @unique
 
-  // The payer: either a User or an Organization (but not both)
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Items belonging to this subscription (e.g., one for free plan, one for paid plan)
-  items SubscriptionItem[]
-
-  // Payment attempts related to this subscription (for checkout payments)
+  items           SubscriptionItem[]
   paymentAttempts PaymentAttempt[]
 
-  // Raw webhook payload for debugging
   lastSyncPayload Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId]) // Ensure only one subscription container per payer
+  @@unique([userId])
   @@index([clerkSubscriptionId])
 }
 
 // ------------------------------------------------
-// SUBSCRIPTION ITEM MODEL (Link between Payer and Plan)
+// SUBSCRIPTION ITEM MODEL
 // ------------------------------------------------
 model SubscriptionItem {
   id          String @id @default(cuid())
   clerkItemId String @unique
 
-  // Link to the top-level subscription container
   subscriptionId String
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
-  // Link to the Plan
   planId String?
   plan   Plan?   @relation(fields: [planId], references: [id])
 
-  // Status from Clerk events
   status SubscriptionItemStatus
 
-  // Billing periods (from subscriptionItem.updated events)
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
 
-  // Is this the default free plan? Clerk mentions default plan items have consistent ID.
   isDefaultPlan Boolean @default(false)
 
-  // For trials (from subscriptionItem.freeTrialEnding event)
   trialEndsAt DateTime?
 
-  // Payment attempts related to this item (for recurring charges)
   paymentAttempts PaymentAttempt[]
 
-  // Raw webhook payload for debugging
   lastSyncPayload Json?
 
   createdAt DateTime @default(now())
@@ -230,34 +228,26 @@ model SubscriptionItem {
 }
 
 // ------------------------------------------------
-// PAYMENT ATTEMPT MODEL (from Clerk billing)
+// PAYMENT ATTEMPT MODEL
 // ------------------------------------------------
 model PaymentAttempt {
   id                    String @id @default(cuid())
   clerkPaymentAttemptId String @unique
 
-  // Type: checkout or recurring
-  type PaymentAttemptType
-
-  // Status: pending -> paid or failed
+  type   PaymentAttemptType
   status PaymentAttemptStatus
 
-  // Link to the subscription item for recurring payments (optional for checkout)
   subscriptionItemId String?
   subscriptionItem   SubscriptionItem? @relation(fields: [subscriptionItemId], references: [id])
 
-  // For checkout payments, link directly to the top-level subscription
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
 
-  // Financial details (included in webhook)
   amount   Decimal? @db.Decimal(10, 2)
-  currency String   @default("USD") // Non-nullable with default
+  currency String   @default("USD")
 
-  // Timestamp from the event
-  occurredAt DateTime // when the attempt was created/updated in Clerk
+  occurredAt DateTime
 
-  // Raw webhook payload
   payload Json?
 
   createdAt DateTime @default(now())
@@ -268,20 +258,19 @@ model PaymentAttempt {
 }
 
 // ------------------------------------------------
-// PLAN MODEL (from Clerk billing)
+// PLAN MODEL
 // ------------------------------------------------
 model Plan {
   id              String  @id @default(cuid())
-  clerkPlanId     String  @unique // The ID from Clerk
+  clerkPlanId     String  @unique
   name            String
   amount          Decimal @db.Decimal(10, 2)
   currency        String  @default("USD")
-  interval        String? // e.g., "month", "year"
-  intervalCount   Int? // e.g., 1, 3, 12
-  trialPeriodDays Int? // For free trials
-  isDefault       Boolean @default(false) // If this is the default free plan
+  interval        String?
+  intervalCount   Int?
+  trialPeriodDays Int?
+  isDefault       Boolean @default(false)
 
-  // Relations
   subscriptionItems SubscriptionItem[]
 
   createdAt DateTime @default(now())
@@ -291,12 +280,11 @@ model Plan {
 }
 
 // ------------------------------------------------
-// VIDEO BOOKING (User Request)
+// VIDEO BOOKING
 // ------------------------------------------------
 model VideoBooking {
   id String @id @default(cuid())
 
-  // Client
   clientId String
   client   User   @relation("ClientBookings", fields: [clientId], references: [id])
 
@@ -306,28 +294,22 @@ model VideoBooking {
 
   status BookingStatus @default(REQUESTED)
 
-  // Admin who handled it
   handledById String?
   handledBy   User?   @relation("AdminBookings", fields: [handledById], references: [id])
 
-  // Scheduling
   scheduledAt     DateTime?
   meetingProvider MeetingProvider?
   meetingLink     String?
   meetingPassword String?
 
-  // Client confirmation
   clientConfirmedAt DateTime?
 
-  // AI Data
   transcriptUrl String?
   aiSummary     String? @db.Text
 
-  // Slot reference
   slotId String?           @unique
   slot   AvailabilitySlot? @relation(fields: [slotId], references: [id])
 
-  // Enterprise
   isDeleted Boolean @default(false)
 
   statusHistory BookingStatusHistory[]
@@ -363,7 +345,7 @@ model BookingStatusHistory {
 }
 
 // ------------------------------------------------
-// AVAILABILITY SLOT (Created by Admin)
+// AVAILABILITY SLOT
 // ------------------------------------------------
 model AvailabilitySlot {
   id String @id @default(cuid())
@@ -415,12 +397,12 @@ model ProductRequest {
 
   isDeleted Boolean @default(false)
 
-  // Relations
-  files         File[]
-  quotes        Quote[]
-  statusHistory RequestStatusHistory[]
-  aiSuggestions AISuggestion[]
-  notifications Notification[]
+  files                   File[]
+  quotes                  Quote[]
+  statusHistory           RequestStatusHistory[]
+  aiSuggestions           AISuggestion[]
+  notifications           Notification[]
+  trendingProductRequests TrendingProductRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -432,7 +414,7 @@ model ProductRequest {
 }
 
 // ------------------------------------------------
-// PRODUCT REQUEST STATUS HISTORY MODEL
+// PRODUCT REQUEST STATUS HISTORY
 // ------------------------------------------------
 model RequestStatusHistory {
   id String @id @default(cuid())
@@ -477,7 +459,6 @@ model Quote {
 
   acceptedFor ProductRequest? @relation("AcceptedQuote")
 
-  // Relations 
   files         File[]
   statusHistory QuoteStatusHistory[]
   notifications Notification[]
@@ -492,7 +473,7 @@ model Quote {
 }
 
 // ------------------------------------------------
-// QUOTE STATUS HISTORY MODEL
+// QUOTE STATUS HISTORY
 // ------------------------------------------------
 model QuoteStatusHistory {
   id String @id @default(cuid())
@@ -558,16 +539,16 @@ model AISuggestion {
 }
 
 // ------------------------------------------------
-// AUDIT LOG MODEL (admin actions)
+// AUDIT LOG MODEL
 // ------------------------------------------------
 model AuditLog {
   id        String   @id @default(cuid())
   adminId   String
   admin     User     @relation("audit_admin", fields: [adminId], references: [id])
-  action    String // e.g., "UPDATE_REQUEST", "DELETE_QUOTE"
-  entity    String // e.g., "ProductRequest", "Quote"
-  entityId  String? // ID of the affected record
-  changes   Json? // structured diff of before/after
+  action    String
+  entity    String
+  entityId  String?
+  changes   Json?
   createdAt DateTime @default(now())
 
   @@index([adminId])
@@ -576,7 +557,7 @@ model AuditLog {
 }
 
 // ------------------------------------------------
-// NOTIFICATIONS  MODEL
+// NOTIFICATION MODEL
 // ------------------------------------------------
 model Notification {
   id String @id @default(cuid())
@@ -591,7 +572,6 @@ model Notification {
   type   String
 
   metadata Json?
-  // Relations
 
   bookingId String?
   booking   VideoBooking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
@@ -609,7 +589,7 @@ model Notification {
 }
 
 // ------------------------------------------------
-// CHAT SESSION MODEL (for AI chatbot / support chat)
+// CHAT SESSION MODEL
 // ------------------------------------------------
 model ChatSession {
   id        String    @id @default(cuid())
@@ -633,4 +613,173 @@ model ChatMessage {
   createdAt DateTime    @default(now())
 
   @@index([sessionId])
+}
+
+
+
+
+// ============================================================
+// NEW MODELS
+// ============================================================
+
+// ------------------------------------------------
+// TRENDING PRODUCT MODEL
+// ------------------------------------------------
+model TrendingProduct {
+  id String @id @default(cuid())
+
+  // Core Info (bilingual)
+  name          String
+  nameAr        String?
+  description   String? @db.Text
+  descriptionAr String? @db.Text
+  shortDesc     String?
+  shortDescAr   String?
+
+  // Pricing & Origin
+  estimatedPrice Decimal? @db.Decimal(10, 2)
+  currency       String   @default("USD")
+  sourceCountry  String? // e.g. "CN", "US"
+  sourceUrl      String? // Link to original listing (Alibaba, 1688, etc.)
+  supplier       String?
+
+  // Categorization
+  category   String?
+  categoryAr String?
+  tags       String[] // e.g. ["electronics", "summer", "new"]
+
+  // Trend Metadata
+  trendScore    Int      @default(0) // Higher = more trending
+  viewCount     Int      @default(0)
+  inquiryCount  Int      @default(0) // How many requests linked
+  isFeatured    Boolean  @default(false)
+  featuredUntil DateTime?
+
+  // Images
+  images TrendingProductImage[]
+
+  // FIX: proper FK relation to User (admin who added this product)
+  addedById String?
+  addedBy   User?   @relation("AdminAddedProducts", fields: [addedById], references: [id], onDelete: SetNull)
+
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
+
+  relatedRequests TrendingProductRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, isDeleted])
+  @@index([trendScore])
+  @@index([isFeatured])
+  @@index([category])
+  @@index([createdAt])
+  @@index([addedById])
+}
+
+// ------------------------------------------------
+// TRENDING PRODUCT IMAGE
+// ------------------------------------------------
+model TrendingProductImage {
+  id        String          @id @default(cuid())
+  productId String
+  product   TrendingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  isPrimary Boolean         @default(false)
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+
+  @@index([productId])
+}
+
+// ------------------------------------------------
+// TRENDING PRODUCT REQUEST (junction)
+// ------------------------------------------------
+model TrendingProductRequest {
+  id        String          @id @default(cuid())
+  productId String
+  product   TrendingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  requestId String?
+  request   ProductRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([requestId])
+}
+
+// ------------------------------------------------
+// WHATSAPP MESSAGE LOG
+// (loose FKs intentional — log table survives cascading deletes)
+// ------------------------------------------------
+model WhatsAppLog {
+  id          String    @id @default(cuid())
+  to          String // recipient: +966xxxxxxxxx
+  message     String    @db.Text
+  templateKey String? // e.g. "request_submitted", "quote_ready"
+  status      String    @default("pending") // pending | sent | failed
+  provider    String    @default("twilio")
+  externalId  String? // Twilio MessageSid
+  userId      String? // intentionally loose — log survives user delete
+  requestId   String? // intentionally loose
+  quoteId     String? // intentionally loose
+  bookingId   String? // intentionally loose
+  error       String?   @db.Text
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([to])
+  @@index([status])
+  @@index([userId])
+  @@index([requestId])
+}
+
+// ------------------------------------------------
+// SHIPPING ESTIMATE LOG
+// (loose userId intentional — log table)
+// ------------------------------------------------
+model ShippingEstimate {
+  id                 String   @id @default(cuid())
+  userId             String? // intentionally loose — log survives user delete
+  originCountry      String
+  destinationCountry String
+  weightKg           Decimal  @db.Decimal(10, 3)
+  volumeCbm          Decimal? @db.Decimal(10, 4)
+  freightType        String // "air" | "sea"
+  estimatedCost      Decimal  @db.Decimal(10, 2)
+  currency           String   @default("USD")
+  transitDays        Int?
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
+  @@index([freightType])
+}
+
+// ------------------------------------------------
+// BUSINESS CONSULTING REQUEST
+// ------------------------------------------------
+model ConsultingRequest {
+  id          String   @id @default(cuid())
+  // FIX: proper FK relation to User
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName    String
+  email       String
+  phone       String?
+  company     String?
+  topic       String // "sourcing" | "import" | "logistics" | "market_entry" | "supplier" | "other"
+  description String   @db.Text
+  budget      String? // e.g. "$5k-$10k"
+  status      String   @default("NEW") // NEW | IN_REVIEW | SCHEDULED | CLOSED
+  adminNotes  String?  @db.Text
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId])
 }
