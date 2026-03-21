@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-// app/[locale]/(pages)/products/_components/products-hero.tsx
+// app/[locale]/(pages)/products/_components/ProductsHero.tsx
 
-import { motion } from "motion/react"
-import { Flame, Sparkles } from "lucide-react"
+import { motion } from "motion/react";
+import { Flame, Sparkles } from "lucide-react";
 
 interface ProductsHeroProps {
-  isAr: boolean
-  totalCount: number
+  isAr: boolean;
+  totalCount: number;
 }
 
 export function ProductsHero({ isAr, totalCount }: ProductsHeroProps) {
@@ -16,7 +16,6 @@ export function ProductsHero({ isAr, totalCount }: ProductsHeroProps) {
       {/* Orb decorations using your orb-brand utility */}
       <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full orb-brand pointer-events-none" />
       <div className="absolute -bottom-16 -right-16 w-48 h-48 rounded-full orb-brand pointer-events-none" />
-
       {/* Brand dot pattern */}
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
 
@@ -51,14 +50,12 @@ export function ProductsHero({ isAr, totalCount }: ProductsHeroProps) {
           >
             {isAr ? (
               <>
-                اكتشف المنتجات{" "}
-                <span className="text-gradient">الرائجة</span>{" "}
+                اكتشف المنتجات <span className="text-gradient">الرائجة</span>{" "}
                 عالمياً
               </>
             ) : (
               <>
-                Discover{" "}
-                <span className="text-gradient">Trending</span>{" "}
+                Discover <span className="text-gradient">Trending</span>{" "}
                 Products
               </>
             )}
@@ -96,5 +93,5 @@ export function ProductsHero({ isAr, totalCount }: ProductsHeroProps) {
         </motion.div>
       </div>
     </div>
-  )
+  );
 }

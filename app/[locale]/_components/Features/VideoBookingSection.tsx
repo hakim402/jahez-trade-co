@@ -1,38 +1,32 @@
-"use client"
+"use client";
 
 // app/[locale]/_components/video-booking-sections.tsx
-// Feature sections for the Video Booking service
-// Same floating-mockup style as feature-sections.tsx
-
-import { motion } from "motion/react"
-import { useLocale } from "next-intl"
-import Link from "next/link"
+import { motion } from "motion/react";
+import { useLocale } from "next-intl";
+import Link from "next/link";
 import {
   ArrowRight,
   Video,
   CheckCircle,
   Calendar,
   Clock,
-  Star,
   Factory,
   Store,
   Sparkles,
   MapPin,
   Mic,
   MessageSquare,
-  Users,
   PlayCircle,
-  ShieldCheck,
-  Zap,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type BookingType = "MARKET" | "FACTORY" | "CUSTOM"
-type BookingStatus = "REQUESTED" | "PROPOSED" | "CONFIRMED" | "COMPLETED"
-type MeetingProvider = "ZOOM" | "GOOGLE_MEET" | "WHATSAPP"
+type BookingType = "MARKET" | "FACTORY" | "CUSTOM";
+type BookingStatus = "REQUESTED" | "PROPOSED" | "CONFIRMED" | "COMPLETED";
+type MeetingProvider = "ZOOM" | "GOOGLE_MEET" | "WHATSAPP";
 
 // ─── Floating Mockup Sub-components ──────────────────────────────────────────
 
@@ -44,37 +38,78 @@ function BookingCard({
   duration,
   delay = 0,
   className,
+  isAr = false,
 }: {
-  type: BookingType
-  status: BookingStatus
-  scheduledAt: string
-  provider: MeetingProvider
-  duration: number
-  delay?: number
-  className?: string
+  type: BookingType;
+  status: BookingStatus;
+  scheduledAt: string;
+  provider: MeetingProvider;
+  duration: number;
+  delay?: number;
+  className?: string;
+  isAr?: boolean;
 }) {
   const TYPE_META = {
-    MARKET:  { label: "Market Tour",       labelAr: "جولة في السوق",      icon: Store,   color: "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400" },
-    FACTORY: { label: "Factory Visit",     labelAr: "زيارة المصنع",       icon: Factory, color: "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" },
-    CUSTOM:  { label: "Consultation",      labelAr: "استشارة",             icon: Video,   color: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" },
-  }
+    MARKET: {
+      label: "Market Tour",
+      labelAr: "جولة في السوق",
+      icon: Store,
+      image: "",
+      color:
+        "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400",
+    },
+    FACTORY: {
+      label: "Factory Visit",
+      labelAr: "زيارة المصنع",
+      icon: Factory,
+      image: "",
+      color:
+        "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400",
+    },
+    CUSTOM: {
+      label: "Consultation",
+      labelAr: "استشارة",
+      icon: Video,
+      image: "",
+      color: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+    },
+  };
 
   const STATUS_META = {
-    REQUESTED:  { label: "Pending",    color: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400" },
-    PROPOSED:   { label: "Proposed",   color: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" },
-    CONFIRMED:  { label: "Confirmed",  color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400" },
-    COMPLETED:  { label: "Completed",  color: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" },
-  }
+    REQUESTED: {
+      label: "Pending",
+      labelAr: "قيد الانتظار",
+      color:
+        "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
+    },
+    PROPOSED: {
+      label: "Proposed",
+      labelAr: "مقترح",
+      color: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400",
+    },
+    CONFIRMED: {
+      label: "Confirmed",
+      labelAr: "مؤكد",
+      color:
+        "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400",
+    },
+    COMPLETED: {
+      label: "Completed",
+      labelAr: "مكتمل",
+      color:
+        "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+    },
+  };
 
   const PROVIDER_ICON: Record<MeetingProvider, string> = {
-    ZOOM:        "🎥",
+    ZOOM: "🎥",
     GOOGLE_MEET: "🟢",
-    WHATSAPP:    "💬",
-  }
+    WHATSAPP: "💬",
+  };
 
-  const t  = TYPE_META[type]
-  const s  = STATUS_META[status]
-  const Icon = t.icon
+  const t = TYPE_META[type];
+  const s = STATUS_META[status];
+  const Icon = t.icon;
 
   return (
     <motion.div
@@ -84,24 +119,44 @@ function BookingCard({
       transition={{ delay, duration: 0.5 }}
       className={cn(
         "bg-white dark:bg-card rounded-2xl shadow-lg shadow-black/8 border border-border/40 p-3.5 w-64",
-        className
+        className,
       )}
     >
       {/* Header */}
       <div className="flex items-start gap-2.5 mb-2.5">
-        <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center shrink-0", t.color.split(" ").slice(0,2).join(" ").replace("text-", "bg-").replace("600","100"))}>
-          <div className="w-8 h-8 rounded-xl bg-[#7b57fc]/10 flex items-center justify-center">
-            <Icon className="w-4 h-4 text-[#7b57fc]" />
-          </div>
+        {/* Image / Icon container */}
+        <div className="relative w-8 h-8 rounded-xl overflow-hidden shrink-0">
+          {t.image ? (
+            <Image
+              src={t.image}
+              alt={t.label}
+              fill
+              className="object-cover"
+              sizes="32px"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-[#7b57fc]/10">
+              <Icon className="w-4 h-4 text-[#7b57fc]" />
+            </div>
+          )}
         </div>
+
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground">{t.label}</p>
+          <p className="text-xs font-semibold text-foreground">
+            {isAr ? t.labelAr : t.label}
+          </p>
           <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-            <MapPin className="w-2.5 h-2.5" /> China · {duration} min
+            <MapPin className="w-2.5 h-2.5" /> {isAr ? "الصين" : "China"} ·{" "}
+            {duration} {isAr ? "دقيقة" : "min"}
           </p>
         </div>
-        <span className={cn("text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0", s.color)}>
-          {s.label}
+        <span
+          className={cn(
+            "text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0",
+            s.color,
+          )}
+        >
+          {isAr ? s.labelAr : s.label}
         </span>
       </div>
 
@@ -113,20 +168,23 @@ function BookingCard({
             {scheduledAt}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {PROVIDER_ICON[provider]} {provider === "GOOGLE_MEET" ? "Google Meet" : provider}
+            {PROVIDER_ICON[provider]}{" "}
+            {provider === "GOOGLE_MEET" ? "Google Meet" : provider}
           </span>
         </div>
       </div>
     </motion.div>
-  )
+  );
 }
 
 function MeetingLiveCard({
   delay = 0,
   className,
+  isAr = false,
 }: {
-  delay?: number
-  className?: string
+  delay?: number;
+  className?: string;
+  isAr?: boolean;
 }) {
   return (
     <motion.div
@@ -136,14 +194,14 @@ function MeetingLiveCard({
       transition={{ delay, duration: 0.5 }}
       className={cn(
         "bg-slate-900 dark:bg-slate-950 rounded-2xl shadow-xl shadow-black/20 border border-white/10 p-4 w-64",
-        className
+        className,
       )}
     >
       {/* Live badge */}
       <div className="flex items-center gap-2 mb-3">
         <span className="flex items-center gap-1.5 text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          LIVE
+          {isAr ? "مباشر" : "LIVE"}
         </span>
         <span className="text-[10px] text-slate-400 ml-auto flex items-center gap-1">
           <Clock className="w-2.5 h-2.5" /> 18:24
@@ -153,82 +211,68 @@ function MeetingLiveCard({
       {/* Avatar grid — 2 participants */}
       <div className="grid grid-cols-2 gap-1.5 mb-3">
         {/* Admin */}
-        <div className="rounded-xl bg-linear-to-br from-[#7b57fc] to-[#2b1cff] aspect-video flex items-center justify-center relative overflow-hidden">
-          <Users className="w-5 h-5 text-white/80" />
+        <div className="rounded-xl bg-linear-to-br from-[#7b57fc] to-[#2b1cff] aspect-video relative overflow-hidden">
+          <Image
+            src="/images/Video-Call-men.jpg"
+            alt="video call"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 400px"
+          />
           <div className="absolute bottom-1 left-1.5 flex items-center gap-1">
             <Mic className="w-2.5 h-2.5 text-white" />
-            <span className="text-[8px] text-white font-medium">Admin</span>
+            <span className="text-[8px] text-white font-medium">
+              {isAr ? "المشرف" : "Admin"}
+            </span>
           </div>
         </div>
         {/* Client */}
-        <div className="rounded-xl bg-slate-700 aspect-video flex items-center justify-center relative overflow-hidden">
-          <Users className="w-5 h-5 text-slate-400" />
+        <div className="rounded-xl bg-slate-700 aspect-video relative overflow-hidden">
+          <Image
+            src="/images/video-call-woman.jpg"
+            alt="video call"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, 400px"
+          />
           <div className="absolute bottom-1 left-1.5 flex items-center gap-1">
             <Mic className="w-2.5 h-2.5 text-white" />
-            <span className="text-[8px] text-white font-medium">You</span>
+            <span className="text-[8px] text-white font-medium">
+              {isAr ? "أنت" : "You"}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Action buttons */}
       <div className="flex items-center justify-center gap-2">
-        <Button variant={"ghost"} className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
+        <Button
+          variant={"ghost"}
+          className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center"
+        >
           <Mic className="w-3 h-3 text-white" />
         </Button>
-        <Button variant={"ghost"} className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
+        <Button
+          variant={"ghost"}
+          className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center"
+        >
           <Video className="w-3 h-3 text-white" />
         </Button>
-        <Button variant={"ghost"} className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center">
+        <Button
+          variant={"ghost"}
+          className="w-7 h-7 rounded-full bg-red-500 flex items-center justify-center"
+        >
           <PlayCircle className="w-3 h-3 text-white" />
         </Button>
-        <Button variant={"ghost"} className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center">
+        <Button
+          variant={"ghost"}
+          className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center"
+        >
           <MessageSquare className="w-3 h-3 text-white" />
         </Button>
       </div>
     </motion.div>
-  )
-}
-
-function AISummaryCard({
-  delay = 0,
-  className,
-}: {
-  delay?: number
-  className?: string
-}) {
-  const bullets = [
-    "Supplier quoted $4.20/unit for min. 500 pcs",
-    "Delivery estimate: 18–22 days",
-    "Quality grade: A — certifications available",
-  ]
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay, duration: 0.5 }}
-      className={cn(
-        "bg-white dark:bg-card rounded-2xl shadow-lg shadow-black/8 border border-border/40 p-3.5 w-64",
-        className
-      )}
-    >
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="w-6 h-6 rounded-lg bg-[#7b57fc]/10 flex items-center justify-center">
-          <Sparkles className="w-3.5 h-3.5 text-[#7b57fc]" />
-        </div>
-        <span className="text-xs font-semibold text-foreground">AI Meeting Summary</span>
-      </div>
-      <div className="space-y-1.5">
-        {bullets.map((b, i) => (
-          <div key={i} className="flex items-start gap-1.5">
-            <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-muted-foreground leading-relaxed">{b}</p>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  )
+  );
 }
 
 function NotificationPill({
@@ -238,11 +282,11 @@ function NotificationPill({
   delay = 0,
   className,
 }: {
-  icon: React.ElementType
-  text: string
-  color: string
-  delay?: number
-  className?: string
+  icon: React.ElementType;
+  text: string;
+  color: string;
+  delay?: number;
+  className?: string;
 }) {
   return (
     <motion.div
@@ -252,15 +296,22 @@ function NotificationPill({
       transition={{ delay, duration: 0.4 }}
       className={cn(
         "flex items-center gap-2 bg-white dark:bg-card rounded-full pl-2 pr-3 py-1.5 shadow-md shadow-black/8 border border-border/40 w-fit",
-        className
+        className,
       )}
     >
-      <div className={cn("w-5 h-5 rounded-full flex items-center justify-center", color)}>
+      <div
+        className={cn(
+          "w-5 h-5 rounded-full flex items-center justify-center",
+          color,
+        )}
+      >
         <Icon className="w-3 h-3 text-white" />
       </div>
-      <span className="text-[10px] font-semibold text-foreground whitespace-nowrap">{text}</span>
+      <span className="text-[10px] font-semibold text-foreground whitespace-nowrap">
+        {text}
+      </span>
     </motion.div>
-  )
+  );
 }
 
 function StatsChip({
@@ -269,10 +320,10 @@ function StatsChip({
   delay = 0,
   className,
 }: {
-  value: string
-  label: string
-  delay?: number
-  className?: string
+  value: string;
+  label: string;
+  delay?: number;
+  className?: string;
 }) {
   return (
     <motion.div
@@ -282,18 +333,23 @@ function StatsChip({
       transition={{ delay, duration: 0.4 }}
       className={cn(
         "bg-white dark:bg-card rounded-2xl shadow-lg shadow-black/8 border border-border/40 px-4 py-3 text-center",
-        className
+        className,
       )}
     >
       <p className="text-xl font-bold text-[#7b57fc] tabular-nums">{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">{label}</p>
+      <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
+        {label}
+      </p>
     </motion.div>
-  )
+  );
 }
 
 // ─── MOCKUP 1 — Book a Session ────────────────────────────────────────────────
 
 function BookSessionMockup() {
+  const locale = useLocale();
+  const isAr = locale === "ar";
+
   return (
     <div className="relative w-full h-80">
       <div className="absolute inset-0 flex items-center justify-center">
@@ -304,35 +360,41 @@ function BookSessionMockup() {
       <BookingCard
         type="MARKET"
         status="CONFIRMED"
-        scheduledAt="Sat, Jun 28 · 10:00 AM"
+        scheduledAt={
+          isAr ? "السبت، 28 يونيو · 10:00 ص" : "Sat, Jun 28 · 10:00 AM"
+        }
         provider="GOOGLE_MEET"
         duration={30}
         delay={0.1}
         className="absolute top-2 left-1/2 -translate-x-1/2 z-20"
+        isAr={isAr}
       />
 
       {/* Behind card */}
       <BookingCard
         type="FACTORY"
         status="PROPOSED"
-        scheduledAt="Mon, Jun 30 · 2:00 PM"
+        scheduledAt={
+          isAr ? "الاثنين، 30 يونيو · 2:00 م" : "Mon, Jun 30 · 2:00 PM"
+        }
         provider="ZOOM"
         duration={45}
         delay={0.2}
         className="absolute top-14 left-1/2 -translate-x-1/3 translate-y-10 z-10 opacity-75 scale-95"
+        isAr={isAr}
       />
 
       {/* Notification pills */}
       <NotificationPill
         icon={CheckCircle}
-        text="Session confirmed ✓"
+        text={isAr ? "تم تأكيد الجلسة ✓" : "Session confirmed ✓"}
         color="bg-emerald-500"
         delay={0.4}
         className="absolute bottom-6 left-0 z-30"
       />
       <NotificationPill
         icon={Calendar}
-        text="Added to your calendar"
+        text={isAr ? "تمت الإضافة إلى تقويمك" : "Added to your calendar"}
         color="bg-[#7b57fc]"
         delay={0.5}
         className="absolute bottom-6 right-0 z-30"
@@ -341,17 +403,20 @@ function BookSessionMockup() {
       {/* Stats */}
       <StatsChip
         value="3"
-        label="Session types"
+        label={isAr ? "أنواع الجلسات" : "Session types"}
         delay={0.3}
         className="absolute top-0 right-0 z-30"
       />
     </div>
-  )
+  );
 }
 
 // ─── MOCKUP 2 — Live Session ──────────────────────────────────────────────────
 
 function LiveSessionMockup() {
+  const locale = useLocale();
+  const isAr = locale === "ar";
+
   return (
     <div className="relative w-full h-80">
       <div className="absolute inset-0 flex items-center justify-center">
@@ -362,93 +427,38 @@ function LiveSessionMockup() {
       <MeetingLiveCard
         delay={0.1}
         className="absolute top-0 left-1/2 -translate-x-1/2 z-20"
-      />
-
-      {/* Notification pills */}
-      <NotificationPill
-        icon={ShieldCheck}
-        text="Session recorded securely"
-        color="bg-blue-500"
-        delay={0.4}
-        className="absolute bottom-10 left-0 z-30"
-      />
-      <NotificationPill
-        icon={Zap}
-        text="AI summary generating…"
-        color="bg-amber-500"
-        delay={0.5}
-        className="absolute bottom-10 right-0 z-30"
+        isAr={isAr}
       />
 
       {/* Stats */}
       <StatsChip
         value="HD"
-        label="Video quality"
+        label={isAr ? "جودة الفيديو" : "Video quality"}
         delay={0.3}
         className="absolute top-2 left-0 z-30"
       />
       <StatsChip
         value="5+"
-        label="Providers"
+        label={isAr ? "منصات متاحة" : "Providers"}
         delay={0.35}
         className="absolute top-2 right-0 z-30"
       />
     </div>
-  )
-}
-
-// ─── MOCKUP 3 — AI Summary ────────────────────────────────────────────────────
-
-function AISummaryMockup() {
-  return (
-    <div className="relative w-full h-80">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-64 h-64 rounded-full orb-brand" />
-      </div>
-
-      {/* AI summary card */}
-      <AISummaryCard
-        delay={0.1}
-        className="absolute top-4 left-1/2 -translate-x-1/2 z-20"
-      />
-
-      <NotificationPill
-        icon={Sparkles}
-        text="Summary ready in seconds"
-        color="bg-[#7b57fc]"
-        delay={0.4}
-        className="absolute bottom-6 left-0 z-30"
-      />
-      <NotificationPill
-        icon={MessageSquare}
-        text="Shared with your dashboard"
-        color="bg-emerald-500"
-        delay={0.5}
-        className="absolute bottom-6 right-0 z-30"
-      />
-
-      <StatsChip
-        value="AI"
-        label="Powered summary"
-        delay={0.3}
-        className="absolute top-2 right-0 z-30"
-      />
-    </div>
-  )
+  );
 }
 
 // ─── Feature Row ──────────────────────────────────────────────────────────────
 
 interface FeatureRowProps {
-  tag: string
-  title: string
-  subtitle: string
-  description: string
-  ctaLabel: string
-  ctaHref: string
-  mockup: React.ReactNode
-  reverse?: boolean
-  isAr?: boolean
+  tag: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  ctaLabel: string;
+  ctaHref: string;
+  mockup: React.ReactNode;
+  reverse?: boolean;
+  isAr?: boolean;
 }
 
 function FeatureRow({
@@ -466,7 +476,7 @@ function FeatureRow({
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center",
-        reverse && "md:[&>*:first-child]:order-2"
+        reverse && "md:[&>*:first-child]:order-2",
       )}
       dir={isAr ? "rtl" : "ltr"}
     >
@@ -514,7 +524,7 @@ function FeatureRow({
         {mockup}
       </motion.div>
     </div>
-  )
+  );
 }
 
 // ─── Session Type Pills ───────────────────────────────────────────────────────
@@ -522,109 +532,162 @@ function FeatureRow({
 function SessionTypePills({ isAr }: { isAr: boolean }) {
   const types = isAr
     ? [
-        { icon: Store,   label: "جولة في السوق",  desc: "تصفح السوق الصيني مباشرةً",        color: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300" },
-        { icon: Factory, label: "زيارة المصنع",    desc: "تفقّد خط الإنتاج بنفسك",           color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300" },
-        { icon: Video,   label: "استشارة حرة",     desc: "ناقش طلبك مع أحد خبرائنا",        color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" },
+        {
+          icon: Store,
+          image: "/images/market-tour.jpg",
+          label: "جولة في السوق",
+          desc: "تصفح السوق الصيني مباشرةً",
+          color:
+            "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
+        },
+        {
+          icon: Factory,
+          image: "/images/factory.jpg",
+          label: "زيارة المصنع",
+          desc: "تفقّد خط الإنتاج بنفسك",
+          color:
+            "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
+        },
+        {
+          icon: Video,
+          image: "/images/video-call.jpg",
+          label: "استشارة حرة",
+          desc: "ناقش طلبك مع أحد خبرائنا",
+          color:
+            "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+        },
       ]
     : [
-        { icon: Store,   label: "Market Tour",     desc: "Browse Chinese markets live",       color: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300" },
-        { icon: Factory, label: "Factory Visit",   desc: "Inspect the production line",       color: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300" },
-        { icon: Video,   label: "Consultation",    desc: "Discuss your request with an expert", color: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" },
-      ]
+        {
+          icon: Store,
+          image: "/images/market-tour.jpg",
+          label: "Market Tour",
+          desc: "Browse Chinese markets live",
+          color:
+            "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
+        },
+        {
+          icon: Factory,
+          image: "/images/factory.jpg",
+          label: "Factory Visit",
+          desc: "Inspect the production line",
+          color:
+            "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
+        },
+        {
+          icon: Video,
+          image: "/images/video-call.jpg",
+          label: "Consultation",
+          desc: "Discuss your request with an expert",
+          color:
+            "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+        },
+      ];
 
   return (
-    <div className="grid grid-cols-3 gap-3" dir={isAr ? "rtl" : "ltr"}>
-      {types.map(({ icon: Icon, label, desc, color }, i) => (
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+      dir={isAr ? "rtl" : "ltr"}
+    >
+      {types.map(({ icon: Icon, image, label, desc }, i) => (
         <motion.div
           key={label}
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: i * 0.1 }}
-          className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card p-4 text-center hover:border-[#7b57fc]/30 transition-colors"
+          className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card hover:shadow-xl hover:-translate-y-2 transition-all duration-300"
         >
-          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", color.split(" ").slice(0,2).join(" "))}>
-            <Icon className={cn("w-5 h-5", color.split(" ").slice(2).join(" "))} />
+          {/* Image (Hero Section) */}
+          <div className="relative w-full h-44 overflow-hidden">
+            {image ? (
+              <Image
+                src={image}
+                alt={label}
+                fill
+                className="object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full bg-muted">
+                <Icon className="w-8 h-8 text-muted-foreground" />
+              </div>
+            )}
+
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-linear-to-t from-black/50 via-black/10 to-transparent" />
           </div>
-          <p className="text-xs font-semibold text-foreground">{label}</p>
-          <p className="text-[10px] text-muted-foreground leading-snug">{desc}</p>
+
+          {/* Content */}
+          <div className="p-4 flex flex-col gap-2 text-center">
+            <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {desc}
+            </p>
+          </div>
+
+          {/* Hover Accent */}
+          <div className="absolute inset-0 rounded-3xl ring-1 ring-transparent group-hover:ring-[#7b57fc]/30 transition" />
         </motion.div>
       ))}
     </div>
-  )
+  );
 }
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
 
 export function VideoBookingSections() {
-  const locale = useLocale()
-  const isAr   = locale === "ar"
+  const locale = useLocale();
+  const isAr = locale === "ar";
 
   const features = isAr
     ? [
         {
-          tag:         "حجز الجلسات",
-          title:       "شاهد منتجاتك قبل شرائها",
-          subtitle:    "جلسات فيديو مباشرة مع فريقنا في الصين",
-          description: "احجز جلسة فيديو مع فريقنا المتواجد في الأسواق والمصانع الصينية. شاهد المنتجات، تفقّد جودتها، وتحدث مع المورد — كل ذلك دون مغادرة منزلك.",
-          ctaLabel:    "احجز جلسة",
-          ctaHref:     `/${locale}/dashboard/bookings/new`,
-          mockup:      <BookSessionMockup />,
-          reverse:     false,
+          tag: "حجز الجلسات",
+          title: "شاهد منتجاتك قبل شرائها",
+          subtitle: "جلسات فيديو مباشرة مع فريقنا في الصين",
+          description:
+            "احجز جلسة فيديو مع فريقنا المتواجد في الأسواق والمصانع الصينية. شاهد المنتجات، تفقّد جودتها، وتحدث مع المورد كل ذلك دون مغادرة منزلك.",
+          ctaLabel: "احجز جلسة",
+          ctaHref: `/${locale}/dashboard/video-bookings/`,
+          mockup: <BookSessionMockup />,
+          reverse: false,
         },
         {
-          tag:         "جلسة مباشرة",
-          title:       "تواصل مباشر عبر منصتك المفضلة",
-          subtitle:    "Zoom أو Google Meet أو واتساب — اختر ما يناسبك",
-          description: "يُرسل لك فريقنا رابط الاجتماع بعد تأكيد الموعد. الجلسة تُسجَّل بأمان وتصلك ملخصاً ذكياً فور انتهائها.",
-          ctaLabel:    "اعرف المزيد",
-          ctaHref:     `/${locale}/about`,
-          mockup:      <LiveSessionMockup />,
-          reverse:     true,
-        },
-        {
-          tag:         "ملخص بالذكاء الاصطناعي",
-          title:       "لا تفوّتك أي تفصيلة بعد الجلسة",
-          subtitle:    "ملخص ذكي فوري يصلك على لوحة التحكم",
-          description: "بعد كل جلسة، يُولِّد نظامنا تلقائياً ملخصاً شاملاً يتضمن الأسعار والكميات والمواعيد المتفق عليها — جاهز للمشاركة وللعمل به مباشرةً.",
-          ctaLabel:    "ابدأ الآن",
-          ctaHref:     `/${locale}/dashboard/bookings/new`,
-          mockup:      <AISummaryMockup />,
-          reverse:     false,
+          tag: "جلسة مباشرة",
+          title: "تواصل مباشر عبر منصتك المفضلة",
+          subtitle: "Zoom أو Google Meet أو واتساب اختر ما يناسبك",
+          description:
+            "يُرسل لك فريقنا رابط الاجتماع بعد تأكيد الموعد. الجلسة تُسجَّل بأمان وتصلك ملخصاً ذكياً فور انتهائها.",
+          ctaLabel: "اعرف المزيد",
+          ctaHref: `/${locale}/about`,
+          mockup: <LiveSessionMockup />,
+          reverse: true,
         },
       ]
     : [
         {
-          tag:         "Book a Session",
-          title:       "See your products before you buy",
-          subtitle:    "Live video sessions with our team on the ground in China",
-          description: "Book a video call with our team stationed in markets and factories across China. Inspect products, check quality, and talk to the supplier — all without leaving home.",
-          ctaLabel:    "Book a session",
-          ctaHref:     `/${locale}/dashboard/bookings/new`,
-          mockup:      <BookSessionMockup />,
-          reverse:     false,
+          tag: "Book a Session",
+          title: "See your products before you buy",
+          subtitle: "Live video sessions with our team on the ground in China",
+          description:
+            "Book a video call with our team stationed in markets and factories across China. Inspect products, check quality, and talk to the supplier all without leaving home.",
+          ctaLabel: "Book a session",
+          ctaHref: `/${locale}/dashboard/video-bookings/`,
+          mockup: <BookSessionMockup />,
+          reverse: false,
         },
         {
-          tag:         "Live Session",
-          title:       "Connect on your preferred platform",
-          subtitle:    "Zoom, Google Meet, WhatsApp — you choose",
-          description: "After your booking is confirmed, our team sends you a meeting link. Sessions are recorded securely and an AI summary is delivered to your dashboard the moment it ends.",
-          ctaLabel:    "Learn more",
-          ctaHref:     `/${locale}/about`,
-          mockup:      <LiveSessionMockup />,
-          reverse:     true,
+          tag: "Live Session",
+          title: "Connect on your preferred platform",
+          subtitle: "Zoom, Google Meet, WhatsApp you choose",
+          description:
+            "After your booking is confirmed, our team sends you a meeting link. Sessions are recorded securely and an AI summary is delivered to your dashboard the moment it ends.",
+          ctaLabel: "Learn more",
+          ctaHref: `/${locale}/about`,
+          mockup: <LiveSessionMockup />,
+          reverse: true,
         },
-        {
-          tag:         "AI Summary",
-          title:       "Never miss a detail after your session",
-          subtitle:    "Instant AI-generated summary straight to your dashboard",
-          description: "After every session, our system automatically generates a full summary including prices, quantities, and agreed timelines — ready to act on immediately.",
-          ctaLabel:    "Get started",
-          ctaHref:     `/${locale}/dashboard/bookings/new`,
-          mockup:      <AISummaryMockup />,
-          reverse:     false,
-        },
-      ]
+      ];
 
   return (
     <section className="relative overflow-hidden py-20 md:py-28">
@@ -635,7 +698,6 @@ export function VideoBookingSections() {
       <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full orb-brand" />
 
       <div className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 flex flex-col gap-20 md:gap-28">
-
         {/* Section heading */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -650,10 +712,16 @@ export function VideoBookingSections() {
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground leading-tight mb-4">
-            {isAr
-              ? <><span className="text-gradient">شاهد، تفقّد</span> واشترِ بثقة</>
-              : <>See it, inspect it,{" "}<span className="text-gradient">buy with confidence</span></>
-            }
+            {isAr ? (
+              <>
+                <span className="text-gradient">شاهد، تفقّد</span> واشترِ بثقة
+              </>
+            ) : (
+              <>
+                See it, inspect it,{" "}
+                <span className="text-gradient">buy with confidence</span>
+              </>
+            )}
           </h2>
           <p className="text-muted-foreground text-base">
             {isAr
@@ -671,5 +739,5 @@ export function VideoBookingSections() {
         ))}
       </div>
     </section>
-  )
+  );
 }

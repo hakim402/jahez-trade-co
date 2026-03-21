@@ -1,54 +1,90 @@
-"use client"
+"use client";
 
-// app/[locale]/(pages)/products/_components/product-card.tsx
+// app/[locale]/(pages)/products/_components/ProductCard.tsx
 
-import Link from "next/link"
-import { useParams } from "next/navigation"
-import { motion } from "motion/react"
-import { Flame, TrendingUp, Star, Package, ArrowUpRight } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { motion } from "motion/react";
+import { Star, Package, ArrowUpRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { RequestProductButton } from "./RequestProductDialog";
 
-type Product = {
-  id: string
-  name: string
-  nameAr: string | null
-  shortDesc: string | null
-  shortDescAr: string | null
-  estimatedPrice: number | null   // serialized from Prisma Decimal in server component
-  currency: string
-  category: string | null
-  categoryAr: string | null
-  trendScore: number
-  isFeatured: boolean
-  tags: string[]
-  sourceCountry: string | null
-  images: { url: string; isPrimary: boolean; altText: string | null }[]
-}
+// ─── Type ─────────────────────────────────────────────────────────────────────
 
-const COUNTRY_FLAGS: Record<string, string> = {
-  CN: "🇨🇳", US: "🇺🇸", SA: "🇸🇦", AE: "🇦🇪", YE: "🇾🇪", TR: "🇹🇷", IN: "🇮🇳",
-}
+export type Product = {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  shortDesc: string | null;
+  shortDescAr: string | null;
+  description: string | null;
+  descriptionAr: string | null;
+  estimatedPrice: number | null; 
+  currency: string;
+  category: string | null;
+  categoryAr: string | null;
+  trendScore: number;
+  viewCount: number;
+  isFeatured: boolean;
+  tags: string[];
+  sourceCountry: string | null;
+  sourceUrl: string | null;
+  supplier: string | null;
+  images: { url: string; isPrimary: boolean; altText: string | null }[];
+};
+
+// Map country code to flag‑icon class
+const COUNTRY_FLAG_ICON: Record<string, string> = {
+  CN: "cn",
+  US: "us",
+  SA: "sa",
+  AE: "ae",
+  YE: "ye",
+  TR: "tr",
+  IN: "in",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface ProductCardProps {
-  product: Product
-  isAr: boolean
-  index: number
-  featured?: boolean
+  product: Product;
+  isAr: boolean;
+  index: number;
+  featured?: boolean;
 }
 
-export function ProductCard({ product, isAr, index, featured }: ProductCardProps) {
-  const params  = useParams()
-  const locale  = params.locale as string
-  const primary = product.images.find((i) => i.isPrimary) ?? product.images[0]
-  const name    = isAr && product.nameAr  ? product.nameAr  : product.name
-  const desc    = isAr && product.shortDescAr ? product.shortDescAr : product.shortDesc
-  const cat     = isAr && product.categoryAr  ? product.categoryAr  : product.category
+export function ProductCard({
+  product,
+  isAr,
+  index,
+  featured,
+}: ProductCardProps) {
+  const params = useParams();
+  const locale = params.locale as string;
+  const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
+  const name = isAr && product.nameAr ? product.nameAr : product.name;
+  const desc =
+    isAr && product.shortDescAr ? product.shortDescAr : product.shortDesc;
+  const cat =
+    isAr && product.categoryAr ? product.categoryAr : product.category;
 
   const trendBadge =
-    product.trendScore >= 80 ? { label: isAr ? "🔥 ساخن" : "🔥 Hot",     cls: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" } :
-    product.trendScore >= 60 ? { label: isAr ? "📈 رائج" : "📈 Rising",  cls: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20" } :
-    null
+    product.trendScore >= 80
+      ? {
+          label: isAr ? "ساخن" : "Hot",
+          cls: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
+        }
+      : product.trendScore >= 60
+        ? {
+            label: isAr ? "رائج" : "Rising",
+            cls: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+          }
+        : null;
+
+  // Get flag‑icon class if country code exists
+  const flagIconClass = product.sourceCountry
+    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+    : null;
 
   return (
     <motion.div
@@ -59,13 +95,17 @@ export function ProductCard({ product, isAr, index, featured }: ProductCardProps
       transition={{ delay: index * 0.04, duration: 0.3 }}
       className="group"
     >
-      <Link href={`/${locale}/products/${product.id}`} className="block h-full">
-        <div
-          className={cn(
-            "relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden h-full",
-            "transition-all duration-300 hover:border-[#7b57fc]/40 hover:shadow-lg hover:shadow-[#7b57fc]/5 hover:-translate-y-1",
-            featured && "ring-1 ring-[#7b57fc]/20"
-          )}
+      <div
+        className={cn(
+          "relative flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden h-full",
+          "transition-all duration-300 hover:border-[#7b57fc]/40 hover:shadow-lg hover:shadow-[#7b57fc]/5 hover:-translate-y-1",
+          featured && "ring-1 ring-[#7b57fc]/20",
+        )}
+      >
+        {/* ── Clickable area: image + info ── */}
+        <Link
+          href={`/${locale}/products/${product.id}`}
+          className="flex flex-col flex-1"
         >
           {/* Image */}
           <div className="relative aspect-square overflow-hidden bg-muted/30">
@@ -81,7 +121,7 @@ export function ProductCard({ product, isAr, index, featured }: ProductCardProps
               </div>
             )}
 
-            {/* Overlay badges */}
+            {/* Badges */}
             <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
               {product.isFeatured && (
                 <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#7b57fc] text-white shadow-sm">
@@ -90,16 +130,21 @@ export function ProductCard({ product, isAr, index, featured }: ProductCardProps
                 </span>
               )}
               {trendBadge && (
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${trendBadge.cls}`}>
+                <span
+                  className={cn(
+                    "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                    trendBadge.cls,
+                  )}
+                >
                   {trendBadge.label}
                 </span>
               )}
             </div>
 
-            {/* Country flag */}
-            {product.sourceCountry && COUNTRY_FLAGS[product.sourceCountry] && (
-              <div className="absolute top-2.5 right-2.5 text-lg leading-none drop-shadow">
-                {COUNTRY_FLAGS[product.sourceCountry]}
+            {/* Country flag (flag‑icon) */}
+            {flagIconClass && (
+              <div className="absolute top-2.5 right-2.5 text-xl leading-none drop-shadow">
+                <span className={`fi fi-${flagIconClass} text-xl`}></span>
               </div>
             )}
 
@@ -110,28 +155,36 @@ export function ProductCard({ product, isAr, index, featured }: ProductCardProps
           </div>
 
           {/* Info */}
-          <div className={cn("flex flex-col gap-2 p-3.5 flex-1", isAr && "text-right")} dir={isAr ? "rtl" : "ltr"}>
-            {/* Category */}
+          <div
+            className={cn(
+              "flex flex-col gap-1.5 p-3.5 flex-1",
+              isAr && "text-right",
+            )}
+            dir={isAr ? "rtl" : "ltr"}
+          >
             {cat && (
               <span className="text-[10px] text-muted-foreground/70 uppercase tracking-wide font-medium">
                 {cat}
               </span>
             )}
 
-            {/* Name */}
-            <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
+            <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 flex-1">
               {name}
             </h3>
 
-            {/* Short desc */}
             {desc && (
-              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed flex-1">
+              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                 {desc}
               </p>
             )}
 
-            {/* Price */}
-            <div className="flex items-center justify-between mt-auto pt-1">
+            {/* Price row */}
+            <div
+              className={cn(
+                "flex items-center justify-between pt-1",
+                isAr && "flex-row-reverse",
+              )}
+            >
               {product.estimatedPrice !== null ? (
                 <span className="text-sm font-bold text-[#7b57fc] tabular-nums">
                   {product.estimatedPrice.toLocaleString()} {product.currency}
@@ -142,17 +195,19 @@ export function ProductCard({ product, isAr, index, featured }: ProductCardProps
                 </span>
               )}
 
-              {/* Trend score dot */}
               {product.trendScore > 0 && (
                 <div className="flex items-center gap-1">
                   <div
                     className="w-1.5 h-1.5 rounded-full"
                     style={{
                       background:
-                        product.trendScore >= 80 ? "#ef4444" :
-                        product.trendScore >= 60 ? "#f97316" :
-                        product.trendScore >= 40 ? "#f59e0b" :
-                        "var(--muted-foreground)",
+                        product.trendScore >= 80
+                          ? "#ef4444"
+                          : product.trendScore >= 60
+                            ? "#f97316"
+                            : product.trendScore >= 40
+                              ? "#f59e0b"
+                              : "var(--muted-foreground)",
                     }}
                   />
                   <span className="text-[10px] text-muted-foreground tabular-nums">
@@ -161,25 +216,29 @@ export function ProductCard({ product, isAr, index, featured }: ProductCardProps
                 </div>
               )}
             </div>
-
-            {/* Request CTA */}
-            <button
-              className={cn(
-                "mt-2 w-full h-8 rounded-xl text-xs font-semibold transition-all duration-200",
-                "bg-[#7b57fc]/8 text-[#7b57fc] border border-[#7b57fc]/20",
-                "hover:bg-[#7b57fc] hover:text-white hover:border-[#7b57fc]",
-                "group-hover:bg-[#7b57fc] group-hover:text-white group-hover:border-[#7b57fc]"
-              )}
-              onClick={(e) => {
-                // Prevent card link navigation, handled by parent Link
-                // This is a visual affordance; actual navigation is the Link above
-              }}
-            >
-              {isAr ? "اطلب الآن" : "Request Now"}
-            </button>
           </div>
+        </Link>
+
+        {/* -- Request button -- */}
+        <div className="px-3.5 pb-3.5">
+          <RequestProductButton
+            product={{
+              id: product.id,
+              name: product.name,
+              nameAr: product.nameAr,
+              shortDesc: product.shortDesc,
+              shortDescAr: product.shortDescAr,
+              description: product.description,
+              sourceUrl: product.sourceUrl,
+              supplier: product.supplier,
+              estimatedPrice: product.estimatedPrice,
+              currency: product.currency,
+              imageUrl: product.images[0]?.url ?? null,
+            }}
+            variant="card"
+          />
         </div>
-      </Link>
+      </div>
     </motion.div>
-  )
+  );
 }

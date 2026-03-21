@@ -1,6 +1,6 @@
 "use client";
 
-// app/[locale]/(pages)/products/_components/products-grid.tsx
+// app/[locale]/(pages)/products/_components/ProductsGrid.tsx
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -15,26 +15,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "./ProductCard";
+import type { Product } from "./ProductCard";
 import { cn } from "@/lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Product = {
-  id: string;
-  name: string;
-  nameAr: string | null;
-  shortDesc: string | null;
-  shortDescAr: string | null;
-  estimatedPrice: number | null; // serialized from Prisma Decimal in server component
-  currency: string;
-  category: string | null;
-  categoryAr: string | null;
-  trendScore: number;
-  isFeatured: boolean;
-  tags: string[];
-  sourceCountry: string | null;
-  images: { url: string; isPrimary: boolean; altText: string | null }[];
-};
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface ProductsGridProps {
   products: Product[];
@@ -44,6 +28,8 @@ interface ProductsGridProps {
   initialCategory: string;
   initialSort: string;
 }
+
+// ─── Sort options ─────────────────────────────────────────────────────────────
 
 const SORT_OPTIONS = [
   {
@@ -71,14 +57,13 @@ export function ProductsGrid({
   const [category, setCategory] = useState(initialCategory);
   const [sort, setSort] = useState(initialSort);
 
-  // Featured strip — always show these first outside the grid
+  // Featured strip — top 3, shown only when no filters active
   const featured = products.filter((p) => p.isFeatured).slice(0, 3);
 
   // Filter + sort
   const filtered = useMemo(() => {
     let list = [...products];
 
-    // Search
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -91,34 +76,28 @@ export function ProductsGrid({
       );
     }
 
-    // Category
     if (category) list = list.filter((p) => p.category === category);
 
-    // Sort
     switch (sort) {
       case "trending":
         list.sort((a, b) => b.trendScore - a.trendScore);
         break;
-
       case "price_asc":
         list.sort((a, b) => (a.estimatedPrice ?? 0) - (b.estimatedPrice ?? 0));
         break;
-
       case "price_desc":
         list.sort((a, b) => (b.estimatedPrice ?? 0) - (a.estimatedPrice ?? 0));
         break;
-
-      // newest: default order from server
     }
 
     return list;
   }, [products, search, category, sort]);
 
-  const hasFilters = search || category;
+  const hasFilters = Boolean(search || category);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-20 pt-8">
-      {/* ── Featured strip ── */}
+      {/* Featured strip */}
       {featured.length > 0 && !hasFilters && (
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
@@ -141,14 +120,14 @@ export function ProductsGrid({
         </div>
       )}
 
-      {/* ── Controls ── */}
+      {/* Controls */}
       <div
         className="flex flex-col sm:flex-row gap-3 mb-6"
         dir={isAr ? "rtl" : "ltr"}
       >
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -157,6 +136,7 @@ export function ProductsGrid({
           />
           {search && (
             <Button
+              variant={"ghost"}
               onClick={() => setSearch("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
@@ -185,7 +165,7 @@ export function ProductsGrid({
         </div>
       </div>
 
-      {/* ── Category pills ── */}
+      {/* Category pills */}
       {categories.length > 0 && (
         <div className="flex gap-2 flex-wrap mb-6" dir={isAr ? "rtl" : "ltr"}>
           <button
@@ -218,7 +198,7 @@ export function ProductsGrid({
         </div>
       )}
 
-      {/* ── Results count ── */}
+      {/* Results count */}
       {hasFilters && (
         <div className="flex items-center justify-between mb-5">
           <p className="text-sm text-muted-foreground">
@@ -241,7 +221,7 @@ export function ProductsGrid({
         </div>
       )}
 
-      {/* ── Grid ── */}
+      {/* Grid */}
       {filtered.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}

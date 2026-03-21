@@ -2,15 +2,13 @@
 
 import { Suspense } from "react";
 import { getLocale } from "next-intl/server";
-import {
-  getTrendingProducts,
-  getPublicProductCategories,
-} from "@/app/[locale]/(pages)/products/actions";
+import { getTrendingProducts, getPublicProductCategories } from "./actions";
 import { ProductsGrid } from "./_components/ProductsGrid";
 import { ProductsPageHero } from "./_components/ProductsPageHero";
+import { Header } from "../../_components/Header/Header";
+import { FooterSection } from "../../_components/Footer/FooterSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "next";
-import { Header } from "../../_components/Header/Header";
 
 export const metadata: Metadata = {
   title: "Trending Products",
@@ -21,11 +19,7 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 interface PageProps {
-  searchParams: Promise<{
-    category?: string;
-    search?: string;
-    sort?: string;
-  }>;
+  searchParams: Promise<{ category?: string; search?: string; sort?: string }>;
 }
 
 export default async function ProductsPage({ searchParams }: PageProps) {
@@ -33,22 +27,19 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const locale = await getLocale();
   const isAr = locale === "ar";
 
-  const [rawProducts, categories] = await Promise.all([
+  // getTrendingProducts already serializes Decimal → number and Date → ISO string
+  // No additional mapping needed here.
+  const [products, categories] = await Promise.all([
     getTrendingProducts(50),
     getPublicProductCategories(),
   ]);
-
-  // Serialize Prisma Decimal → number | null before passing to Client Components.
-  const products = rawProducts.map((p) => ({
-    ...p,
-    estimatedPrice: p.estimatedPrice !== null ? Number(p.estimatedPrice) : null,
-  }));
 
   const featuredCount = products.filter((p) => p.isFeatured).length;
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
+
       <ProductsPageHero
         isAr={isAr}
         totalCount={products.length}
@@ -56,10 +47,9 @@ export default async function ProductsPage({ searchParams }: PageProps) {
         categories={categories}
       />
 
-      {/* Grid */}
       <Suspense fallback={<GridSkeleton />}>
         <ProductsGrid
-          products={products}
+          products={products as any}
           categories={categories}
           isAr={isAr}
           initialSearch={params.search ?? ""}
@@ -67,6 +57,8 @@ export default async function ProductsPage({ searchParams }: PageProps) {
           initialSort={params.sort ?? "trending"}
         />
       </Suspense>
+
+      <FooterSection />
     </div>
   );
 }

@@ -1,22 +1,17 @@
 "use client";
 
 // app/[locale]/(pages)/products/_components/TrendingProductsSection.tsx
-// No manual Decimal serialization needed — actions.ts returns plain objects.
 
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@clerk/nextjs";
 import {
   Flame,
   TrendingUp,
-  Star,
   Package,
   ArrowRight,
   Eye,
-  ShoppingCart,
   Sparkles,
   ChevronRight,
   Globe,
@@ -24,43 +19,28 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Carousel from "@/app/[locale]/_components/Carousel/carousel";
+import { RequestProductButton } from "./RequestProductDialog";
 import {
   getTrendingProducts,
   getPublicProductCategories,
   incrementProductView,
-} from "@/app/[locale]/(pages)/products/actions";
+} from "../actions";
+import type { Product } from "./ProductCard";
+import { Button } from "@/components/ui/button";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-// estimatedPrice is already number | null — serialized in actions.ts
-
-type Product = {
-  id: string;
-  name: string;
-  nameAr: string | null;
-  shortDesc: string | null;
-  shortDescAr: string | null;
-  estimatedPrice: number | null; // ✓ plain number from actions.ts
-  currency: string;
-  category: string | null;
-  categoryAr: string | null;
-  trendScore: number;
-  viewCount: number;
-  isFeatured: boolean;
-  tags: string[];
-  sourceCountry: string | null;
-  images: { url: string; isPrimary: boolean; altText: string | null }[];
-};
 
 type Category = { value: string; labelAr: string | null };
 
-const COUNTRY_FLAGS: Record<string, string> = {
-  CN: "🇨🇳",
-  US: "🇺🇸",
-  SA: "🇸🇦",
-  AE: "🇦🇪",
-  YE: "🇾🇪",
-  TR: "🇹🇷",
-  IN: "🇮🇳",
+// Map country code to flag‑icon class
+const COUNTRY_FLAG_ICON: Record<string, string> = {
+  CN: "cn",
+  US: "us",
+  SA: "sa",
+  AE: "ae",
+  YE: "ye",
+  TR: "tr",
+  IN: "in",
 };
 
 function getTrendBadge(score: number, isAr: boolean) {
@@ -78,36 +58,39 @@ function getTrendBadge(score: number, isAr: boolean) {
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
+
 function SkeletonCard() {
   return (
     <div className="rounded-2xl border border-border/50 overflow-hidden bg-card h-full">
       <div className="aspect-square bg-muted animate-pulse" />
       <div className="p-4 space-y-2.5">
         <div className="h-3.5 bg-muted rounded-lg animate-pulse w-3/4" />
-        <div className="h-3 bg-muted rounded-lg animate-pulse w-1/2" />
-        <div className="h-9 bg-muted rounded-xl animate-pulse mt-3" />
+        <div className="h-3   bg-muted rounded-lg animate-pulse w-1/2" />
+        <div className="h-9   bg-muted rounded-xl animate-pulse mt-3" />
       </div>
     </div>
   );
 }
 
-// ─── Featured hero card ────────────────────────────────────────────────────────
+// ─── Featured hero card ───────────────────────────────────────────────────────
+
 function FeaturedHeroCard({
   product,
   isAr,
   locale,
-  onRequest,
 }: {
   product: Product;
   isAr: boolean;
   locale: string;
-  onRequest: (p: Product) => void;
 }) {
   const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const name = isAr && product.nameAr ? product.nameAr : product.name;
   const desc =
     isAr && product.shortDescAr ? product.shortDescAr : product.shortDesc;
   const trendBadge = getTrendBadge(product.trendScore, isAr);
+  const flagIconClass = product.sourceCountry
+    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+    : null;
 
   return (
     <motion.div
@@ -117,6 +100,7 @@ function FeaturedHeroCard({
       className="group relative rounded-2xl border border-[#7b57fc]/20 bg-card overflow-hidden mb-6 transition-all duration-300 hover:border-[#7b57fc]/40 hover:shadow-xl hover:shadow-[#7b57fc]/8"
     >
       <div className="grid grid-cols-1 sm:grid-cols-5 min-h-65">
+        {/* Image */}
         <Link
           href={`/${locale}/products/${product.id}`}
           onClick={() => incrementProductView(product.id).catch(() => {})}
@@ -137,13 +121,14 @@ function FeaturedHeroCard({
             <Sparkles className="w-3 h-3" />
             {isAr ? "منتج مميز" : "Featured Pick"}
           </div>
-          {product.sourceCountry && COUNTRY_FLAGS[product.sourceCountry] && (
+          {flagIconClass && (
             <div className="absolute top-3 right-3 text-xl leading-none drop-shadow">
-              {COUNTRY_FLAGS[product.sourceCountry]}
+              <span className={`fi fi-${flagIconClass} text-xl`}></span>
             </div>
           )}
         </Link>
 
+        {/* Info */}
         <div
           className={cn(
             "sm:col-span-3 flex flex-col justify-between gap-4 p-6",
@@ -197,6 +182,7 @@ function FeaturedHeroCard({
               </span>
             </div>
           </div>
+
           <div className="space-y-3">
             {product.estimatedPrice !== null && (
               <div>
@@ -211,17 +197,29 @@ function FeaturedHeroCard({
                 </p>
               </div>
             )}
+            {/* ⚠️ Use RequestProductButton from dialog — never inline router.push */}
             <div className={cn("flex gap-2", isAr && "flex-row-reverse")}>
-              <button
-                onClick={() => onRequest(product)}
-                className="flex-1 h-10 rounded-xl bg-[#7b57fc] text-white text-sm font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-[#7b57fc]/20 hover:bg-[#6a48eb] transition-all"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                {isAr ? "اطلب الآن" : "Request Now"}
-              </button>
+              <div className="flex-1">
+                <RequestProductButton
+                  product={{
+                    id: product.id,
+                    name: product.name,
+                    nameAr: product.nameAr,
+                    shortDesc: product.shortDesc,
+                    shortDescAr: product.shortDescAr,
+                    description: product.description,
+                    sourceUrl: product.sourceUrl,
+                    supplier: product.supplier,
+                    estimatedPrice: product.estimatedPrice,
+                    currency: product.currency,
+                    imageUrl: product.images[0]?.url ?? null,
+                  }}
+                  variant="card"
+                />
+              </div>
               <Link
                 href={`/${locale}/products/${product.id}`}
-                className="h-10 px-4 rounded-xl border border-border/60 text-sm font-semibold text-muted-foreground flex items-center hover:text-foreground hover:border-[#7b57fc]/40 transition-all"
+                className="h-9 px-4 rounded-xl border border-border/60 text-sm font-semibold text-muted-foreground flex items-center hover:text-foreground hover:border-[#7b57fc]/40 transition-all whitespace-nowrap"
               >
                 {isAr ? "تفاصيل" : "Details"}
               </Link>
@@ -233,17 +231,16 @@ function FeaturedHeroCard({
   );
 }
 
-// ─── Product card ─────────────────────────────────────────────────────────────
-function ProductCard({
+// ─── Carousel product card ────────────────────────────────────────────────────
+
+function CarouselCard({
   product,
   isAr,
   locale,
-  onRequest,
 }: {
   product: Product;
   isAr: boolean;
   locale: string;
-  onRequest: (p: Product) => void;
 }) {
   const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const name = isAr && product.nameAr ? product.nameAr : product.name;
@@ -252,9 +249,13 @@ function ProductCard({
   const cat =
     isAr && product.categoryAr ? product.categoryAr : product.category;
   const trendBadge = getTrendBadge(product.trendScore, isAr);
+  const flagIconClass = product.sourceCountry
+    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+    : null;
 
   return (
     <div className="group flex flex-col h-full rounded-2xl border border-border/50 bg-card overflow-hidden transition-all duration-300 hover:border-[#7b57fc]/35 hover:shadow-lg hover:shadow-[#7b57fc]/6 hover:-translate-y-1">
+      {/* Image — Link for navigation */}
       <Link
         href={`/${locale}/products/${product.id}`}
         onClick={() => incrementProductView(product.id).catch(() => {})}
@@ -272,12 +273,6 @@ function ProductCard({
           </div>
         )}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
-          {product.isFeatured && (
-            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#7b57fc] text-white shadow-sm">
-              <Star className="w-2.5 h-2.5" />
-              {isAr ? "مميز" : "Featured"}
-            </span>
-          )}
           {trendBadge && (
             <span
               className={cn(
@@ -289,9 +284,9 @@ function ProductCard({
             </span>
           )}
         </div>
-        {product.sourceCountry && COUNTRY_FLAGS[product.sourceCountry] && (
+        {flagIconClass && (
           <div className="absolute top-2.5 right-2.5 text-lg leading-none drop-shadow-sm">
-            {COUNTRY_FLAGS[product.sourceCountry]}
+            <span className={`fi fi-${flagIconClass} text-xl`}></span>
           </div>
         )}
         {product.viewCount > 0 && (
@@ -300,13 +295,15 @@ function ProductCard({
             {product.viewCount.toLocaleString()}
           </div>
         )}
-        <div className="absolute bottom-2.5 right-2.5 w-7 h-7 rounded-full bg-[#7b57fc] flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 shadow-md">
-          <ArrowRight className="w-3.5 h-3.5 text-white" />
-        </div>
       </Link>
 
-      <div
-        className={cn("flex flex-col gap-2 p-3.5 flex-1", isAr && "text-right")}
+      {/* Info — also a link */}
+      <Link
+        href={`/${locale}/products/${product.id}`}
+        className={cn(
+          "flex flex-col gap-1.5 px-3.5 pt-3 flex-1",
+          isAr && "text-right",
+        )}
         dir={isAr ? "rtl" : "ltr"}
       >
         {cat && (
@@ -318,13 +315,13 @@ function ProductCard({
           {name}
         </h3>
         {desc && (
-          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed flex-1">
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
             {desc}
           </p>
         )}
         <div
           className={cn(
-            "flex items-center justify-between mt-auto pt-1",
+            "flex items-center justify-between pt-1 mt-auto",
             isAr && "flex-row-reverse",
           )}
         >
@@ -337,40 +334,34 @@ function ProductCard({
               {isAr ? "تواصل للسعر" : "Contact for price"}
             </span>
           )}
-          {product.trendScore > 0 && (
-            <div className="flex items-center gap-1">
-              <div
-                className="w-1.5 h-1.5 rounded-full shrink-0"
-                style={{
-                  background:
-                    product.trendScore >= 80
-                      ? "#ef4444"
-                      : product.trendScore >= 60
-                        ? "#f97316"
-                        : product.trendScore >= 40
-                          ? "#f59e0b"
-                          : "var(--muted-foreground)",
-                }}
-              />
-              <span className="text-[9px] text-muted-foreground tabular-nums">
-                {product.trendScore}
-              </span>
-            </div>
-          )}
         </div>
-        <button
-          onClick={() => onRequest(product)}
-          className="mt-1.5 w-full h-9 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 bg-[#7b57fc]/8 text-[#7b57fc] border border-[#7b57fc]/20 hover:bg-[#7b57fc] hover:text-white hover:border-[#7b57fc]"
-        >
-          <ShoppingCart className="w-3.5 h-3.5" />
-          {isAr ? "اطلب الآن" : "Request Now"}
-        </button>
+      </Link>
+
+      {/* Button — OUTSIDE link, opens dialog */}
+      <div className="px-3.5 pb-3.5 pt-2">
+        <RequestProductButton
+          product={{
+            id: product.id,
+            name: product.name,
+            nameAr: product.nameAr,
+            shortDesc: product.shortDesc,
+            shortDescAr: product.shortDescAr,
+            description: product.description,
+            sourceUrl: product.sourceUrl,
+            supplier: product.supplier,
+            estimatedPrice: product.estimatedPrice,
+            currency: product.currency,
+            imageUrl: product.images[0]?.url ?? null,
+          }}
+          variant="card"
+        />
       </div>
     </div>
   );
 }
 
 // ─── Category pills ───────────────────────────────────────────────────────────
+
 function CategoryPills({
   categories,
   active,
@@ -397,7 +388,8 @@ function CategoryPills({
         {isAr ? "الكل" : "All"}
       </button>
       {categories.map((cat) => (
-        <button
+        <Button
+          variant={"ghost"}
           key={cat.value}
           onClick={() => onChange(cat.value === active ? "" : cat.value)}
           className={cn(
@@ -408,13 +400,14 @@ function CategoryPills({
           )}
         >
           {isAr && cat.labelAr ? cat.labelAr : cat.value}
-        </button>
+        </Button>
       ))}
     </div>
   );
 }
 
-// ─── Arrow button ─────────────────────────────────────────────────────────────
+// ─── Arrow button for Carousel ────────────────────────────────────────────────
+
 function ArrowBtn({
   direction,
   isAr,
@@ -435,11 +428,10 @@ function ArrowBtn({
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
+
 export function TrendingProductsSection() {
   const locale = useLocale();
   const isAr = locale === "ar";
-  const router = useRouter();
-  const { isSignedIn } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -453,7 +445,6 @@ export function TrendingProductsSection() {
 
     Promise.all([getTrendingProducts(20), getPublicProductCategories()])
       .then(([raw, cats]) => {
-        // No Decimal conversion needed — actions.ts already returns plain numbers.
         setProducts(raw as Product[]);
         setCategories(cats);
       })
@@ -467,29 +458,10 @@ export function TrendingProductsSection() {
   const topFeatured = displayed.find((p) => p.isFeatured) ?? null;
   const carouselItems = displayed.filter((p) => p.id !== topFeatured?.id);
 
-  const handleRequest = (product: Product) => {
-    if (!isSignedIn) {
-      router.push(
-        `/${locale}/sign-in?redirect_url=/${locale}/products/${product.id}`,
-      );
-      return;
-    }
-    router.push(
-      `/${locale}/dashboard/requests/new?productId=${product.id}&source=trending`,
-    );
-  };
-
   return (
     <section className="relative py-16 md:py-24 overflow-hidden bg-background">
-        {/* Lavender section background — matches the reference image */}
-      <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
-
-      {/* Subtle dot pattern */}
-      <div className="absolute inset-0 bg-brand-pattern opacity-[0.025]" />
-
-      {/* Large orb top-right */}
-      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full orb-brand" />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full orb-brand" />
+      <div className="absolute inset-0 bg-brand-pattern opacity-[0.02] pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-150 h-75 rounded-full orb-brand pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         {/* Header */}
@@ -597,7 +569,6 @@ export function TrendingProductsSection() {
                   product={topFeatured}
                   isAr={isAr}
                   locale={locale}
-                  onRequest={handleRequest}
                 />
               )}
               {carouselItems.length > 0 && (
@@ -621,12 +592,11 @@ export function TrendingProductsSection() {
                   className="px-0"
                 >
                   {carouselItems.map((product) => (
-                    <ProductCard
+                    <CarouselCard
                       key={product.id}
                       product={product}
                       isAr={isAr}
                       locale={locale}
-                      onRequest={handleRequest}
                     />
                   ))}
                 </Carousel>

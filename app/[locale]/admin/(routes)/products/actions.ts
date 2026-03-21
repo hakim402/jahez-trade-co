@@ -1,8 +1,6 @@
 "use server"
 
 // app/[locale]/admin/(routes)/products/actions.ts
-// ⚠️  ADMIN ONLY — every function calls requireAdmin() as its first line.
-//     For public data, import from ./public-actions.ts
 
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"

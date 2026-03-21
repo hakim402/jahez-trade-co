@@ -1,7 +1,6 @@
-// ═══════════════════════════════════════════════════════════════════════════
-// FILE 1: app/[locale]/(pages)/products/_components/product-gallery.tsx
-// ═══════════════════════════════════════════════════════════════════════════
 "use client";
+
+// app/[locale]/(pages)/products/_components/ProductGallery.tsx
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";

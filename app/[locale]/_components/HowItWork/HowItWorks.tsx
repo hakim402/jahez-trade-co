@@ -1,6 +1,6 @@
 "use client";
 
-// app/[locale]/_components/how-it-works.tsx
+// app/[locale]/_components/HowItWorks.tsx
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -26,8 +26,12 @@ import {
   Zap,
   ChevronRight,
   TrendingUp,
+  Mic,
+  Store,
+  Factory,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -43,11 +47,11 @@ interface Step {
   descEn: string;
   descAr: string;
   tag?: { en: string; ar: string; color: string };
-  mockup: React.ReactNode;
+  mockup: (isAr: boolean) => React.ReactNode; // changed to function
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mini mockup cards for each step
+// Mini mockup cards for each step – now accept `isAr` and return localized content
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MockupShell({
@@ -72,10 +76,10 @@ function MockupShell({
 
 // Product step mockups
 const ProductMockups = {
-  submit: (
+  submit: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/30 dark:to-card">
       <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-        New Product Request
+        {isAr ? "طلب منتج جديد" : "New Product Request"}
       </p>
       <div className="space-y-2">
         <div className="flex items-center gap-2 bg-white dark:bg-card rounded-xl px-3 py-2 border border-border/50 shadow-sm">
@@ -86,37 +90,48 @@ const ProductMockups = {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="bg-white dark:bg-card rounded-xl px-3 py-2 border border-border/50 shadow-sm">
-            <p className="text-[8px] text-muted-foreground">Quantity</p>
-            <p className="text-xs font-bold text-foreground">500 pcs</p>
+            <p className="text-[8px] text-muted-foreground">
+              {isAr ? "الكمية" : "Quantity"}
+            </p>
+            <p className="text-xs font-bold text-foreground">
+              {isAr ? "٥٠٠ قطعة" : "500 pcs"}
+            </p>
           </div>
           <div className="bg-white dark:bg-card rounded-xl px-3 py-2 border border-border/50 shadow-sm">
-            <p className="text-[8px] text-muted-foreground">Destination</p>
-            <p className="text-xs font-bold text-foreground">🇸🇦 Saudi Arabia</p>
+            <p className="text-[8px] text-muted-foreground">
+              {isAr ? "بلد الوصول" : "Destination"}
+            </p>
+            <p className="text-xs font-bold text-foreground">
+              <span className="fi fi-sa mr-1"></span>{" "}
+              {isAr ? "المملكة العربية السعودية" : "Saudi Arabia"}
+            </p>
           </div>
         </div>
         <button className="w-full py-2 rounded-xl bg-[#7b57fc] text-white text-[10px] font-bold flex items-center justify-center gap-1.5 shadow-md shadow-[#7b57fc]/20">
-          <Send className="w-3 h-3" /> Submit Request
+          <Send className="w-3 h-3" /> {isAr ? "إرسال الطلب" : "Submit Request"}
         </button>
       </div>
     </MockupShell>
   ),
 
-  review: (
+  review: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-card">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center">
           <Search className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
         </div>
-        <p className="text-[10px] font-bold text-foreground">Under Review</p>
+        <p className="text-[10px] font-bold text-foreground">
+          {isAr ? "قيد المراجعة" : "Under Review"}
+        </p>
         <span className="ml-auto text-[8px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 font-semibold">
-          IN_REVIEW
+          {isAr ? "قيد_المراجعة" : "IN_REVIEW"}
         </span>
       </div>
       <div className="space-y-1.5">
         {[
-          "Verifying supplier details",
-          "Checking product availability",
-          "Estimating shipping cost",
+          isAr ? "التحقق من بيانات المورد" : "Verifying supplier details",
+          isAr ? "التحقق من توفر المنتج" : "Checking product availability",
+          isAr ? "حساب تكاليف الشحن" : "Estimating shipping cost",
         ].map((item, i) => (
           <div key={i} className="flex items-center gap-2">
             <div
@@ -138,90 +153,113 @@ const ProductMockups = {
     </MockupShell>
   ),
 
-  quote: (
+  quote: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-card">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <FileText className="w-3.5 h-3.5 text-[#7b57fc]" />
-          <p className="text-[10px] font-bold text-foreground">Quote Ready</p>
+          <p className="text-[10px] font-bold text-foreground">
+            {isAr ? "عرض السعر جاهز" : "Quote Ready"}
+          </p>
         </div>
         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
       </div>
       <div className="bg-white dark:bg-card rounded-xl p-3 border border-border/50 mb-2 shadow-sm">
         <p className="text-[8px] text-muted-foreground mb-1">
-          Wireless Earbuds × 500
+          {isAr ? "سماعات لاسلكية × ٥٠٠" : "Wireless Earbuds × 500"}
         </p>
         <p className="text-xl font-bold text-[#7b57fc] tabular-nums">
           $2,450{" "}
           <span className="text-xs text-muted-foreground font-normal">USD</span>
         </p>
         <p className="text-[8px] text-muted-foreground mt-1">
-          Valid until Jun 30 · Shipping included
+          {isAr
+            ? "صالح حتى ٣٠ يونيو · الشحن مشمول"
+            : "Valid until Jun 30 · Shipping included"}
         </p>
       </div>
       <div className="flex gap-2">
         <button className="flex-1 py-1.5 rounded-xl bg-[#7b57fc] text-white text-[10px] font-bold shadow-sm shadow-[#7b57fc]/20">
-          Accept
+          {isAr ? "قبول" : "Accept"}
         </button>
         <button className="flex-1 py-1.5 rounded-xl bg-muted text-muted-foreground text-[10px] font-semibold">
-          Decline
+          {isAr ? "رفض" : "Decline"}
         </button>
       </div>
     </MockupShell>
   ),
 
-  production: (
-    <MockupShell gradient="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-card">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-          <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-        </div>
-        <p className="text-[10px] font-bold text-foreground">In Production</p>
-        <span className="ml-auto text-[8px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-semibold">
-          IN_PRODUCTION
-        </span>
+  production: (isAr: boolean) => (
+  <MockupShell gradient="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-card">
+    <div className="flex items-center gap-2 mb-3">
+      <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+        <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
       </div>
-      <div className="w-full bg-muted/40 rounded-full h-1.5 mb-1.5">
-        <motion.div
-          initial={{ width: 0 }}
-          whileInView={{ width: "65%" }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3, duration: 1 }}
-          className="h-full rounded-full bg-linear-to-r from-[#7b57fc] to-emerald-500"
-        />
-      </div>
-      <p className="text-[8px] text-muted-foreground mb-3">
-        Production 65% complete
+      <p className="text-[10px] font-bold text-foreground">
+        {isAr ? "قيد الإنتاج" : "In Production"}
       </p>
-      <div className="grid grid-cols-3 gap-1.5">
-        {["🏭 Factory", "📦 Packaged", "🚢 Shipping"].map((s, i) => (
-          <div
-            key={i}
-            className={cn(
-              "rounded-lg py-1.5 text-center text-[8px] font-semibold",
-              i < 2
-                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                : "bg-muted text-muted-foreground",
-            )}
-          >
-            {s}
-          </div>
-        ))}
-      </div>
-    </MockupShell>
-  ),
+      <span className="ml-auto text-[8px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-semibold">
+        {isAr ? "قيد_الإنتاج" : "IN_PRODUCTION"}
+      </span>
+    </div>
+    <div className="w-full bg-muted/40 rounded-full h-1.5 mb-1.5">
+      <motion.div
+        initial={{ width: 0 }}
+        whileInView={{ width: "65%" }}
+        viewport={{ once: true }}
+        transition={{ delay: 0.3, duration: 1 }}
+        className="h-full rounded-full bg-linear-to-r from-[#7b57fc] to-emerald-500"
+      />
+    </div>
+    <p className="text-[8px] text-muted-foreground mb-3">
+      {isAr ? "اكتمل الإنتاج ٦٥٪" : "Production 65% complete"}
+    </p>
+    <div className="grid grid-cols-3 gap-1.5">
+      {[
+        {
+          icon: Factory,
+          label: isAr ? "مصنع" : "Factory",
+          active: true,
+        },
+        {
+          icon: Package,
+          label: isAr ? "تغليف" : "Packaged",
+          active: true,
+        },
+        {
+          icon: Truck,
+          label: isAr ? "شحن" : "Shipping",
+          active: false,
+        },
+      ].map(({ icon: Icon, label, active }, i) => (
+        <div
+          key={i}
+          className={cn(
+            "rounded-lg py-1.5 text-center text-[8px] font-semibold flex items-center justify-center gap-1",
+            active
+              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Icon className="w-3 h-3" />
+          {label}
+        </div>
+      ))}
+    </div>
+  </MockupShell>
+),
 
-  delivered: (
+  delivered: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/20 dark:to-card">
       <div className="text-center py-2">
         <div className="w-12 h-12 rounded-2xl bg-[#7b57fc]/10 flex items-center justify-center mx-auto mb-3">
           <Truck className="w-6 h-6 text-[#7b57fc]" />
         </div>
         <p className="text-xs font-bold text-foreground mb-0.5">
-          Order Delivered!
+          {isAr ? "تم توصيل الطلب!" : "Order Delivered!"}
         </p>
         <p className="text-[10px] text-muted-foreground mb-3">
-          Wireless Earbuds × 500
+          {isAr ? "سماعات لاسلكية × ٥٠٠" : "Wireless Earbuds × 500"}
         </p>
         <div className="flex justify-center gap-0.5 mb-2">
           {[1, 2, 3, 4, 5].map((s) => (
@@ -232,7 +270,7 @@ const ProductMockups = {
           ))}
         </div>
         <span className="text-[9px] px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-semibold">
-          COMPLETED ✓
+          {isAr ? "مكتمل ✓" : "COMPLETED ✓"}
         </span>
       </div>
     </MockupShell>
@@ -241,32 +279,32 @@ const ProductMockups = {
 
 // Booking step mockups
 const BookingMockups = {
-  choose: (
+  choose: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/30 dark:to-card">
       <p className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-        Choose Session Type
+        {isAr ? "اختر نوع الجلسة" : "Choose Session Type"}
       </p>
       <div className="space-y-1.5">
         {[
           {
-            icon: "🏪",
-            label: "Market Tour",
-            desc: "Browse live markets",
+            icon: Store,
+            label: isAr ? "جولة في السوق" : "Market Tour",
+            desc: isAr ? "تجول في الأسواق مباشرةً" : "Browse live markets",
             active: true,
           },
           {
-            icon: "🏭",
-            label: "Factory Visit",
-            desc: "Inspect production",
+            icon: Factory,
+            label: isAr ? "زيارة المصنع" : "Factory Visit",
+            desc: isAr ? "تفقد خط الإنتاج" : "Inspect production",
             active: false,
           },
           {
-            icon: "💼",
-            label: "Consultation",
-            desc: "Expert advice session",
+            icon: Video,
+            label: isAr ? "استشارة" : "Consultation",
+            desc: isAr ? "جلسة استشارية متخصصة" : "Expert advice session",
             active: false,
           },
-        ].map(({ icon, label, desc, active }) => (
+        ].map(({ icon: Icon, label, desc, active }) => (
           <div
             key={label}
             className={cn(
@@ -276,7 +314,9 @@ const BookingMockups = {
                 : "border-border/50 bg-white dark:bg-card",
             )}
           >
-            <span className="text-base">{icon}</span>
+            <div className="w-5 h-5 flex items-center justify-center text-[#7b57fc]">
+              <Icon className="w-4 h-4" />
+            </div>
             <div className="flex-1">
               <p className="text-[10px] font-semibold text-foreground">
                 {label}
@@ -290,16 +330,23 @@ const BookingMockups = {
     </MockupShell>
   ),
 
-  schedule: (
+  schedule: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/20 dark:to-card">
       <div className="flex items-center gap-2 mb-3">
         <Calendar className="w-4 h-4 text-[#7b57fc]" />
         <p className="text-[10px] font-bold text-foreground">
-          Pick a Time Slot
+          {isAr ? "اختر وقتاً مناسباً" : "Pick a Time Slot"}
         </p>
       </div>
       <div className="grid grid-cols-3 gap-1.5 mb-2">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
+        {[
+          isAr ? "اثنين" : "Mon",
+          isAr ? "ثلاثاء" : "Tue",
+          isAr ? "أربعاء" : "Wed",
+          isAr ? "خميس" : "Thu",
+          isAr ? "جمعة" : "Fri",
+          isAr ? "سبت" : "Sat",
+        ].map((d, i) => (
           <div
             key={d}
             className={cn(
@@ -331,59 +378,102 @@ const BookingMockups = {
     </MockupShell>
   ),
 
-  confirmed: (
+  confirmed: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-card">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <p className="text-[10px] font-bold text-foreground">
-          Session Confirmed!
+          {isAr ? "تم تأكيد الجلسة!" : "Session Confirmed!"}
         </p>
         <span className="ml-auto text-[8px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-semibold">
-          CONFIRMED
+          {isAr ? "مؤكد" : "CONFIRMED"}
         </span>
       </div>
       <div className="bg-white dark:bg-card rounded-xl p-3 border border-border/50 space-y-1.5 shadow-sm">
         <div className="flex justify-between text-[9px]">
-          <span className="text-muted-foreground">Type</span>
-          <span className="font-semibold text-foreground">🏪 Market Tour</span>
-        </div>
-        <div className="flex justify-between text-[9px]">
-          <span className="text-muted-foreground">Date</span>
-          <span className="font-semibold text-foreground">
-            Thu, Jun 27 · 10:00 AM
+          <span className="text-muted-foreground">
+            {isAr ? "النوع" : "Type"}
+          </span>
+          <span className="font-semibold text-foreground flex items-center gap-1">
+            <Store className="w-3 h-3 text-[#7b57fc]" />
+            {isAr ? "جولة في السوق" : "Market Tour"}
           </span>
         </div>
         <div className="flex justify-between text-[9px]">
-          <span className="text-muted-foreground">Platform</span>
-          <span className="font-semibold text-foreground">🎥 Google Meet</span>
+          <span className="text-muted-foreground">
+            {isAr ? "التاريخ" : "Date"}
+          </span>
+          <span className="font-semibold text-foreground">
+            {isAr ? "الخميس، 27 يونيو · 10:00 ص" : "Thu, Jun 27 · 10:00 AM"}
+          </span>
         </div>
         <div className="flex justify-between text-[9px]">
-          <span className="text-muted-foreground">Duration</span>
-          <span className="font-semibold text-foreground">30 minutes</span>
+          <span className="text-muted-foreground">
+            {isAr ? "المنصة" : "Platform"}
+          </span>
+          <span className="font-semibold text-foreground flex items-center gap-1">
+            <Video className="w-3 h-3 text-[#7b57fc]" />
+            {isAr ? "جوجل ميت" : "Google Meet"}
+          </span>
+        </div>
+        <div className="flex justify-between text-[9px]">
+          <span className="text-muted-foreground">
+            {isAr ? "المدة" : "Duration"}
+          </span>
+          <span className="font-semibold text-foreground">
+            {isAr ? "30 دقيقة" : "30 minutes"}
+          </span>
         </div>
       </div>
     </MockupShell>
   ),
 
-  live: (
+  live: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700/50">
       <div className="flex items-center gap-2 mb-3">
         <span className="flex items-center gap-1 text-[9px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          LIVE
+          {isAr ? "مباشر" : "LIVE"}
         </span>
         <span className="text-[9px] text-slate-400 ml-auto flex items-center gap-1">
           <Clock className="w-2.5 h-2.5" /> 12:43
         </span>
       </div>
       <div className="grid grid-cols-2 gap-1.5 mb-3">
-        <div className="rounded-xl aspect-video bg-linear-to-br from-[#7b57fc] to-[#2b1cff] flex items-center justify-center">
-          <p className="text-[8px] text-white font-bold">Admin 🇨🇳</p>
+        {/* Admin */}
+        <div className="relative rounded-xl bg-linear-to-br from-[#7b57fc] to-[#2b1cff] aspect-video overflow-hidden">
+          <Image
+            src="/images/video-call-men.jpg"
+            alt={isAr ? "المشرف" : "Admin"}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 50vw, 200px"
+          />
+          <div className="absolute bottom-1 left-1.5 flex items-center gap-1 text-white">
+            <Mic className="w-2.5 h-2.5" />
+            <span className="text-[8px] font-medium">
+              {isAr ? "المشرف" : "Admin"}
+            </span>
+          </div>
         </div>
-        <div className="rounded-xl aspect-video bg-slate-700 flex items-center justify-center">
-          <p className="text-[8px] text-slate-300 font-bold">You</p>
+
+        {/* Client */}
+        <div className="relative rounded-xl bg-slate-700 aspect-video overflow-hidden">
+          <Image
+            src="/images/video-call-woman.jpg"
+            alt={isAr ? "أنت" : "You"}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 50vw, 200px"
+          />
+          <div className="absolute bottom-1 left-1.5 flex items-center gap-1 text-white">
+            <Mic className="w-2.5 h-2.5" />
+            <span className="text-[8px] font-medium">
+              {isAr ? "أنت" : "You"}
+            </span>
+          </div>
         </div>
       </div>
       <div className="flex items-center justify-center gap-2">
@@ -401,38 +491,10 @@ const BookingMockups = {
       </div>
     </MockupShell>
   ),
-
-  summary: (
-    <MockupShell gradient="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/20 dark:to-card">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-6 h-6 rounded-lg bg-[#7b57fc]/10 flex items-center justify-center">
-          <Sparkles className="w-3.5 h-3.5 text-[#7b57fc]" />
-        </div>
-        <p className="text-[10px] font-bold text-foreground">
-          AI Summary Ready
-        </p>
-      </div>
-      <div className="space-y-1.5">
-        {[
-          "Supplier: $4.20/unit · MOQ 500",
-          "Delivery: 18–22 days to Riyadh",
-          "Grade A quality · ISO certified",
-          "WhatsApp group created ✓",
-        ].map((item, i) => (
-          <div key={i} className="flex items-start gap-2">
-            <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-muted-foreground leading-snug">
-              {item}
-            </p>
-          </div>
-        ))}
-      </div>
-    </MockupShell>
-  ),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step data
+// Step data (mockup now a function)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PRODUCT_STEPS: Step[] = [
@@ -492,9 +554,9 @@ const PRODUCT_STEPS: Step[] = [
     titleEn: "Production & real-time tracking",
     titleAr: "الإنتاج والتتبع اللحظي",
     descEn:
-      "Track your order through every stage — production, packing, and shipping — directly from your dashboard.",
+      "Track your order through every stage production, packing, and shipping directly from your dashboard.",
     descAr:
-      "تابع طلبك في كل مرحلة — الإنتاج، التعبئة، والشحن — مباشرةً من لوحة التحكم.",
+      "تابع طلبك في كل مرحلة الإنتاج، التعبئة، والشحن مباشرةً من لوحة التحكم.",
     tag: {
       en: "Step 4",
       ar: "الخطوة ٤",
@@ -528,9 +590,9 @@ const BOOKING_STEPS: Step[] = [
     titleEn: "Choose your session type",
     titleAr: "اختر نوع الجلسة",
     descEn:
-      "Pick from a Market Tour, Factory Visit, or Custom Consultation — each designed for a different sourcing need.",
+      "Pick from a Market Tour, Factory Visit, or Custom Consultation each designed for a different sourcing need.",
     descAr:
-      "اختر بين جولة السوق، زيارة المصنع، أو استشارة مخصصة — كل نوع مصمم لاحتياج تجاري مختلف.",
+      "اختر بين جولة السوق، زيارة المصنع، أو استشارة مخصصة كل نوع مصمم لاحتياج تجاري مختلف.",
     tag: {
       en: "Step 1",
       ar: "الخطوة ١",
@@ -545,7 +607,7 @@ const BOOKING_STEPS: Step[] = [
     titleEn: "Pick a time slot",
     titleAr: "حدد موعدك",
     descEn:
-      "Browse available slots set by our team on the ground. Pick a time that works for you — we adjust to your timezone.",
+      "Browse available slots set by our team on the ground. Pick a time that works for you we adjust to your timezone.",
     descAr:
       "تصفح المواعيد المتاحة التي يضعها فريقنا في الميدان. اختر ما يناسبك — نتكيف مع منطقتك الزمنية.",
     tag: {
@@ -588,23 +650,6 @@ const BOOKING_STEPS: Step[] = [
         "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
     },
     mockup: BookingMockups.live,
-  },
-  {
-    number: 5,
-    icon: Sparkles,
-    titleEn: "Get your AI summary",
-    titleAr: "استلم ملخصك الذكي",
-    descEn:
-      "Immediately after the session, an AI-generated summary with all key details — prices, timelines, contacts — lands in your dashboard.",
-    descAr:
-      "فور انتهاء الجلسة، يصلك ملخص ذكي يتضمن كل التفاصيل المهمة — الأسعار والمواعيد وجهات التواصل — في لوحة تحكمك.",
-    tag: {
-      en: "Step 5",
-      ar: "الخطوة ٥",
-      color:
-        "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
-    },
-    mockup: BookingMockups.summary,
   },
 ];
 
@@ -721,7 +766,7 @@ function StepCard({
       </div>
 
       {/* Mockup side */}
-      <div>{step.mockup}</div>
+      <div>{step.mockup(isAr)}</div>
     </motion.div>
   );
 }
@@ -855,8 +900,8 @@ export function HowItWorks() {
           <Link
             href={
               tab === "product"
-                ? `/${locale}/dashboard/requests/new`
-                : `/${locale}/dashboard/bookings/new`
+                ? `/${locale}/dashboard/requests`
+                : `/${locale}/dashboard/video-bookings`
             }
             className="group flex items-center gap-2 px-7 py-3.5 rounded-full bg-[#7b57fc] text-white text-sm font-semibold shadow-lg shadow-[#7b57fc]/25 hover:bg-[#6a48eb] hover:-translate-y-0.5 transition-all"
           >

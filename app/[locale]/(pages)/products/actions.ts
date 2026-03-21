@@ -1,10 +1,6 @@
 "use server"
 
 // app/[locale]/(pages)/products/actions.ts
-//
-// All functions return plain serializable objects.
-// Prisma Decimal and Date fields are converted at the source —
-// never rely on the caller to serialize them.
 
 import { prisma } from "@/lib/prisma"
 
@@ -12,11 +8,6 @@ import { prisma } from "@/lib/prisma"
 // READ
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * All active products for the public listing page.
- * Returns plain serializable objects — safe to pass to Client Components.
- * Decimal → number | null · Date → ISO string
- */
 export async function getTrendingProducts(limit = 50) {
   const raw = await prisma.trendingProduct.findMany({
     where: { isActive: true, isDeleted: false },
@@ -42,10 +33,6 @@ export async function getTrendingProducts(limit = 50) {
   }))
 }
 
-/**
- * Single product for the public detail page.
- * Returns null only if the ID doesn't exist or is hard-deleted.
- */
 export async function getPublicProductById(id: string) {
   const p = await prisma.trendingProduct.findUnique({
     where: { id, isDeleted: false },
@@ -66,9 +53,6 @@ export async function getPublicProductById(id: string) {
   }
 }
 
-/**
- * Distinct categories of active products — for public filter pills.
- */
 export async function getPublicProductCategories() {
   const results = await prisma.trendingProduct.findMany({
     where:    { isActive: true, isDeleted: false },
@@ -82,10 +66,6 @@ export async function getPublicProductCategories() {
     .map((r) => ({ value: r.category!, labelAr: r.categoryAr }))
 }
 
-/**
- * Related products for the detail page.
- * Tries same category first; tops up from general trending if not enough.
- */
 export async function getRelatedProducts(
   currentId: string,
   category: string | null,

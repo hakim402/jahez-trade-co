@@ -1,28 +1,23 @@
 "use client";
 
-// app/[locale]/_components/hero.tsx
+// app/[locale]/_components/FooterHero.tsx
 
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView, animate } from "motion/react";
 import { useLocale } from "next-intl";
-import Link from "next/link";
 import {
-  ArrowRight,
   Package,
   Video,
   TrendingUp,
   CheckCircle,
   Clock,
-  Zap,
   Star,
-  ChevronRight,
   FileText,
   Truck,
-  MessageSquare,
-  Factory,
-  Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Animated counter hook
@@ -85,7 +80,7 @@ function StatusBadge({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating request card mockup
+// Floating request card mockup (fully translated)
 // ─────────────────────────────────────────────────────────────────────────────
 function RequestMockup() {
   const locale = useLocale();
@@ -118,22 +113,20 @@ function RequestMockup() {
         <span className="fi fi-cn text-xs mr-1"></span>
         {isAr
           ? "سماعات أذن لاسلكية - الكمية 500"
-          : " Wireless Earbuds — Qty 500 "}
+          : "Wireless Earbuds — Qty 500"}
       </p>
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-muted-foreground">
           {isAr ? "تقدير" : "Estimate"}
         </span>
-        <span className="text-sm font-bold text-[#7b57fc]">
-          {isAr ? "$2,450" : "$2,450"}
-        </span>
+        <span className="text-sm font-bold text-[#7b57fc]">$2,450</span>
       </div>
     </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating booking card mockup
+// Floating booking card mockup (fully translated)
 // ─────────────────────────────────────────────────────────────────────────────
 function BookingMockup() {
   const locale = useLocale();
@@ -155,14 +148,14 @@ function BookingMockup() {
             {isAr ? "زيارة المصنع" : "Factory Visit"}
           </p>
           <p className="text-[9px] text-muted-foreground">
-            {isAr ? "مؤكد" : "Confirmed"}
+            {isAr ? "مؤكد ✓" : "Confirmed ✓"}
           </p>
         </div>
       </div>
       <div className="bg-muted/40 rounded-xl px-3 py-1.5 flex items-center justify-between">
         <span className="text-[9px] text-muted-foreground flex items-center gap-1">
           <Clock className="w-2.5 h-2.5" />{" "}
-          {isAr ? "السبت · 10:00 صباحاً" : "Sat · 10:00 AM"}
+          {isAr ? "السبت · 10:00 ص" : "Sat · 10:00 AM"}
         </span>
         <span className="text-[9px] text-muted-foreground flex text-center justify-center gap-2">
           <Video className="text-color size-3.5" /> Zoom
@@ -173,85 +166,117 @@ function BookingMockup() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating quote card
+// Floating quote card (fully translated)
 // ─────────────────────────────────────────────────────────────────────────────
 function QuoteMockup() {
+  const locale = useLocale();
+  const isAr = locale === "ar";
   return (
     <motion.div
       initial={{ opacity: 0, y: 24, rotate: -0.5 }}
       animate={{ opacity: 1, y: 0, rotate: -0.5 }}
       transition={{ delay: 1.0, duration: 0.6, ease: "easeOut" }}
       className="hidden md:block absolute bottom-4 right-4 w-48 bg-white dark:bg-card rounded-2xl shadow-xl shadow-black/10 border border-border/50 p-3 z-20"
+      dir={isAr ? "rtl" : "ltr"}
     >
       <div className="flex items-center gap-1.5 mb-2">
         <FileText className="w-3 h-3 text-[#7b57fc]" />
         <span className="text-[10px] font-bold text-foreground">
-          Quote Ready
+          {isAr ? "عرض السعر جاهز" : "Quote Ready"}
         </span>
         <span className="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
       </div>
       <p className="text-[9px] text-muted-foreground mb-1.5 truncate">
-        Smart LED Strip × 200
+        {isAr ? "شريط LED ذكي × 200" : "Smart LED Strip × 200"}
       </p>
       <div className="flex items-center gap-1">
-        <button className="flex-1 text-[9px] font-bold py-1 rounded-lg bg-[#7b57fc] text-white">
-          Accept
-        </button>
-        <button className="flex-1 text-[9px] font-bold py-1 rounded-lg bg-muted text-muted-foreground">
-          Decline
-        </button>
+        <Button
+          variant={"ghost"}
+          className="flex-1 text-[9px] font-bold py-1 rounded-lg bg-[#7b57fc] text-white"
+        >
+          {isAr ? "قبول" : "Accept"}
+        </Button>
+        <Button
+          variant={"ghost"}
+          className="flex-1 text-[9px] font-bold py-1 rounded-lg bg-muted text-muted-foreground"
+        >
+          {isAr ? "رفض" : "Decline"}
+        </Button>
       </div>
     </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Central orbit graphic — abstract globe showing routes
+// Central orbit graphic — abstract globe showing routes (wider, bilingual)
 // ─────────────────────────────────────────────────────────────────────────────
-function OrbitGraphic() {
-  const countries = [
-    { flag: "🇨🇳", label: "China", angle: 315, dist: 90 },
-    { flag: "🇺🇸", label: "USA", angle: 45, dist: 90 },
-    { flag: "🇸🇦", label: "Saudi Arabia", angle: 180, dist: 82 },
-    { flag: "🇦🇪", label: "UAE", angle: 135, dist: 90 },
-    { flag: "🇾🇪", label: "Yemen", angle: 225, dist: 82 },
-  ];
+function OrbitGraphic({ isAr }: { isAr: boolean }) {
+  const countries = isAr
+    ? [
+        { flag: "🇨🇳", label: "الصين", angle: 315, dist: 90 },
+        { flag: "🇺🇸", label: "الولايات المتحدة", angle: 45, dist: 90 },
+        { flag: "🇸🇦", label: "السعودية", angle: 180, dist: 82 },
+        { flag: "🇦🇪", label: "الإمارات", angle: 135, dist: 90 },
+        { flag: "🇾🇪", label: "اليمن", angle: 225, dist: 82 },
+      ]
+    : [
+        { flag: "🇨🇳", label: "China", angle: 315, dist: 90 },
+        { flag: "🇺🇸", label: "USA", angle: 45, dist: 90 },
+        { flag: "🇸🇦", label: "Saudi Arabia", angle: 180, dist: 82 },
+        { flag: "🇦🇪", label: "UAE", angle: 135, dist: 90 },
+        { flag: "🇾🇪", label: "Yemen", angle: 225, dist: 82 },
+      ];
 
   return (
-    <div className="relative w-72 h-72 mx-auto">
+    <div className="relative w-80 h-80 mx-auto">
+      {" "}
+      {/* increased from w-72 */}
       {/* Outer dashed ring */}
       <motion.div
         animate={{ rotate: 360 }}
         transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-        className="absolute inset-0 rounded-full border border-dashed border-[#7b57fc]/20"
+        className="absolute inset-0 rounded-full border border-dashed border-indigo-500"
       />
-
       {/* Inner ring */}
       <motion.div
         animate={{ rotate: -360 }}
         transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        className="absolute inset-6 rounded-full border border-[#7b57fc]/10"
+        className="absolute inset-6 rounded-full border border-indigo-200"
       />
-
       {/* Center logo / platform icon */}
       <div className="absolute inset-0 flex items-center justify-center">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5, type: "spring" }}
-          className="w-20 h-20 rounded-2xl bg-linear-to-br from-[#7b57fc] to-[#2b1cff] shadow-xl shadow-[#7b57fc]/30 flex items-center justify-center"
+          className="group relative w-20 h-20 rounded-2xl bg-background shadow-xl shadow-indigo-500/30 flex items-center justify-center overflow-hidden"
         >
-          <TrendingUp className="w-9 h-9 text-white" />
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-indigo-500/20 blur-xl opacity-60 group-hover:opacity-80 transition" />
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-indigo-500/20 blur-xl opacity-60 group-hover:opacity-80 transition" />
+          {/* Logo */}
+          <div className="relative w-60 h-60">
+            <Image
+              src="/logo/icon.png"
+              alt="Platform logo"
+              fill
+              className="object-contain"
+              sizes="80px"
+              priority
+            />
+          </div>
+
+          {/* Optional subtle ring */}
+          <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
         </motion.div>
       </div>
-
       {/* Country nodes on orbit */}
       {countries.map(({ flag, label, angle, dist }, i) => {
         const rad = (angle * Math.PI) / 180;
         const x = Math.cos(rad) * dist;
         const y = Math.sin(rad) * dist;
 
-        // Map emoji to country code for flag-icon
         const countryCodeMap: Record<string, string> = {
           "🇨🇳": "cn",
           "🇺🇸": "us",
@@ -289,7 +314,6 @@ function OrbitGraphic() {
               }}
             />
             <div className="w-10 h-10 rounded-xl bg-white dark:bg-card shadow-md shadow-black/10 border border-border/50 flex items-center justify-center text-xl z-10">
-              {/* Use flag-icon instead of emoji */}
               <span className={`fi fi-${code} text-2xl`}></span>
             </div>
             <span className="text-[8px] font-medium text-muted-foreground whitespace-nowrap z-10">
@@ -349,7 +373,6 @@ export function FooterHero() {
   const locale = useLocale();
   const isAr = locale === "ar";
 
-  // Map emoji to country code for flag-icons
   const flagMap: Record<string, string> = {
     "🇸🇦": "sa",
     "🇾🇪": "ye",
@@ -374,7 +397,7 @@ export function FooterHero() {
         >
           {/* Center orbit */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <OrbitGraphic />
+            <OrbitGraphic isAr={isAr} />
           </div>
 
           {/* Floating cards */}
@@ -417,7 +440,7 @@ export function FooterHero() {
           >
             <StatusBadge
               icon={Star}
-              label={isAr ? "٤.٩ · ٢٠٠+ عميل راضٍ" : "4.9 · 200+ happy clients"}
+              label={isAr ? "4.9 · 200+ عميل راضٍ" : "4.9 · 200+ happy clients"}
               color="bg-amber-500"
             />
           </motion.div>

@@ -16,6 +16,7 @@ import {
   Video,
   Activity,
   BotMessageSquare,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -38,6 +39,7 @@ export function Sidebar() {
   const mainNavItems: NavItem[] = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
     { icon: Users, label: "Manage Users", href: "/admin/manage-users" },
+    { icon: TrendingUp, label: "Trending Products", href: "/admin/products" },
     {
       icon: PackageSearch,
       label: "Product Requests",

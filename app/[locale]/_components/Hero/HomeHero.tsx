@@ -198,16 +198,14 @@ export function HomeHero() {
 
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-16 pb-10">
-      {/* ── Background effects ── */}
-      <div className="absolute inset-0 bg-brand-pattern opacity-[0.025] pointer-events-none" />
-      <div className="absolute -top-48 left-1/2 -translate-x-1/2 w-175 h-175 rounded-full orb-brand pointer-events-none" />
-
-      {/* Subtle grid lines */}
+      {/* Background */}
+      <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
+      <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
       <div
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
         style={{
           backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
-          backgroundSize: "64px 64px",
+          backgroundSize: "52px 52px",
         }}
       />
 

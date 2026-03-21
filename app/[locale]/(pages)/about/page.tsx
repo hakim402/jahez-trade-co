@@ -8,6 +8,7 @@ import { TeamPresence } from "./_components/TeamPresence";
 import type { Metadata } from "next";
 import { Header } from "../../_components/Header/Header";
 import { FooterSection } from "../../_components/Footer/FooterSection";
+import { FooterHero } from "../../_components/Footer/FooterHero";
 
 export const metadata: Metadata = {
   title: "About Us | من نحن",
@@ -24,8 +25,9 @@ export default async function AboutPage() {
       <Header />
       <AboutHero isAr={isAr} locale={locale} />
       <MissionValues isAr={isAr} />
-      <HowWeOperate isAr={isAr} locale={locale} />
       <TeamPresence isAr={isAr} />
+      <HowWeOperate isAr={isAr} locale={locale} />
+      <FooterHero />
       <FooterSection />
     </main>
   );

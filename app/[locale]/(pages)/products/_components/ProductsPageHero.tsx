@@ -44,7 +44,6 @@ interface ProductsHeroProps {
   onCategoryChange?: (cat: string) => void;
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Trend score ring visual
 // ─────────────────────────────────────────────────────────────────────────────
@@ -155,8 +154,8 @@ function HeroSearch({
           onChange={(e) => setValue(e.target.value)}
           placeholder={
             isAr
-              ? "ابحث عن منتج — إلكترونيات، ملابس، إكسسوارات…"
-              : "Search products — electronics, fashion, accessories…"
+              ? "ابحث عن منتج إلكترونيات، ملابس، إكسسوارات…"
+              : "Search products electronics, fashion, accessories…"
           }
           className={cn(
             "w-full h-12 bg-white dark:bg-card border border-border/60 rounded-2xl text-sm text-foreground",
@@ -249,7 +248,7 @@ function StatPill({
     >
       <div
         className={cn(
-          "w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0",
+          "w-6 h-6 rounded-lg flex items-center justify-center shrink-0",
           color,
         )}
       >
@@ -285,7 +284,7 @@ export function ProductsPageHero({
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
 
       {/* Orbs */}
-      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full orb-brand pointer-events-none" />
+      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-150 h-75 rounded-full orb-brand pointer-events-none" />
       <div className="absolute -bottom-20 -right-20 w-60 h-60 rounded-full orb-brand pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full orb-brand pointer-events-none" />
 
@@ -327,14 +326,13 @@ export function ProductsPageHero({
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground leading-tight tracking-tight">
               {isAr ? (
                 <>
-                  اكتشف <span className="text-color">المنتجات الرائجة</span>{" "}
-                  من كل مكان
+                  اكتشف <span className="text-color">المنتجات الرائجة</span> من
+                  كل مكان
                 </>
               ) : (
                 <>
-                  Discover{" "}
-                  <span className="text-color">trending products</span> from
-                  everywhere
+                  Discover <span className="text-color">trending products</span>{" "}
+                  from everywhere
                 </>
               )}
             </h1>
@@ -398,7 +396,6 @@ export function ProductsPageHero({
             onSelect={onCategoryChange}
           />
 
-         
           {/* ── Operating countries ── */}
           <motion.div
             initial={{ opacity: 0 }}
