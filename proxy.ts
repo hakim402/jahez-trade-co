@@ -21,14 +21,14 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const pathname = req.nextUrl.pathname;
 
   // =====================================================
-  // 1️⃣ BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
+  // BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
   // =====================================================
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
   // =====================================================
-  // 2️⃣ FORCE ADMIN TO ENGLISH
+  // FORCE ADMIN TO ENGLISH
   // =====================================================
   if (pathname.startsWith("/admin") && !pathname.startsWith("/en/admin")) {
     const url = new URL(`/en${pathname}`, req.url);
@@ -38,7 +38,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const { userId, sessionClaims } = await auth();
 
   // =====================================================
-  // 3️⃣ Handle Locale Redirect for Authenticated Users
+  // Handle Locale Redirect for Authenticated Users
   // =====================================================
   const pathnameHasLocale = routing.locales.some(
     (locale) =>
@@ -58,14 +58,14 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // 4️⃣ Protect Dashboard & Admin Routes
+  // Protect Dashboard & Admin Routes
   // =====================================================
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
 
   // =====================================================
-  // 5️⃣ Admin Role Check (Database)
+  // Admin Role Check (Database)
   // =====================================================
   if (isAdminRoute(req)) {
     if (!userId) {
@@ -83,7 +83,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // 6️⃣ Run Internationalization Middleware
+  // Run Internationalization Middleware
   // =====================================================
   return intlMiddleware(req);
 });
@@ -94,12 +94,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 // =====================================================
 export const config = {
   matcher: [
-    /*
-      Match all routes except:
-      - API routes
-      - Next.js static files
-      - Static assets
-    */
+    
     "/((?!api|_next|.*\\..*).*)",
   ],
 };

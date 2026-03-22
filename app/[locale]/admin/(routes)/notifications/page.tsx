@@ -16,31 +16,6 @@ export default async function NotificationsPage() {
       <AdminHeader />
 
       <div className="px-6 py-8 max-w-7xl mx-auto space-y-6">
-        {/* ── Page header ─────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
-              <Bell className="h-5 w-5 text-[#7b57fc]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-color">
-                Notifications
-              </h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                Manage, send and broadcast notifications across the platform.
-              </p>
-            </div>
-          </div>
-
-          {stats && stats.unread > 0 && (
-            <div className="flex items-center gap-1.5 rounded-full bg-[#7b57fc]/10 border border-[#7b57fc]/20 px-3 py-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#7b57fc] animate-pulse" />
-              <span className="text-sm font-medium text-[#7b57fc]">
-                {stats.unread} unread
-              </span>
-            </div>
-          )}
-        </div>
 
         {/* ── KPI strip ───────────────────────────────────────────────────── */}
         {stats && (

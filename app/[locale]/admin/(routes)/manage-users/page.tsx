@@ -70,31 +70,6 @@ export default async function UsersPage() {
       <AdminHeader />
 
       <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 lg:px-8 pt-6 pb-4 gap-5 max-w-screen-2xl mx-auto w-full">
-        {/* ── Page header ──────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
-          <div>
-            <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
-              <Users className="h-5 w-5 text-[#7b57fc]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-color">
-                Manage Customers
-              </h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
-               Manage accounts, subscriptions, and access.
-              </p>
-            </div>
-          </div>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 border border-border/50 self-start sm:self-auto">
-            <Users size={14} className="text-muted-foreground" />
-            <span className="text-sm font-semibold text-foreground tabular-nums">
-              {total.toLocaleString()}
-            </span>
-            <span className="text-sm text-muted-foreground">total</span>
-          </div>
-        </div>
 
         {/* ── KPI strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">

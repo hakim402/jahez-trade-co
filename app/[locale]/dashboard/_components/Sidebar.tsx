@@ -14,6 +14,7 @@ import {
   PackageSearch,
   Video,
   BotMessageSquare,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -60,6 +61,11 @@ export function Sidebar() {
       icon: Video,
       labelKey: "videoBookings",
       href: "/dashboard/video-bookings",
+    },
+    {
+      icon: BriefcaseBusiness,
+      labelKey: "consulting",
+      href: "/dashboard/consulting",
     },
     {
       icon: Bell,

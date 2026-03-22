@@ -28,8 +28,6 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  SlidersHorizontal,
-  Filter,
   Check,
   Link2,
   KeyRound,

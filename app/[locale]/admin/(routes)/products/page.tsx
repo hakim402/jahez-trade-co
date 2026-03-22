@@ -1,100 +1,102 @@
 // app/[locale]/admin/(routes)/products/page.tsx
 
-import { Suspense } from "react"
-import { getAllProducts, getProductStats, getProductCategories } from "./actions"
-import { ProductsClient } from "./_components/ProductsClient"
-import { ProductStats } from "./_components/ProductStats"
-import { AdminHeader } from "../../_components/AdminHeader"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Flame } from "lucide-react"
+import { Suspense } from "react";
+import type { Metadata } from "next";
+import {
+  getAllProducts,
+  getProductStats,
+  getProductCategories,
+} from "./actions";
+import { ProductPageClient } from "./_components/ProductPageClient";
+import { ProductPageSkeleton } from "./_components/ProductPageSkeleton";
+import { AdminHeader } from "../../_components/AdminHeader";
 
-export const metadata = {
-  title: "Trending Products — Admin",
-}
+export const metadata: Metadata = { title: "Trending Products | Admin" };
+
+type StatusFilter = "all" | "active" | "inactive" | "deleted" | "featured";
+type SortByFilter =
+  | "createdAt"
+  | "updatedAt"
+  | "trendScore"
+  | "viewCount"
+  | "inquiryCount"
+  | "name"
+  | "estimatedPrice";
 
 interface PageProps {
   searchParams: Promise<{
-    page?: string
-    search?: string
-    category?: string
-    status?: string
-    sortBy?: string
-    sortOrder?: string
-  }>
+    page?: string;
+    status?: string;
+    category?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    sourceCountry?: string;
+    priceMin?: string;
+    priceMax?: string;
+  }>;
+}
+
+// Helper to safely extract data from an ActionResult
+function safeData<T>(
+  result: { success: boolean; data?: T; error?: string },
+  fallback: T,
+): T {
+  return result.success && result.data !== undefined ? result.data : fallback;
 }
 
 export default async function ProductsPage({ searchParams }: PageProps) {
-  const params = await searchParams
+  const sp = await searchParams;
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const limit = 16;
 
-  const page      = Number(params.page ?? 1)
-  const search    = params.search ?? ""
-  const category  = params.category ?? ""
-  const status    = params.status ?? "all"
-  const sortBy    = params.sortBy ?? "createdAt"
-  const sortOrder = (params.sortOrder as "asc" | "desc") ?? "desc"
+  const filters = {
+    page,
+    limit,
+    status: (sp.status as StatusFilter) || "all",
+    category: sp.category || "",
+    search: sp.search || "",
+    sortBy: (sp.sortBy as SortByFilter) || "createdAt",
+    sortOrder: (sp.sortOrder as "asc" | "desc") || "desc",
+    sourceCountry: sp.sourceCountry || undefined,
+    priceMin: sp.priceMin ? Number(sp.priceMin) : undefined,
+    priceMax: sp.priceMax ? Number(sp.priceMax) : undefined,
+    tags: [] as string[],
+  };
 
-  const [productsData, stats, categories] = await Promise.all([
-    getAllProducts({ page, search, category, status, sortBy, sortOrder }),
+  const [listResult, statsResult, categoriesResult] = await Promise.all([
+    getAllProducts(filters),
     getProductStats(),
     getProductCategories(),
-  ])
+  ]);
+
+  // Extract data with fallbacks
+  const { products, total, pages } = safeData(listResult, {
+    products: [],
+    total: 0,
+    page,
+    limit,
+    pages: 0,
+    hasNext: false,
+    hasPrev: false,
+  });
+
+  const stats = statsResult.success ? statsResult.data : null;
+  const categories = safeData(categoriesResult, []);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen">
       <AdminHeader />
 
-      <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 lg:px-8 pt-6 pb-4 gap-5 max-w-screen-2xl mx-auto w-full">
-
-        {/* ── Page header ─────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7b57fc]/10">
-              <Flame className="h-5 w-5 text-[#7b57fc]" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-color">
-                Trending Products
-              </h1>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                Manage trending products displayed to clients on the platform.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 border border-border/50 self-start sm:self-auto">
-            <Flame size={14} className="text-muted-foreground" />
-            <span className="text-sm font-bold text-foreground tabular-nums">
-              {productsData.total.toLocaleString()}
-            </span>
-            <span className="text-sm text-muted-foreground">total</span>
-          </div>
-        </div>
-
-        {/* ── KPI Stats ───────────────────────────────────────────── */}
-        <Suspense fallback={<StatsSkeletons />}>
-          <ProductStats stats={stats} />
-        </Suspense>
-
-        {/* ── Table — fills remaining height ──────────────────────── */}
-        <div className="flex-1 min-h-0">
-          <ProductsClient
-            initialData={productsData}
-            categories={categories}
-            initialFilters={{ page, search, category, status, sortBy, sortOrder }}
-          />
-        </div>
-
-      </div>
+      <Suspense fallback={<ProductPageSkeleton />}>
+        <ProductPageClient
+          initialProducts={products}
+          pagination={{ page, limit, total, pages }}
+          stats={stats}
+          categories={categories}
+          filters={filters}
+        />
+      </Suspense>
     </div>
-  )
-}
-
-function StatsSkeletons() {
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-[72px] rounded-2xl" />
-      ))}
-    </div>
-  )
+  );
 }

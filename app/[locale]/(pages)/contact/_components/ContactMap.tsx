@@ -1,24 +1,24 @@
-"use client"
+"use client";
 
-import { motion } from "motion/react"
-import { MapPin } from "lucide-react"
+import { motion } from "motion/react";
+import { MapPin } from "lucide-react";
 
 // Map emoji to country code for flag-icons
 const flagToCode: Record<string, string> = {
-  '🇨🇳': 'cn',
-  '🇺🇸': 'us',
-  '🇸🇦': 'sa',
-  '🇦🇪': 'ae',
-  '🇾🇪': 'ye',
+  "🇨🇳": "cn",
+  "🇺🇸": "us",
+  "🇸🇦": "sa",
+  "🇦🇪": "ae",
+  "🇾🇪": "ye",
 };
 
 const PINS = [
-  { flag: "🇨🇳", name: "China",        x: 74, y: 38, color: "#ef4444" },
-  { flag: "🇺🇸", name: "USA",           x: 18, y: 36, color: "#3b82f6" },
-  { flag: "🇸🇦", name: "Saudi Arabia",  x: 57, y: 44, color: "#10b981" },
-  { flag: "🇦🇪", name: "UAE",           x: 60, y: 46, color: "#f59e0b" },
-  { flag: "🇾🇪", name: "Yemen",         x: 59, y: 49, color: "#8b5cf6" },
-]
+  { flag: "🇨🇳", name: "China", x: 74, y: 38, color: "#ef4444" },
+  { flag: "🇺🇸", name: "USA", x: 18, y: 36, color: "#3b82f6" },
+  { flag: "🇸🇦", name: "Saudi Arabia", x: 57, y: 44, color: "#10b981" },
+  { flag: "🇦🇪", name: "UAE", x: 60, y: 46, color: "#f59e0b" },
+  { flag: "🇾🇪", name: "Yemen", x: 59, y: 49, color: "#8b5cf6" },
+];
 
 export function ContactMap({ isAr }: { isAr: boolean }) {
   return (
@@ -74,7 +74,11 @@ export function ContactMap({ isAr }: { isAr: boolean }) {
               </div>
               <div
                 className="w-0 h-0"
-                style={{ borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${color}` }}
+                style={{
+                  borderLeft: "4px solid transparent",
+                  borderRight: "4px solid transparent",
+                  borderTop: `6px solid ${color}`,
+                }}
               />
             </motion.div>
           );
@@ -96,5 +100,5 @@ export function ContactMap({ isAr }: { isAr: boolean }) {
         })}
       </div>
     </motion.div>
-  )
+  );
 }

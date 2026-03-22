@@ -44,9 +44,9 @@ enum BookingType {
 
 enum BookingStatus {
   REQUESTED
-  PROPOSED // Admin proposed time
-  CONFIRMED // Client accepted
-  REJECTED // Client rejected
+  PROPOSED
+  CONFIRMED
+  REJECTED
   RESCHEDULED
   COMPLETED
   CANCELED
@@ -82,6 +82,24 @@ enum PaymentAttemptStatus {
   FAILED
 }
 
+
+enum ConsultingServiceTopic {
+  sourcing
+  import
+  logistics
+  market_entry
+  supplier
+  other
+}
+
+enum ConsultingDeliveryFormat {
+  video_call
+  written_report
+  on_site
+  hybrid
+  async
+}
+
 // ------------------------------------------------
 // USER MODEL
 // ------------------------------------------------
@@ -97,83 +115,34 @@ model User {
   isActive  Boolean @default(true)
   isDeleted Boolean @default(false)
 
-  // -------------------------
-  // Product Requests
-  // -------------------------
-  requests ProductRequest[]
-
-  // -------------------------
-  // Quotes
-  // -------------------------
-  quotesCreated Quote[] @relation("AdminQuotes")
-
-  // -------------------------
-  // Video Bookings
-  // -------------------------
-  clientBookings  VideoBooking[] @relation("ClientBookings")
-  handledBookings VideoBooking[] @relation("AdminBookings")
-
-  // -------------------------
-  // Booking Status History
-  // -------------------------
+  requests             ProductRequest[]
+  quotesCreated        Quote[]                  @relation("AdminQuotes")
+  clientBookings       VideoBooking[]           @relation("ClientBookings")
+  handledBookings      VideoBooking[]           @relation("AdminBookings")
   bookingStatusChanges BookingStatusHistory[]
-
-  // -------------------------
-  // Request Status History
-  // -------------------------
   requestStatusChanges RequestStatusHistory[]
-
-  // -------------------------
-  // Quote Status History
-  // -------------------------
-  quoteStatusChanges QuoteStatusHistory[]
-
-  // -------------------------
-  // Files
-  // -------------------------
-  uploadedFiles File[]
-
-  // -------------------------
-  // Notifications
-  // -------------------------
-  notifications Notification[]
-
-  // -------------------------
-  // Audit Logs
-  // -------------------------
-  adminAuditLogs AuditLog[] @relation("audit_admin")
-
-  // -------------------------
-  // Chat
-  // -------------------------
-  chatSessions ChatSession[]
-
-  // -------------------------
-  // Trending
-  // -------------------------
+  quoteStatusChanges   QuoteStatusHistory[]
+  uploadedFiles        File[]
+  notifications        Notification[]
+  adminAuditLogs       AuditLog[]               @relation("audit_admin")
+  chatSessions         ChatSession[]
   trendingProductRequests TrendingProductRequest[]
-  addedProducts           TrendingProduct[]        @relation("AdminAddedProducts") // FIX: back-relation for addedBy
+  addedProducts        TrendingProduct[]        @relation("AdminAddedProducts")
+  consultingRequests   ConsultingRequest[]
+  subscription         Subscription?
+  availabilitySlots    AvailabilitySlot[]
+  addedServices             ConsultingService[]          @relation("AdminAddedServices")
+  consultingServiceRequests ConsultingServiceRequest[]
 
-  // -------------------------
-  // Consulting
-  // -------------------------
-  consultingRequests ConsultingRequest[]
-
-  // -------------------------
-  // Subscription (DO NOT TOUCH)
-  // -------------------------
-  subscription Subscription?
-
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  availabilitySlots AvailabilitySlot[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([role])
   @@index([isDeleted])
 }
 
 // ------------------------------------------------
-// SUBSCRIPTION MODEL (Top-level container)
+// SUBSCRIPTION MODEL
 // ------------------------------------------------
 model Subscription {
   id                  String @id @default(cuid())
@@ -184,7 +153,6 @@ model Subscription {
 
   items           SubscriptionItem[]
   paymentAttempts PaymentAttempt[]
-
   lastSyncPayload Json?
 
   createdAt DateTime @default(now())
@@ -207,18 +175,13 @@ model SubscriptionItem {
   planId String?
   plan   Plan?   @relation(fields: [planId], references: [id])
 
-  status SubscriptionItemStatus
-
+  status             SubscriptionItemStatus
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
-
-  isDefaultPlan Boolean @default(false)
-
-  trialEndsAt DateTime?
-
-  paymentAttempts PaymentAttempt[]
-
-  lastSyncPayload Json?
+  isDefaultPlan      Boolean                @default(false)
+  trialEndsAt        DateTime?
+  paymentAttempts    PaymentAttempt[]
+  lastSyncPayload    Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -243,12 +206,10 @@ model PaymentAttempt {
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
 
-  amount   Decimal? @db.Decimal(10, 2)
-  currency String   @default("USD")
-
+  amount     Decimal? @db.Decimal(10, 2)
+  currency   String   @default("USD")
   occurredAt DateTime
-
-  payload Json?
+  payload    Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -291,21 +252,18 @@ model VideoBooking {
   type            BookingType
   requestNotes    String?     @db.Text
   durationMinutes Int         @default(30)
-
-  status BookingStatus @default(REQUESTED)
+  status          BookingStatus @default(REQUESTED)
 
   handledById String?
   handledBy   User?   @relation("AdminBookings", fields: [handledById], references: [id])
 
-  scheduledAt     DateTime?
-  meetingProvider MeetingProvider?
-  meetingLink     String?
-  meetingPassword String?
-
+  scheduledAt       DateTime?
+  meetingProvider   MeetingProvider?
+  meetingLink       String?
+  meetingPassword   String?
   clientConfirmedAt DateTime?
-
-  transcriptUrl String?
-  aiSummary     String? @db.Text
+  transcriptUrl     String?
+  aiSummary         String?          @db.Text
 
   slotId String?           @unique
   slot   AvailabilitySlot? @relation(fields: [slotId], references: [id])
@@ -333,13 +291,11 @@ model BookingStatusHistory {
   bookingId String
   booking   VideoBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  oldStatus BookingStatus
-  newStatus BookingStatus
-
+  oldStatus   BookingStatus
+  newStatus   BookingStatus
   changedById String
-  changedBy   User   @relation(fields: [changedById], references: [id])
-
-  changedAt DateTime @default(now())
+  changedBy   User          @relation(fields: [changedById], references: [id])
+  changedAt   DateTime      @default(now())
 
   @@index([bookingId])
 }
@@ -357,10 +313,9 @@ model AvailabilitySlot {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
-  isBooked Boolean @default(false)
-  isActive Boolean @default(true)
-
-  booking VideoBooking?
+  isBooked Boolean      @default(false)
+  isActive Boolean      @default(true)
+  booking  VideoBooking?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -371,7 +326,7 @@ model AvailabilitySlot {
 }
 
 // ------------------------------------------------
-// PRODUCT REQUEST MODEL
+// PRODUCT REQUEST MODELS
 // ------------------------------------------------
 model ProductRequest {
   id String @id @default(cuid())
@@ -385,17 +340,15 @@ model ProductRequest {
   shippingCountry String
   customNotes     String? @db.Text
 
-  status   RequestStatus @default(SUBMITTED)
-  priority Int           @default(0)
-
-  acceptedQuoteId String? @unique
-  acceptedQuote   Quote?  @relation("AcceptedQuote", fields: [acceptedQuoteId], references: [id])
+  status          RequestStatus @default(SUBMITTED)
+  priority        Int           @default(0)
+  acceptedQuoteId String?       @unique
+  acceptedQuote   Quote?        @relation("AcceptedQuote", fields: [acceptedQuoteId], references: [id])
 
   aiParsedData     Json?
   aiEstimatedPrice Decimal? @db.Decimal(10, 2)
   aiConfidence     Float?
-
-  isDeleted Boolean @default(false)
+  isDeleted        Boolean  @default(false)
 
   files                   File[]
   quotes                  Quote[]
@@ -413,29 +366,21 @@ model ProductRequest {
   @@index([isDeleted])
 }
 
-// ------------------------------------------------
-// PRODUCT REQUEST STATUS HISTORY
-// ------------------------------------------------
 model RequestStatusHistory {
   id String @id @default(cuid())
 
   requestId String
   request   ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  oldStatus RequestStatus
-  newStatus RequestStatus
-
+  oldStatus   RequestStatus
+  newStatus   RequestStatus
   changedById String
-  changedBy   User   @relation(fields: [changedById], references: [id])
-
-  changedAt DateTime @default(now())
+  changedBy   User          @relation(fields: [changedById], references: [id])
+  changedAt   DateTime      @default(now())
 
   @@index([requestId])
 }
 
-// ------------------------------------------------
-// QUOTE MODEL
-// ------------------------------------------------
 model Quote {
   id String @id @default(cuid())
 
@@ -445,20 +390,15 @@ model Quote {
   createdById String
   createdBy   User   @relation("AdminQuotes", fields: [createdById], references: [id])
 
-  price    Decimal @db.Decimal(12, 2)
-  currency String  @default("USD")
-
-  status QuoteStatus @default(DRAFT)
-
+  price      Decimal     @db.Decimal(12, 2)
+  currency   String      @default("USD")
+  status     QuoteStatus @default(DRAFT)
   validUntil DateTime?
-  revision   Int       @default(1)
+  revision   Int         @default(1)
+  adminNotes String?     @db.Text
+  isDeleted  Boolean     @default(false)
 
-  adminNotes String? @db.Text
-
-  isDeleted Boolean @default(false)
-
-  acceptedFor ProductRequest? @relation("AcceptedQuote")
-
+  acceptedFor   ProductRequest?      @relation("AcceptedQuote")
   files         File[]
   statusHistory QuoteStatusHistory[]
   notifications Notification[]
@@ -472,29 +412,38 @@ model Quote {
   @@index([isDeleted])
 }
 
-// ------------------------------------------------
-// QUOTE STATUS HISTORY
-// ------------------------------------------------
 model QuoteStatusHistory {
   id String @id @default(cuid())
 
   quoteId String
   quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  oldStatus QuoteStatus
-  newStatus QuoteStatus
-
+  oldStatus   QuoteStatus
+  newStatus   QuoteStatus
   changedById String
-  changedBy   User   @relation(fields: [changedById], references: [id])
-
-  changedAt DateTime @default(now())
+  changedBy   User        @relation(fields: [changedById], references: [id])
+  changedAt   DateTime    @default(now())
 
   @@index([quoteId])
 }
 
-// ------------------------------------------------
-// FILE UPLOAD MODEL
-// ------------------------------------------------
+model ShippingEstimate {
+  id                 String   @id @default(cuid())
+  userId             String?
+  originCountry      String
+  destinationCountry String
+  weightKg           Decimal  @db.Decimal(10, 3)
+  volumeCbm          Decimal? @db.Decimal(10, 4)
+  freightType        String
+  estimatedCost      Decimal  @db.Decimal(10, 2)
+  currency           String   @default("USD")
+  transitDays        Int?
+  createdAt          DateTime @default(now())
+
+  @@index([userId])
+  @@index([freightType])
+}
+
 model File {
   id String @id @default(cuid())
 
@@ -505,36 +454,255 @@ model File {
 
   requestId String?
   quoteId   String?
-
-  request ProductRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  quote   Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  request   ProductRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  quote     Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
-
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@index([requestId])
   @@index([quoteId])
 }
 
-// ------------------------------------------------
-// AI SUGGESTION MODEL
-// ------------------------------------------------
 model AISuggestion {
   id String @id @default(cuid())
 
   requestId String
   request   ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  estimatedPrice Decimal @db.Decimal(10, 2)
-  currency       String  @default("USD")
-  confidence     Float?
-
+  estimatedPrice       Decimal @db.Decimal(10, 2)
+  currency             String  @default("USD")
+  confidence           Float?
   suggestedSupplierIds Json?
+  createdAt            DateTime @default(now())
+
+  @@index([requestId])
+}
+
+// ============================================================
+// TRENDING PRODUCTS
+// ============================================================
+model TrendingProduct {
+  id String @id @default(cuid())
+
+  name          String
+  nameAr        String?
+  description   String? @db.Text
+  descriptionAr String? @db.Text
+  shortDesc     String?
+  shortDescAr   String?
+
+  estimatedPrice Decimal? @db.Decimal(10, 2)
+  currency       String   @default("USD")
+  sourceCountry  String?
+  sourceUrl      String?
+  supplier       String?
+
+  category      String?
+  categoryAr    String?
+  tags          String[]
+  trendScore    Int      @default(0)
+  viewCount     Int      @default(0)
+  inquiryCount  Int      @default(0)
+  isFeatured    Boolean  @default(false)
+  featuredUntil DateTime?
+
+  images    TrendingProductImage[]
+  addedById String?
+  addedBy   User?   @relation("AdminAddedProducts", fields: [addedById], references: [id], onDelete: SetNull)
+
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
+
+  relatedRequests TrendingProductRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, isDeleted])
+  @@index([trendScore])
+  @@index([isFeatured])
+  @@index([category])
+  @@index([createdAt])
+  @@index([addedById])
+}
+
+model TrendingProductImage {
+  id        String          @id @default(cuid())
+  productId String
+  product   TrendingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  isPrimary Boolean         @default(false)
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+
+  @@index([productId])
+}
+
+model TrendingProductRequest {
+  id        String          @id @default(cuid())
+  productId String
+  product   TrendingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  requestId String?
+  request   ProductRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([requestId])
+}
+
+// ============================================================
+// CONSULTING MODELS 
+// ============================================================
+model ConsultingRequest {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName    String
+  email       String
+  phone       String?
+  company     String?
+  topic       String
+  description String   @db.Text
+  budget      String?
+  status      String   @default("NEW")
+  adminNotes  String?  @db.Text
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  serviceRequests ConsultingServiceRequest[]
+
+  @@index([status])
+  @@index([userId])
+}
+
+model ConsultingService {
+  id String @id @default(cuid())
+
+  // ── Bilingual content ──────────────────────────
+  title         String           // EN title
+  titleAr       String?          // AR title
+  description   String  @db.Text // EN full description
+  descriptionAr String? @db.Text // AR full description
+  shortDesc     String?          // EN one-liner shown on card
+  shortDescAr   String?          // AR one-liner shown on card
+
+  // ── Topic ──────────────────────────────────────
+  topic ConsultingServiceTopic @default(other)
+
+  // ── Categorisation ─────────────────────────────
+  category   String?
+  categoryAr String?
+  tags       String[] @default([])
+
+  // ── Pricing hint ─
+  priceFrom     Decimal? @db.Decimal(10, 2)
+  priceCurrency String   @default("USD")
+
+  // ── Duration hint ──────────────────────────────
+  duration   String?
+  durationAr String?
+
+  // ── Delivery format ────────────────────────────
+  deliveryFormat ConsultingDeliveryFormat?
+
+  // ── What's included (bullet points) ───────────
+  includesEn String[] @default([])
+  includesAr String[] @default([])
+
+  // ── Popularity / trend metadata ────────────────
+  viewCount     Int      @default(0) 
+  requestCount  Int      @default(0) 
+  isFeatured    Boolean  @default(false)
+  featuredUntil DateTime?
+  sortOrder     Int      @default(0) 
+
+  // ── Images ─────────────────────────────────────
+  images ConsultingServiceImage[]
+
+  // ── Admin who created this service ─────────────
+  addedById String?
+  addedBy   User?   @relation("AdminAddedServices", fields: [addedById], references: [id], onDelete: SetNull)
+
+  // ── Visibility ─────────────────────────────────
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
+
+  // ── Back-relations ─────────────────────────────
+  serviceRequests ConsultingServiceRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, isDeleted])
+  @@index([topic])
+  @@index([isFeatured])
+  @@index([sortOrder])
+  @@index([requestCount])
+  @@index([addedById])
+  @@index([createdAt])
+}
+
+model ConsultingServiceImage {
+  id        String            @id @default(cuid())
+  serviceId String
+  service   ConsultingService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([serviceId])
+}
+
+model ConsultingServiceRequest {
+  id String @id @default(cuid())
+
+  serviceId String
+  service   ConsultingService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  requestId String?
+  request   ConsultingRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
+  @@index([serviceId])
+  @@index([requestId])
+  @@index([userId])
+}
+
+// ============================================================
+// WHATSAPP LOGS
+// ============================================================
+
+model WhatsAppLog {
+  id          String    @id @default(cuid())
+  to          String
+  message     String    @db.Text
+  templateKey String?
+  status      String    @default("pending")
+  provider    String    @default("twilio")
+  externalId  String?
+  userId      String?
+  requestId   String?
+  quoteId     String?
+  bookingId   String?
+  error       String?   @db.Text
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([to])
+  @@index([status])
+  @@index([userId])
   @@index([requestId])
 }
 
@@ -562,15 +730,12 @@ model AuditLog {
 model Notification {
   id String @id @default(cuid())
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
   title   String
   message String @db.Text
-
-  isRead Boolean @default(false)
-  type   String
-
+  isRead  Boolean @default(false)
+  type    String
   metadata Json?
 
   bookingId String?
@@ -597,8 +762,7 @@ model ChatSession {
   user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   startedAt DateTime  @default(now())
   endedAt   DateTime?
-
-  messages ChatMessage[]
+  messages  ChatMessage[]
 
   @@index([userId])
   @@index([startedAt])
@@ -608,7 +772,7 @@ model ChatMessage {
   id        String      @id @default(cuid())
   sessionId String
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  role      String // "user" or "assistant"
+  role      String
   content   String      @db.Text
   createdAt DateTime    @default(now())
 
@@ -616,168 +780,3 @@ model ChatMessage {
 }
 
 
-// ============================================================
-// NEW MODELS
-// ============================================================
-
-// ------------------------------------------------
-// TRENDING PRODUCT MODEL
-// ------------------------------------------------
-model TrendingProduct {
-  id String @id @default(cuid())
-
-  // Core Info (bilingual)
-  name          String
-  nameAr        String?
-  description   String? @db.Text
-  descriptionAr String? @db.Text
-  shortDesc     String?
-  shortDescAr   String?
-
-  // Pricing & Origin
-  estimatedPrice Decimal? @db.Decimal(10, 2)
-  currency       String   @default("USD")
-  sourceCountry  String? // e.g. "CN", "US"
-  sourceUrl      String? // Link to original listing (Alibaba, 1688, etc.)
-  supplier       String?
-
-  // Categorization
-  category   String?
-  categoryAr String?
-  tags       String[] // e.g. ["electronics", "summer", "new"]
-
-  // Trend Metadata
-  trendScore    Int      @default(0) // Higher = more trending
-  viewCount     Int      @default(0)
-  inquiryCount  Int      @default(0) // How many requests linked
-  isFeatured    Boolean  @default(false)
-  featuredUntil DateTime?
-
-  // Images
-  images TrendingProductImage[]
-
-  // FIX: proper FK relation to User (admin who added this product)
-  addedById String?
-  addedBy   User?   @relation("AdminAddedProducts", fields: [addedById], references: [id], onDelete: SetNull)
-
-  isActive  Boolean @default(true)
-  isDeleted Boolean @default(false)
-
-  relatedRequests TrendingProductRequest[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive, isDeleted])
-  @@index([trendScore])
-  @@index([isFeatured])
-  @@index([category])
-  @@index([createdAt])
-  @@index([addedById])
-}
-
-// ------------------------------------------------
-// TRENDING PRODUCT IMAGE
-// ------------------------------------------------
-model TrendingProductImage {
-  id        String          @id @default(cuid())
-  productId String
-  product   TrendingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String
-  altText   String?
-  isPrimary Boolean         @default(false)
-  sortOrder Int             @default(0)
-  createdAt DateTime        @default(now())
-
-  @@index([productId])
-}
-
-// ------------------------------------------------
-// TRENDING PRODUCT REQUEST (junction)
-// ------------------------------------------------
-model TrendingProductRequest {
-  id        String          @id @default(cuid())
-  productId String
-  product   TrendingProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  requestId String?
-  request   ProductRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
-  userId    String?
-  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt DateTime        @default(now())
-
-  @@index([productId])
-  @@index([userId])
-  @@index([requestId])
-}
-
-// ------------------------------------------------
-// WHATSAPP MESSAGE LOG
-// (loose FKs intentional — log table survives cascading deletes)
-// ------------------------------------------------
-model WhatsAppLog {
-  id          String    @id @default(cuid())
-  to          String // recipient: +966xxxxxxxxx
-  message     String    @db.Text
-  templateKey String? // e.g. "request_submitted", "quote_ready"
-  status      String    @default("pending") // pending | sent | failed
-  provider    String    @default("twilio")
-  externalId  String? // Twilio MessageSid
-  userId      String? // intentionally loose — log survives user delete
-  requestId   String? // intentionally loose
-  quoteId     String? // intentionally loose
-  bookingId   String? // intentionally loose
-  error       String?   @db.Text
-  sentAt      DateTime?
-  createdAt   DateTime  @default(now())
-
-  @@index([to])
-  @@index([status])
-  @@index([userId])
-  @@index([requestId])
-}
-
-// ------------------------------------------------
-// SHIPPING ESTIMATE LOG
-// (loose userId intentional — log table)
-// ------------------------------------------------
-model ShippingEstimate {
-  id                 String   @id @default(cuid())
-  userId             String? // intentionally loose — log survives user delete
-  originCountry      String
-  destinationCountry String
-  weightKg           Decimal  @db.Decimal(10, 3)
-  volumeCbm          Decimal? @db.Decimal(10, 4)
-  freightType        String // "air" | "sea"
-  estimatedCost      Decimal  @db.Decimal(10, 2)
-  currency           String   @default("USD")
-  transitDays        Int?
-  createdAt          DateTime @default(now())
-
-  @@index([userId])
-  @@index([freightType])
-}
-
-// ------------------------------------------------
-// BUSINESS CONSULTING REQUEST
-// ------------------------------------------------
-model ConsultingRequest {
-  id          String   @id @default(cuid())
-  // FIX: proper FK relation to User
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  fullName    String
-  email       String
-  phone       String?
-  company     String?
-  topic       String // "sourcing" | "import" | "logistics" | "market_entry" | "supplier" | "other"
-  description String   @db.Text
-  budget      String? // e.g. "$5k-$10k"
-  status      String   @default("NEW") // NEW | IN_REVIEW | SCHEDULED | CLOSED
-  adminNotes  String?  @db.Text
-  isDeleted   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([status])
-  @@index([userId])
-}
