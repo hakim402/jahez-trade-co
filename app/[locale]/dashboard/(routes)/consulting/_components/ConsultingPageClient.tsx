@@ -559,7 +559,10 @@ function EditDialog({
       }}
     >
       <DialogContent
-        className="p-0 gap-0 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden"
+        className={cn(
+                  "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+                  "[&>button:last-child]:hidden",
+                )}
         dir={isAr ? "rtl" : "ltr"}
       >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
@@ -801,7 +804,10 @@ function NewRequestDialog({
       }}
     >
       <DialogContent
-        className="p-0 gap-0 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden"
+        className={cn(
+                  "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+                  "[&>button:last-child]:hidden",
+                )}
         dir={isAr ? "rtl" : "ltr"}
       >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">

@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/admin/(routes)/requests/_components/RequestPageClient.tsx
-// All sub-components are private — only RequestPageClient is exported.
 
 import { useState, useTransition, useRef, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -265,11 +264,6 @@ const STATUS_FLOW: Record<RequestStatus, RequestStatus[]> = {
   COMPLETED: [],
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FIX 2 — Hydration-safe relative time
-// formatDistanceToNow produces different output on server vs client (clock drift).
-// We render a stable placeholder on SSR and replace it after mount.
-// ─────────────────────────────────────────────────────────────────────────────
 
 function RelativeTime({
   date,
@@ -850,8 +844,6 @@ function FilterBar({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Request Detail Dialog
-// FIX 1 — DialogTitle is ALWAYS rendered (inside VisuallyHidden when loading)
-//          so Radix never fires the accessibility warning.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type DialogSection = "overview" | "quotes" | "files" | "shipping" | "history";

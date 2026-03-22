@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/dashboard/(routes)/requests/_components/RequestsPageClient.tsx
-// One file — all sub-components private. Only RequestsPageClient exported.
 
 import { useState, useTransition, useRef, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -574,6 +573,28 @@ const COUNTRIES = [
   "LB",
   "TR",
 ];
+const flagIconMap: Record<string, string> = {
+  SA: "sa",
+  AE: "ae",
+  US: "us",
+  GB: "gb",
+  DE: "de",
+  FR: "fr",
+  CN: "cn",
+  JP: "jp",
+  KR: "kr",
+  IN: "in",
+  EG: "eg",
+  JO: "jo",
+  KW: "kw",
+  QA: "qa",
+  BH: "bh",
+  OM: "om",
+  IQ: "iq",
+  SY: "sy",
+  LB: "lb",
+  TR: "tr",
+};
 
 function NewRequestDialog({
   open,
@@ -709,7 +730,10 @@ function NewRequestDialog({
       }}
     >
       <DialogContent
-        className="p-0 gap-0 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden"
+        className={cn(
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
         dir={isAr ? "rtl" : "ltr"}
       >
         {/* Header */}
@@ -860,7 +884,12 @@ function NewRequestDialog({
                             value={c}
                             className="text-xs font-mono"
                           >
-                            {c}
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                className={`fi fi-${flagIconMap[c]}`}
+                              ></span>
+                              <span>{c}</span>
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1414,31 +1443,19 @@ function RequestCard({
           )}
         </div>
 
-        {/* Meta chips */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-full border border-border/40">
             <Hash className="w-3 h-3" /> {request.quantity.toLocaleString()}{" "}
             {t.quantity2}
           </span>
           <span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-full border border-border/40">
-            <Globe className="w-3 h-3" /> {request.shippingCountry}
+            <Globe className="w-3 h-3" />
+            <span
+              className={`fi fi-${flagIconMap[request.shippingCountry] ?? request.shippingCountry.toLowerCase()} text-sm`}
+            ></span>
+            {request.shippingCountry}
           </span>
-          {request.productLink && (
-            <a
-              href={request.productLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-[#7b57fc] hover:underline underline-offset-2"
-            >
-              <Link2 className="w-3 h-3" />{" "}
-              {isAr ? "رابط المنتج" : "Product link"}
-            </a>
-          )}
-          {request.customNotes && !expanded && (
-            <span className="text-xs text-muted-foreground italic truncate max-w-45">
-              "{request.customNotes}"
-            </span>
-          )}
+          {/* rest of the chips */}
         </div>
 
         {/* Expanded content */}
