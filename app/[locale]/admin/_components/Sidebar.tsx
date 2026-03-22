@@ -54,7 +54,7 @@ export function Sidebar() {
     {
       icon: Video,
       label: "Video Request",
-      href: "/admin/video-bookings",
+      href: "/admin/bookings",
       badge: badgeCounts.videoBookings,
     },
     {

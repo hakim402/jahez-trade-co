@@ -274,7 +274,7 @@ export function HomeHero() {
           className="flex flex-col sm:flex-row items-center gap-3"
         >
           <Link
-            href={`/${locale}/dashboard/requests/new`}
+            href={`/${locale}/dashboard/requests`}
             className="group flex items-center gap-2 px-7 py-3.5 rounded-full bg-[#7b57fc] text-white text-sm font-semibold shadow-lg shadow-[#7b57fc]/30 hover:bg-[#6a48eb] hover:shadow-xl hover:shadow-[#7b57fc]/35 hover:-translate-y-0.5 transition-all"
           >
             <Package className="w-4 h-4" />
@@ -283,7 +283,7 @@ export function HomeHero() {
           </Link>
 
           <Link
-            href={`/${locale}/dashboard/bookings/new`}
+            href={`/${locale}/dashboard/bookings`}
             className="group flex items-center gap-2 px-7 py-3.5 rounded-full border border-border/70 bg-background/80 backdrop-blur-sm text-sm font-semibold text-foreground hover:border-[#7b57fc]/50 hover:text-[#7b57fc] hover:-translate-y-0.5 transition-all"
           >
             <Video className="w-4 h-4" />

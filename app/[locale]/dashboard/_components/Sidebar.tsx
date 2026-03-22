@@ -60,7 +60,7 @@ export function Sidebar() {
     {
       icon: Video,
       labelKey: "videoBookings",
-      href: "/dashboard/video-bookings",
+      href: "/dashboard/bookings",
     },
     {
       icon: BriefcaseBusiness,

@@ -1,6 +1,7 @@
 "use client";
 
 // app/[locale]/dashboard/(routes)/video-booking/_components/BookingPageClient.tsx
+// One file — all sub-components private. Only BookingPageClient exported.
 
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -723,10 +724,7 @@ function NewBookingDialog({
       }}
     >
       <DialogContent
-        className={cn(
-          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
-          "[&>button:last-child]:hidden",
-        )}
+        className="p-0 gap-0 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden"
         dir={isAr ? "rtl" : "ltr"}
       >
         {/* Header */}
@@ -894,9 +892,13 @@ function NewBookingDialog({
                     </div>
                   ) : (
                     <Select
-                      value={form.slotId}
+                      value={form.slotId || "none"}
                       onValueChange={(v) =>
-                        setForm((p) => ({ ...p, slotId: v, preferredTime: "" }))
+                        setForm((p) => ({
+                          ...p,
+                          slotId: v === "none" ? "" : v,
+                          preferredTime: "",
+                        }))
                       }
                     >
                       <SelectTrigger className={cn(inputCls, "w-full")}>
@@ -908,7 +910,7 @@ function NewBookingDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem
-                          value=""
+                          value="none"
                           className="text-xs text-muted-foreground"
                         >
                           {isAr ? "بدون اختيار" : "No preference"}
