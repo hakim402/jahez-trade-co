@@ -532,7 +532,7 @@ function PlanBar({
           </div>
         ) : (
           <div className="h-1.5 bg-[#7b57fc]/15 rounded-full overflow-hidden">
-            <div className="h-full w-full bg-gradient-to-r from-[#7b57fc]/30 to-[#7b57fc] rounded-full animate-pulse" />
+            <div className="h-full w-full bg-linear-to-r from-[#7b57fc]/30 to-[#7b57fc] rounded-full animate-pulse" />
           </div>
         )}
       </div>
@@ -587,13 +587,13 @@ function KpiStrip({ kpi, t }: { kpi: BookingKpi; t: typeof T.en }) {
         >
           <div
             className={cn(
-              "absolute -top-4 -right-4 h-14 w-14 rounded-full blur-2xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 bg-gradient-to-br",
+              "absolute -top-4 -right-4 h-14 w-14 rounded-full blur-2xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 bg-linear-to-br",
               grad,
             )}
           />
           <div
             className={cn(
-              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-md",
+              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br shadow-md",
               grad,
               sh,
             )}
