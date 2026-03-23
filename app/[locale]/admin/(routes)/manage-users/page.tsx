@@ -70,7 +70,6 @@ export default async function UsersPage() {
       <AdminHeader />
 
       <div className="flex flex-col flex-1 overflow-hidden px-4 md:px-6 lg:px-8 pt-6 pb-4 gap-5 max-w-screen-2xl mx-auto w-full">
-
         {/* ── KPI strip ────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
           {kpis.map(({ label, value, icon: Icon, gradient, glow }) => (

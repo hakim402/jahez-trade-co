@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/dashboard/(routes)/consulting/_components/ConsultingPageClient.tsx
-// One file — all sub-components private. Only ConsultingPageClient exported.
 
 import { useState, useTransition, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -57,12 +56,14 @@ import {
   StickyNote,
   Eye,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   ConsultingStatus,
   SerializedConsultingRequest,
   ConsultingDashboardSummary,
+  ConsultingPlanInfo,
 } from "../actions";
 import {
   submitConsultingRequest,
@@ -143,6 +144,13 @@ const T = {
     refresh: "Refresh",
     scheduledNote:
       "A session has been scheduled. Check notes from our team below.",
+    // Billing
+    planAccess: "Platform Access",
+    upgradeRequired:
+      "A subscription is required to submit consulting requests.",
+    upgrade: "Upgrade Plan",
+    openRequestsOf: "open requests",
+    unlimited: "Unlimited",
   },
   ar: {
     myRequests: "طلباتي",
@@ -202,6 +210,12 @@ const T = {
     updatedAt: "تاريخ التحديث",
     refresh: "تحديث",
     scheduledNote: "تم جدولة جلسة. راجع ملاحظات فريقنا أدناه.",
+    // Billing
+    planAccess: "الوصول للمنصة",
+    upgradeRequired: "يلزم الاشتراك لإرسال طلبات الاستشارة.",
+    upgrade: "ترقية الخطة",
+    openRequestsOf: "طلبات مفتوحة",
+    unlimited: "غير محدود",
   },
 } as const;
 
@@ -428,23 +442,56 @@ function Pagination({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Open-requests bar
+// Plan bar — covers 3 states:
 // ─────────────────────────────────────────────────────────────────────────────
 
-function OpenBar({
-  totalOpen,
+function PlanBar({
+  planInfo,
   canSubmitMore,
   t,
   isAr,
 }: {
-  totalOpen: number;
+  planInfo: ConsultingPlanInfo;
   canSubmitMore: boolean;
   t: typeof T.en;
   isAr: boolean;
 }) {
-  const MAX = 5;
-  const pct = Math.min(100, Math.round((totalOpen / MAX) * 100));
-  const isFull = !canSubmitMore;
+  const isUnlimited = planInfo.openLimit === Infinity;
+
+  // ── State 2: billing enabled but no subscription → hard upgrade wall ──────
+  if (planInfo.billingEnabled && !planInfo.hasAccess) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5"
+      >
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+              {t.upgradeRequired}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {planInfo.planName}
+            </p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          className="h-8 px-4 rounded-xl gap-1.5 text-xs bg-[#7b57fc] hover:bg-[#6a48eb] text-white border-0 shadow-md shadow-[#7b57fc]/20 shrink-0"
+        >
+          <Zap className="w-3.5 h-3.5" /> {t.upgrade}
+        </Button>
+      </motion.div>
+    );
+  }
+
+  // ── States 1 & 3: has access ──────────────────────────────────────────────
+  const used = planInfo.openCount;
+  const limit = planInfo.openLimit;
+  const pct = isUnlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
+  const isFull = !canSubmitMore && !isUnlimited;
 
   return (
     <motion.div
@@ -457,29 +504,47 @@ function OpenBar({
     >
       <div className="flex-1 space-y-1.5 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold text-foreground">{t.openLimit}</p>
+          <p className="text-xs font-semibold text-foreground">
+            {t.openLimit}
+            {" · "}
+            <span className="font-normal text-muted-foreground">
+              {planInfo.planName}
+            </span>
+          </p>
           <p className="text-xs text-muted-foreground shrink-0">
-            {isAr
-              ? `${totalOpen} ${t.of} ${MAX}`
-              : `${totalOpen} ${t.of} ${MAX}`}
+            {isUnlimited
+              ? t.unlimited
+              : `${used} ${t.of} ${limit} ${t.openRequestsOf}`}
           </p>
         </div>
-        <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className={cn(
-              "h-full rounded-full",
-              isFull
-                ? "bg-amber-500"
-                : pct >= 60
-                  ? "bg-amber-400"
-                  : "bg-[#7b57fc]",
-            )}
-          />
-        </div>
+
+        {/* Unlimited — pulsing gradient bar */}
+        {isUnlimited && (
+          <div className="h-1.5 bg-[#7b57fc]/15 rounded-full overflow-hidden">
+            <div className="h-full w-full bg-linear-to-r from-[#7b57fc]/30 to-[#7b57fc] rounded-full animate-pulse" />
+          </div>
+        )}
+
+        {/* Capped — progress bar */}
+        {!isUnlimited && (
+          <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${pct}%` }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className={cn(
+                "h-full rounded-full",
+                isFull
+                  ? "bg-amber-500"
+                  : pct >= 60
+                    ? "bg-amber-400"
+                    : "bg-[#7b57fc]",
+              )}
+            />
+          </div>
+        )}
       </div>
+
       {isFull && (
         <div className="flex items-center gap-1.5 shrink-0">
           <AlertCircle className="w-4 h-4 text-amber-500" />
@@ -560,9 +625,9 @@ function EditDialog({
     >
       <DialogContent
         className={cn(
-                  "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
-                  "[&>button:last-child]:hidden",
-                )}
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
         dir={isAr ? "rtl" : "ltr"}
       >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
@@ -805,9 +870,9 @@ function NewRequestDialog({
     >
       <DialogContent
         className={cn(
-                  "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
-                  "[&>button:last-child]:hidden",
-                )}
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
         dir={isAr ? "rtl" : "ltr"}
       >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
@@ -1456,8 +1521,14 @@ export function ConsultingPageClient({
       </div>
     );
 
-  const { freeForm, serviceRequests, totalOpen, canSubmitMore, user } =
-    initialData;
+  const {
+    freeForm,
+    serviceRequests,
+    totalOpen,
+    canSubmitMore,
+    user,
+    planInfo,
+  } = initialData;
 
   // Status filter pills
   const statusPills: { status: ConsultingStatus | undefined; label: string }[] =
@@ -1474,9 +1545,9 @@ export function ConsultingPageClient({
 
   return (
     <div className="flex flex-col gap-5" dir={isAr ? "rtl" : "ltr"}>
-      {/* Open requests bar */}
-      <OpenBar
-        totalOpen={totalOpen}
+      {/* Plan / open-requests bar */}
+      <PlanBar
+        planInfo={planInfo}
         canSubmitMore={canSubmitMore}
         t={t}
         isAr={isAr}

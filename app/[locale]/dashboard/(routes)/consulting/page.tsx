@@ -32,21 +32,22 @@ export default async function ConsultingPage({
   if (result.success) data = result.data;
 
   return (
-    <div
-      className={`flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen`}
-      dir={isAr ? "rtl" : "ltr"}
-    >
+    <>
       <ClientHeader />
-
-      <Suspense fallback={<ConsultingPageSkeleton isAr={isAr} />}>
-        <ConsultingPageClient
-          isAr={isAr}
-          initialData={data}
-          page={page}
-          filterStatus={status}
-          initialTab={tab}
-        />
-      </Suspense>
-    </div>
+      <div
+        className={`flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen max-w-7xl m-auto`}
+        dir={isAr ? "rtl" : "ltr"}
+      >
+        <Suspense fallback={<ConsultingPageSkeleton isAr={isAr} />}>
+          <ConsultingPageClient
+            isAr={isAr}
+            initialData={data}
+            page={page}
+            filterStatus={status}
+            initialTab={tab}
+          />
+        </Suspense>
+      </div>
+    </>
   );
 }

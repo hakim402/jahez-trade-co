@@ -28,7 +28,7 @@
       "newRequest": "طلب جديد",
       "bookCall": "حجز مكالمة",
       "myQuotes": "عروض الأسعار",
-      "files": "الملفات"
+      "consulting": "الاستشارات"
     },
     "tabs": {
       "requests": "الطلبات",
@@ -81,71 +81,6 @@
     "notifications": "الإشعارات",
     "requestsDone": "الطلبات المنجزة"
   },
-  "RecentBookings": {
-    "title": "حجوزات الفيديو",
-    "viewAll": "عرض كل الحجوزات",
-    "timeTbd": "الوقت غير محدد",
-    "awaitingSchedule": "في انتظار الجدولة",
-    "today": "اليوم",
-    "tomorrow": "غداً",
-    "soon": "قريباً",
-    "minutes": "{count} دقيقة",
-    "joinMeeting": "انضم إلى الاجتماع",
-    "passwordSet": "كلمة المرور محددة",
-    "emptyTitle": "لا توجد حجوزات بعد",
-    "emptyAction": "احجز مكالمة"
-  },
-  "BookingStatus": {
-    "REQUESTED": "مطلوب",
-    "PROPOSED": "مقترح",
-    "CONFIRMED": "مؤكد",
-    "COMPLETED": "مكتمل",
-    "CANCELED": "ملغي",
-    "NO_SHOW": "لم يحضر",
-    "REJECTED": "مرفوض",
-    "RESCHEDULED": "أعيد جدولته"
-  },
-  "BookingType": {
-    "MARKET": "سوق",
-    "FACTORY": "مصنع",
-    "CUSTOM": "مخصص"
-  },
-  "RecentQuotes": {
-    "title": "عروض الأسعار",
-    "viewAll": "عرض كل عروض الأسعار",
-    "revision": "المراجعة {count}",
-    "productRequest": "طلب منتج",
-    "expired": "منتهي الصلاحية",
-    "expires": "تنتهي {relative}",
-    "review": "مراجعة العرض ←",
-    "emptyTitle": "لا توجد عروض أسعار بعد",
-    "emptyDescription": "قم بتقديم طلب منتج لتلقي عروض الأسعار من فريقنا."
-  },
-  "QuoteStatus": {
-    "DRAFT": "مسودة",
-    "SENT": "مرسل",
-    "ACCEPTED": "مقبول",
-    "REJECTED": "مرفوض"
-  },
-  "RequestStatus": {
-    "SUBMITTED": "مقدم",
-    "IN_REVIEW": "قيد المراجعة",
-    "QUOTED": "عرض سعر",
-    "APPROVED": "موافق عليه",
-    "REJECTED": "مرفوض",
-    "IN_PRODUCTION": "قيد الإنتاج",
-    "SHIPPED": "تم الشحن",
-    "COMPLETED": "مكتمل"
-  },
-  "RecentRequests": {
-    "title": "آخر الطلبات",
-    "viewAll": "عرض كل الطلبات",
-    "emptyMessage": "لا توجد طلبات بعد",
-    "emptyCta": "تقديم أول طلب",
-    "productRequestFallback": "طلب منتج",
-    "qty": "الكمية {count}",
-    "quotesCount": "{count, plural, one {# عرض سعر} other {# عروض أسعار}}"
-  },
   "SubscriptionCard": {
     "trial": "تجريبي",
     "inactive": "غير نشط",
@@ -161,23 +96,6 @@
     "unlimited": "∞",
     "approachingLimit": "اقتربت من الحد",
     "limitReached": "تم الوصول إلى الحد"
-  },
-  "Interval": {
-    "day": "يوم",
-    "week": "أسبوع",
-    "month": "شهر",
-    "year": "سنة"
-  },
-  "MyRequestsPage": {
-    "title": "طلباتي",
-    "subtitle": "تقديم طلبات المنتجات، مراجعة عروض الأسعار، وتتبع طلباتك.",
-    "totalRequests": "إجمالي الطلبات",
-    "inProgress": "قيد التقدم",
-    "awaitingAction": "بانتظار الإجراء",
-    "completed": "مكتملة"
-  },
-  "ConfirmDialog": {
-    "cancel": "إلغاء",
-    "confirm": "تأكيد"
   }
+  
 }

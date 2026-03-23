@@ -4,8 +4,9 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import type { BookingStatus } from "@prisma/client";
 import { getAdminBookingContext, getAllBookings, getAllSlots } from "./actions";
-import { VideoBookingPageClient } from "./_components/VideoBookingPageClient";
-import { VideoBookingPageSkeleton } from "./_components/VideoBookingPageSkeleton";
+import { BookingPageClient } from "./_components/BookingPageClient";
+import { BookingPageSkeleton } from "./_components/BookingPageSkeleton";
+import { AdminHeader } from "../../_components/AdminHeader";
 
 export const metadata: Metadata = { title: "Video Bookings | Admin" };
 
@@ -55,31 +56,27 @@ export default async function BookingsPage({ searchParams }: PageProps) {
     : { page: 1, pageSize: 20, totalCount: 0, totalPages: 0 };
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Video Bookings</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Manage client video call sessions and availability slots
-        </p>
+    <>
+      <AdminHeader />
+      <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen">
+        <Suspense fallback={<BookingPageSkeleton />}>
+          <BookingPageClient
+            kpi={kpi}
+            availableSlotCount={availableSlotCount}
+            initialBookings={bookings}
+            bookingPagination={bookingPagination}
+            initialSlots={slots}
+            slotPagination={slotPagination}
+            initialTab={tab}
+            filters={{
+              status,
+              email: sp.email || undefined,
+              from: sp.from || undefined,
+              to: sp.to || undefined,
+            }}
+          />
+        </Suspense>
       </div>
-
-      <Suspense fallback={<VideoBookingPageSkeleton />}>
-        <VideoBookingPageClient
-          kpi={kpi}
-          availableSlotCount={availableSlotCount}
-          initialBookings={bookings}
-          bookingPagination={bookingPagination}
-          initialSlots={slots}
-          slotPagination={slotPagination}
-          initialTab={tab}
-          filters={{
-            status,
-            email: sp.email || undefined,
-            from: sp.from || undefined,
-            to: sp.to || undefined,
-          }}
-        />
-      </Suspense>
-    </div>
+    </>
   );
 }

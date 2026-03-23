@@ -1,7 +1,7 @@
 {
     "Header": {
         "home": "Home",
-        "products":"Products",
+        "products": "Products",
         "consulting": "Consulting",
         "about": "About",
         "contact": "Contact",
@@ -18,20 +18,6 @@
         },
         "footer": "All plans include 24-hour quote delivery."
     },
-    "ProductsPageHero": {
-        "title": "Source Products",
-        "highlight": "From Global Markets",
-        "description": "Connect with trusted manufacturers and suppliers worldwide to source high-quality products for your business.",
-        "badges": {
-            "verified": "Verified Suppliers",
-            "fastShipping": "Fast Shipping",
-            "globalSourcing": "Global Sourcing"
-        },
-        "buttons": {
-            "requestQuote": "Request Quote",
-            "findProducts": "Find Products"
-        }
-    },
     "ClientDashboard": {
         "welcome": "Welcome back, {name}!",
         "subtitle": "Here's what's happening with your account.",
@@ -42,7 +28,7 @@
             "newRequest": "New Request",
             "bookCall": "Book a Call",
             "myQuotes": "My Quotes",
-            "files": "Files"
+            "consulting": "Consulting"
         },
         "tabs": {
             "requests": "Requests",
@@ -95,71 +81,6 @@
         "notifications": "Notifications",
         "requestsDone": "Requests done"
     },
-    "RecentBookings": {
-        "title": "Video Bookings",
-        "viewAll": "View all bookings",
-        "timeTbd": "Time TBD",
-        "awaitingSchedule": "Awaiting schedule",
-        "today": "Today",
-        "tomorrow": "Tomorrow",
-        "soon": "Soon",
-        "minutes": "{count} min",
-        "joinMeeting": "Join meeting",
-        "passwordSet": "Password set",
-        "emptyTitle": "No bookings yet",
-        "emptyAction": "Book a call"
-    },
-    "BookingStatus": {
-        "REQUESTED": "Requested",
-        "PROPOSED": "Proposed",
-        "CONFIRMED": "Confirmed",
-        "COMPLETED": "Completed",
-        "CANCELED": "Canceled",
-        "NO_SHOW": "No Show",
-        "REJECTED": "Rejected",
-        "RESCHEDULED": "Rescheduled"
-    },
-    "BookingType": {
-        "MARKET": "Market",
-        "FACTORY": "Factory",
-        "CUSTOM": "Custom"
-    },
-    "RecentQuotes": {
-        "title": "Quotes",
-        "viewAll": "View all quotes",
-        "revision": "Rev {count}",
-        "productRequest": "Product Request",
-        "expired": "Expired",
-        "expires": "Expires {relative}",
-        "review": "Review Quote →",
-        "emptyTitle": "No quotes yet",
-        "emptyDescription": "Submit a product request to receive quotes from our team."
-    },
-    "QuoteStatus": {
-        "DRAFT": "Draft",
-        "SENT": "Sent",
-        "ACCEPTED": "Accepted",
-        "REJECTED": "Rejected"
-    },
-    "RequestStatus": {
-        "SUBMITTED": "Submitted",
-        "IN_REVIEW": "In Review",
-        "QUOTED": "Quoted",
-        "APPROVED": "Approved",
-        "REJECTED": "Rejected",
-        "IN_PRODUCTION": "In Production",
-        "SHIPPED": "Shipped",
-        "COMPLETED": "Completed"
-    },
-    "RecentRequests": {
-        "title": "Recent Requests",
-        "viewAll": "View all requests",
-        "emptyMessage": "No requests yet",
-        "emptyCta": "Submit your first request",
-        "productRequestFallback": "Product Request",
-        "qty": "Qty {count}",
-        "quotesCount": "{count, plural, one {# quote} other {# quotes}}"
-    },
     "SubscriptionCard": {
         "trial": "Trial",
         "inactive": "Inactive",
@@ -175,23 +96,5 @@
         "unlimited": "∞",
         "approachingLimit": "Approaching limit",
         "limitReached": "Limit reached"
-    },
-    "Interval": {
-        "day": "day",
-        "week": "week",
-        "month": "month",
-        "year": "year"
-    },
-    "MyRequestsPage": {
-        "title": "My Requests",
-        "subtitle": "Submit product requests, review quotes, and track your orders.",
-        "totalRequests": "Total Requests",
-        "inProgress": "In Progress",
-        "awaitingAction": "Awaiting Action",
-        "completed": "Completed"
-    },
-    "ConfirmDialog": {
-        "cancel": "Cancel",
-        "confirm": "Confirm"
     }
 }

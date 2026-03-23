@@ -2,10 +2,10 @@
 
 'use server'
 
-import { auth }    from '@clerk/nextjs/server'
-import { prisma }  from '@/lib/prisma'
-import { z }       from 'zod'
-import { Prisma }  from '@prisma/client'
+import { auth } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/prisma'
+import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import type { ClientNotification, NotificationSummary, PaginationInfo } from './_components/types'
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string }
@@ -19,10 +19,10 @@ async function requireClient() {
   if (!clerkId) throw new Error('Unauthorized')
 
   const user = await prisma.user.findUnique({
-    where:  { clerkId, isDeleted: false, isActive: true },
+    where: { clerkId, isDeleted: false, isActive: true },
     select: { id: true, role: true },
   })
-  if (!user)                 throw new Error('User not found')
+  if (!user) throw new Error('User not found')
   if (user.role !== 'CLIENT') throw new Error('Forbidden')
   return user.id
 }
@@ -48,10 +48,10 @@ export async function getNotificationSummary(): Promise<ActionResult<Notificatio
 // ─────────────────────────────────────────────────────────────────────────────
 
 const listSchema = z.object({
-  page:    z.number().int().positive().default(1),
+  page: z.number().int().positive().default(1),
   pageSize: z.number().int().min(1).max(50).default(20),
-  types:   z.array(z.string()).optional(),   // filter by type group
-  isRead:  z.boolean().optional(),           // undefined = all
+  types: z.array(z.string()).optional(),   // filter by type group
+  isRead: z.boolean().optional(),           // undefined = all
 })
 
 export type ListNotificationsParams = z.infer<typeof listSchema>
@@ -66,8 +66,8 @@ export async function listClientNotifications(
 
     const where: Prisma.NotificationWhereInput = {
       userId,
-      ...(isRead !== undefined  && { isRead }),
-      ...(types?.length         && { type: { in: types } }),
+      ...(isRead !== undefined && { isRead }),
+      ...(types?.length && { type: { in: types } }),
     }
 
     const [items, totalCount, unreadCount] = await prisma.$transaction([
@@ -110,7 +110,7 @@ export async function markNotificationsRead(ids: string[]): Promise<ActionResult
 
     const r = await prisma.notification.updateMany({
       where: { id: { in: ids }, userId },   // scoped to this user only
-      data:  { isRead: true },
+      data: { isRead: true },
     })
     return { success: true, data: { count: r.count } }
   } catch {
@@ -127,7 +127,7 @@ export async function markAllNotificationsRead(): Promise<ActionResult<{ count: 
     const userId = await requireClient()
     const r = await prisma.notification.updateMany({
       where: { userId, isRead: false },
-      data:  { isRead: true },
+      data: { isRead: true },
     })
     return { success: true, data: { count: r.count } }
   } catch {

@@ -1,11 +1,11 @@
 // app/[locale]/admin/_components/AdminLayoutContent.tsx
 
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { SidebarProvider, useSidebar } from '@/context/sidebar-context';
-import { Sidebar } from './Sidebar';
-import { cn } from '@/lib/utils';
+import { motion } from "framer-motion";
+import { SidebarProvider, useSidebar } from "@/context/sidebar-context";
+import { Sidebar } from "./Sidebar";
+import { cn } from "@/lib/utils";
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const { collapsed } = useSidebar();
@@ -15,9 +15,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <motion.div
         className={cn(
-          'min-h-screen transition-all duration-300 bg-background backdrop-blur-sm',
-          'lg:ml-0',
-          collapsed ? 'lg:ml-20' : 'lg:ml-64'
+          "min-h-screen transition-all duration-300 bg-background backdrop-blur-sm",
+          "lg:ml-0",
+          collapsed ? "lg:ml-20" : "lg:ml-64",
           // No margin on mobile
         )}
         initial={{ opacity: 0 }}
@@ -30,7 +30,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+export default function AdminLayoutContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <SidebarProvider>
       <LayoutContent>{children}</LayoutContent>

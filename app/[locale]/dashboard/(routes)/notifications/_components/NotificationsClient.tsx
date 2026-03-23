@@ -1,5 +1,7 @@
 "use client";
 
+// app/[locale]/dashboard/(routes)/notifications/_components/NotificationsClient.tsx
+
 import { useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -9,7 +11,8 @@ import {
   isThisWeek,
   format,
 } from "date-fns";
-import { motion, AnimatePresence } from "framer-motion";
+import { arSA, enUS } from "date-fns/locale";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Bell,
   BellOff,
@@ -47,29 +50,94 @@ import {
   type PaginationInfo,
   type FilterTab,
 } from "./types";
+import { translateContent } from "./translate-content";
 import { Button } from "@/components/ui/button";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
+// Bilingual strings
 // ─────────────────────────────────────────────────────────────────────────────
 
-function timeAgo(d: Date | string) {
-  return formatDistanceToNow(new Date(d), { addSuffix: true });
-}
+const T = {
+  en: {
+    notifications: "Notifications",
+    allNotifications: "All notifications",
+    unread: "unread",
+    markAllRead: "Mark all as read",
+    clearRead: "Clear read notifications",
+    actions: "Actions",
+    refresh: "Refresh",
+    allCaughtUp: "All caught up!",
+    noNotifications: "No notifications",
+    noUnreadSub: "You have no unread notifications.",
+    noNotificationsSub:
+      "You'll see updates about your bookings, requests, and more here.",
+    showing: "Showing",
+    of: "of",
+    notification: "notification",
+    notifications_plural: "notifications",
+    today: "Today",
+    yesterday: "Yesterday",
+    thisWeek: "This Week",
+    markAsRead: "Mark as read",
+    delete: "Delete",
+    clearReadTitle: "Clear Read Notifications",
+    clearReadDesc:
+      "All read notifications will be permanently deleted. This cannot be undone.",
+    cancel: "Cancel",
+    clearAllRead: "Clear All Read",
+  },
+  ar: {
+    notifications: "الإشعارات",
+    allNotifications: "كل الإشعارات",
+    unread: "غير مقروء",
+    markAllRead: "تعليم الكل كمقروء",
+    clearRead: "حذف الإشعارات المقروءة",
+    actions: "إجراءات",
+    refresh: "تحديث",
+    allCaughtUp: "أنت على اطلاع كامل!",
+    noNotifications: "لا توجد إشعارات",
+    noUnreadSub: "ليس لديك إشعارات غير مقروءة.",
+    noNotificationsSub: "ستظهر هنا تحديثات حجوزاتك وطلباتك وغيرها.",
+    showing: "عرض",
+    of: "من",
+    notification: "إشعار",
+    notifications_plural: "إشعارات",
+    today: "اليوم",
+    yesterday: "أمس",
+    thisWeek: "هذا الأسبوع",
+    markAsRead: "تعليم كمقروء",
+    delete: "حذف",
+    clearReadTitle: "حذف الإشعارات المقروءة",
+    clearReadDesc:
+      "ستُحذف جميع الإشعارات المقروءة بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.",
+    cancel: "إلغاء",
+    clearAllRead: "حذف كل المقروء",
+  },
+} as const;
 
-function groupLabel(d: Date | string) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function groupLabel(d: Date | string, isAr: boolean, t: typeof T.en): string {
   const date = new Date(d);
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
-  if (isThisWeek(date)) return "This Week";
-  return format(date, "MMMM yyyy");
+  if (isToday(date)) return t.today;
+  if (isYesterday(date)) return t.yesterday;
+  if (isThisWeek(date)) return t.thisWeek;
+  return format(date, isAr ? "MMMM yyyy" : "MMMM yyyy", {
+    locale: isAr ? arSA : enUS,
+  });
 }
 
-function groupNotifications(items: ClientNotification[]) {
+function groupNotifications(
+  items: ClientNotification[],
+  isAr: boolean,
+  t: typeof T.en,
+) {
   const groups: { label: string; items: ClientNotification[] }[] = [];
   const seen = new Map<string, ClientNotification[]>();
   for (const item of items) {
-    const label = groupLabel(item.createdAt);
+    const label = groupLabel(item.createdAt, isAr, t);
     if (!seen.has(label)) {
       seen.set(label, []);
       groups.push({ label, items: seen.get(label)! });
@@ -80,22 +148,33 @@ function groupNotifications(items: ClientNotification[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NOTIFICATION ITEM
+// Notification item
 // ─────────────────────────────────────────────────────────────────────────────
 
 function NotificationItem({
   notification,
   onRead,
   onDelete,
+  isAr,
+  t,
 }: {
   notification: ClientNotification;
   onRead: (id: string) => void;
   onDelete: (id: string) => void;
+  isAr: boolean;
+  t: typeof T.en;
 }) {
   const router = useRouter();
   const cfg = getNotificationConfig(notification.type);
   const route = cfg.route(notification);
   const Icon = cfg.icon;
+  const label = isAr ? cfg.labelAr : cfg.label;
+
+  const { title, message } = translateContent(
+    notification.title,
+    notification.message,
+    isAr,
+  );
 
   const handleClick = () => {
     if (!notification.isRead) onRead(notification.id);
@@ -109,18 +188,24 @@ function NotificationItem({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.15 }}
+      dir={isAr ? "rtl" : "ltr"}
       className={cn(
         "group relative rounded-2xl border transition-all duration-200",
         notification.isRead
           ? "bg-card/40 border-border/10 hover:border-border/20 hover:bg-card/60"
-          : "bg-card/60 border-color/15 hover:border-color/25 shadow-sm",
+          : "bg-card/60 border-[#7b57fc]/15 hover:border-[#7b57fc]/25 shadow-sm",
         route && "cursor-pointer",
       )}
       onClick={route ? handleClick : undefined}
     >
       {/* Unread left accent */}
       {!notification.isRead && (
-        <div className="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-color/60" />
+        <div
+          className={cn(
+            "absolute top-4 bottom-4 w-0.5 rounded-full bg-[#7b57fc]/60",
+            isAr ? "right-0" : "left-0",
+          )}
+        />
       )}
 
       <div className="flex items-start gap-3 px-4 py-3.5">
@@ -151,7 +236,7 @@ function NotificationItem({
                     : "font-semibold text-foreground",
                 )}
               >
-                {notification.title}
+                {title}
               </p>
             </div>
 
@@ -162,7 +247,7 @@ function NotificationItem({
             >
               {!notification.isRead && (
                 <button
-                  title="Mark as read"
+                  title={t.markAsRead}
                   onClick={() => onRead(notification.id)}
                   className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
                 >
@@ -170,7 +255,7 @@ function NotificationItem({
                 </button>
               )}
               <button
-                title="Delete"
+                title={t.delete}
                 onClick={() => onDelete(notification.id)}
                 className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
@@ -180,11 +265,10 @@ function NotificationItem({
           </div>
 
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 pr-1">
-            {notification.message}
+            {message}
           </p>
 
           <div className="flex items-center gap-2 mt-2">
-            {/* Type chip */}
             <span
               className={cn(
                 "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border",
@@ -192,11 +276,17 @@ function NotificationItem({
               )}
             >
               <Icon size={9} strokeWidth={2.5} />
-              {cfg.label}
+              {label}
             </span>
             <span className="text-muted-foreground/40 text-[10px]">·</span>
-            <span className="text-[11px] text-muted-foreground">
-              {timeAgo(notification.createdAt)}
+            <span
+              className="text-[11px] text-muted-foreground"
+              suppressHydrationWarning
+            >
+              {formatDistanceToNow(new Date(notification.createdAt), {
+                addSuffix: true,
+                locale: isAr ? arSA : enUS,
+              })}
             </span>
           </div>
         </div>
@@ -206,7 +296,7 @@ function NotificationItem({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONFIRM CLEAR DIALOG
+// Confirm clear dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ClearReadDialog({
@@ -214,16 +304,21 @@ function ClearReadDialog({
   onOpenChange,
   onConfirm,
   loading,
+  isAr,
+  t,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onConfirm: () => void;
   loading: boolean;
+  isAr: boolean;
+  t: typeof T.en;
 }) {
   if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+      dir={isAr ? "rtl" : "ltr"}
       onClick={(e) => {
         if (e.target === e.currentTarget && !loading) onOpenChange(false);
       }}
@@ -241,11 +336,10 @@ function ClearReadDialog({
           </div>
           <div>
             <p className="text-base font-semibold text-foreground">
-              Clear Read Notifications
+              {t.clearReadTitle}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              All read notifications will be permanently deleted. This cannot be
-              undone.
+              {t.clearReadDesc}
             </p>
           </div>
         </div>
@@ -255,7 +349,7 @@ function ClearReadDialog({
             disabled={loading}
             className="h-8 px-3.5 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-50"
           >
-            Cancel
+            {t.cancel}
           </button>
           <button
             onClick={onConfirm}
@@ -263,7 +357,7 @@ function ClearReadDialog({
             className="flex items-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors disabled:opacity-60"
           >
             {loading && <Loader2 size={12} className="animate-spin" />}
-            Clear All Read
+            {t.clearAllRead}
           </button>
         </div>
       </motion.div>
@@ -272,62 +366,62 @@ function ClearReadDialog({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PAGINATION
+// Pagination
 // ─────────────────────────────────────────────────────────────────────────────
 
 function NotificationPagination({
   pagination,
   onPageChange,
+  isAr,
+  t,
 }: {
   pagination: PaginationInfo;
   onPageChange: (p: number) => void;
+  isAr: boolean;
+  t: typeof T.en;
 }) {
   const { page, totalPages, totalCount, pageSize } = pagination;
   if (totalPages <= 1) return null;
-  const rangeStart = (page - 1) * pageSize + 1;
-  const rangeEnd = Math.min(page * pageSize, totalCount);
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, totalCount);
+
+  const Prev = isAr ? ChevronRight : ChevronLeft;
+  const Next = isAr ? ChevronLeft : ChevronRight;
 
   return (
-    <div className="flex items-center justify-between pt-2">
+    <div
+      className="flex items-center justify-between pt-2"
+      dir={isAr ? "rtl" : "ltr"}
+    >
       <p className="text-xs text-muted-foreground">
-        Showing{" "}
+        {t.showing}{" "}
         <span className="font-semibold text-foreground tabular-nums">
-          {rangeStart}–{rangeEnd}
+          {from}–{to}
         </span>{" "}
-        of{" "}
+        {t.of}{" "}
         <span className="font-semibold text-foreground tabular-nums">
           {totalCount.toLocaleString()}
         </span>
       </p>
       <div className="flex items-center gap-1">
         <Button
-        variant={'ghost'}
+          variant="ghost"
           onClick={() => page > 1 && onPageChange(page - 1)}
           disabled={page <= 1}
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg border text-muted-foreground transition-all",
-            page > 1
-              ? "border-border/20 hover:border-border/40 hover:text-foreground hover:bg-muted/20"
-              : "border-border/10 opacity-40 cursor-not-allowed",
-          )}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-all disabled:opacity-40"
         >
-          <ChevronLeft size={14} />
+          <Prev size={14} />
         </Button>
         <span className="text-xs text-muted-foreground px-3 tabular-nums">
           {page} / {totalPages}
         </span>
         <Button
-        variant={'ghost'}
+          variant="ghost"
           onClick={() => page < totalPages && onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg border text-muted-foreground transition-all",
-            page < totalPages
-              ? "border-border/20 hover:border-border/40 hover:text-foreground hover:bg-muted/20"
-              : "border-border/10 opacity-40 cursor-not-allowed",
-          )}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-all disabled:opacity-40"
         >
-          <ChevronRight size={14} />
+          <Next size={14} />
         </Button>
       </div>
     </div>
@@ -335,19 +429,21 @@ function NotificationPagination({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT CLIENT COMPONENT
+// Root client component
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface NotificationsClientProps {
   initialItems: ClientNotification[];
   initialPagination: PaginationInfo;
   initialUnread: number;
+  isAr?: boolean;
 }
 
 export function NotificationsClient({
   initialItems,
   initialPagination,
   initialUnread,
+  isAr = false,
 }: NotificationsClientProps) {
   const [items, setItems] = useState(initialItems);
   const [pagination, setPagination] = useState(initialPagination);
@@ -359,8 +455,9 @@ export function NotificationsClient({
   const [clearLoading, setClearLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
+  const t = (isAr ? T.ar : T.en) as typeof T.en;
 
+  // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchPage = useCallback(async (tab: FilterTab, p: number) => {
     setLoading(true);
     const types = FILTER_TYPE_MAP[tab] ?? undefined;
@@ -368,7 +465,7 @@ export function NotificationsClient({
     const r = await listClientNotifications({
       page: p,
       pageSize: 20,
-      types,
+      types: types ?? undefined,
       isRead,
     });
     if (r.success) {
@@ -391,8 +488,7 @@ export function NotificationsClient({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ── Mark read ────────────────────────────────────────────────────────────
-
+  // ── Mark read ──────────────────────────────────────────────────────────────
   const handleMarkRead = (id: string) => {
     setItems((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
@@ -405,7 +501,7 @@ export function NotificationsClient({
           prev.map((n) => (n.id === id ? { ...n, isRead: false } : n)),
         );
         setUnread((prev) => prev + 1);
-        toast.error("Failed to mark as read");
+        toast.error(isAr ? "فشل التعليم كمقروء" : "Failed to mark as read");
       }
     });
   };
@@ -416,15 +512,18 @@ export function NotificationsClient({
       if (r.success) {
         setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
         setUnread(0);
-        toast.success(`${r.data.count} notifications marked as read`);
+        toast.success(
+          isAr
+            ? `تم تعليم ${r.data.count} إشعار كمقروء`
+            : `${r.data.count} notifications marked as read`,
+        );
       } else {
-        toast.error("Failed to mark all as read");
+        toast.error(isAr ? "فشلت العملية" : "Failed to mark all as read");
       }
     });
   };
 
-  // ── Delete ───────────────────────────────────────────────────────────────
-
+  // ── Delete ─────────────────────────────────────────────────────────────────
   const handleDelete = (id: string) => {
     const item = items.find((n) => n.id === id);
     setItems((prev) => prev.filter((n) => n.id !== id));
@@ -444,7 +543,7 @@ export function NotificationsClient({
           });
           if (!item.isRead) setUnread((prev) => prev + 1);
         }
-        toast.error("Failed to delete notification");
+        toast.error(isAr ? "فشل الحذف" : "Failed to delete notification");
       }
     });
   };
@@ -454,25 +553,28 @@ export function NotificationsClient({
     const r = await deleteAllReadNotifications();
     setClearLoading(false);
     if (r.success) {
-      toast.success(`${r.data.count} read notifications cleared`);
+      toast.success(
+        isAr
+          ? `تم حذف ${r.data.count} إشعار مقروء`
+          : `${r.data.count} read notifications cleared`,
+      );
       fetchPage(activeTab, 1);
       setPage(1);
     } else {
-      toast.error("Failed to clear notifications");
+      toast.error(isAr ? "فشل حذف الإشعارات" : "Failed to clear notifications");
     }
     setClearOpen(false);
   };
 
-  // ── Groups ───────────────────────────────────────────────────────────────
-
-  const groups = groupNotifications(items);
+  const groups = groupNotifications(items, isAr, t);
 
   return (
-    <div className="space-y-5">
-      {/* ── Filter tabs ──────────────────────────────────────────────────── */}
+    <div className="space-y-5" dir={isAr ? "rtl" : "ltr"}>
+      {/* Filter tabs */}
       <div className="flex gap-1.5 flex-wrap">
         {FILTER_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
+          const label = isAr ? tab.labelAr : tab.label;
           return (
             <button
               key={tab.id}
@@ -480,13 +582,13 @@ export function NotificationsClient({
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all",
                 isActive
-                  ? "bg-color/15 text-color border-color/25"
+                  ? "bg-[#7b57fc]/15 text-[#7b57fc] border-[#7b57fc]/25"
                   : "text-muted-foreground bg-muted/15 border-transparent hover:border-border/20 hover:text-foreground",
               )}
             >
-              {tab.label}
+              {label}
               {tab.id === "unread" && unread > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-color/20 text-color px-1 text-[10px] font-bold tabular-nums">
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#7b57fc]/20 text-[#7b57fc] px-1 text-[10px] font-bold tabular-nums">
                   {unread > 99 ? "99+" : unread}
                 </span>
               )}
@@ -495,7 +597,7 @@ export function NotificationsClient({
         })}
       </div>
 
-      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           {pagination.totalCount > 0 ? (
@@ -503,16 +605,20 @@ export function NotificationsClient({
               <span className="font-semibold text-foreground tabular-nums">
                 {pagination.totalCount}
               </span>{" "}
-              notification{pagination.totalCount !== 1 ? "s" : ""}
+              {pagination.totalCount !== 1
+                ? t.notifications_plural
+                : t.notification}
             </>
           ) : (
-            "No notifications"
+            t.noNotifications
           )}
           {unread > 0 && (
             <>
               {" "}
               ·{" "}
-              <span className="font-semibold text-color">{unread} unread</span>
+              <span className="font-semibold text-[#7b57fc]">
+                {unread} {t.unread}
+              </span>
             </>
           )}
         </p>
@@ -522,7 +628,7 @@ export function NotificationsClient({
             onClick={() => fetchPage(activeTab, page)}
             disabled={loading}
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/15 text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors disabled:opacity-40"
-            title="Refresh"
+            title={t.refresh}
           >
             <RefreshCw size={13} className={cn(loading && "animate-spin")} />
           </button>
@@ -533,38 +639,39 @@ export function NotificationsClient({
                 disabled={isPending}
                 className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg border border-border/20 text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors disabled:opacity-40"
               >
-                Actions
+                {t.actions}
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              align="end"
-              className="rounded-xl border-border/20 bg-card/95 backdrop-blur-sm shadow-xl p-1 min-w-45"
+              align={isAr ? "start" : "end"}
+              className="rounded-xl border-border/20 bg-card/95 backdrop-blur-sm shadow-xl p-1 min-w-44"
             >
-              <DropdownMenuItem
-                onClick={handleMarkAllRead}
-                disabled={unread === 0 || isPending}
-                className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer"
-              >
-                <CheckCheck size={13} className="text-green-400" />
-                Mark all as read
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border/15 my-1" />
-              <DropdownMenuItem
-                onClick={() => setClearOpen(true)}
-                disabled={isPending}
-                className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer text-red-400 focus:text-red-400"
-              >
-                <Trash2 size={13} />
-                Clear read notifications
-              </DropdownMenuItem>
+              <div dir={isAr ? "rtl" : "ltr"}>
+                <DropdownMenuItem
+                  onClick={handleMarkAllRead}
+                  disabled={unread === 0 || isPending}
+                  className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer"
+                >
+                  <CheckCheck size={13} className="text-green-400" />
+                  {t.markAllRead}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-border/15 my-1" />
+                <DropdownMenuItem
+                  onClick={() => setClearOpen(true)}
+                  disabled={isPending}
+                  className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 cursor-pointer text-red-400 focus:text-red-400"
+                >
+                  <Trash2 size={13} />
+                  {t.clearRead}
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* ── Content ──────────────────────────────────────────────────────── */}
+      {/* Content */}
       <div className="relative">
-        {/* Loading overlay */}
         {loading && (
           <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] rounded-2xl flex items-center justify-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-card border border-border/20 shadow-lg">
@@ -595,14 +702,12 @@ export function NotificationsClient({
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground/70">
-                  {activeTab === "unread"
-                    ? "All caught up!"
-                    : "No notifications"}
+                  {activeTab === "unread" ? t.allCaughtUp : t.noNotifications}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {activeTab === "unread"
-                    ? "You have no unread notifications."
-                    : "You'll see updates about your bookings, requests, and more here."}
+                    ? t.noUnreadSub
+                    : t.noNotificationsSub}
                 </p>
               </div>
             </motion.div>
@@ -646,6 +751,8 @@ export function NotificationsClient({
                         notification={n}
                         onRead={handleMarkRead}
                         onDelete={handleDelete}
+                        isAr={isAr}
+                        t={t}
                       />
                     ))}
                   </motion.div>
@@ -656,13 +763,15 @@ export function NotificationsClient({
         </AnimatePresence>
       </div>
 
-      {/* ── Pagination ───────────────────────────────────────────────────── */}
+      {/* Pagination */}
       <NotificationPagination
         pagination={pagination}
         onPageChange={handlePageChange}
+        isAr={isAr}
+        t={t}
       />
 
-      {/* ── Clear dialog ─────────────────────────────────────────────────── */}
+      {/* Clear dialog */}
       <AnimatePresence>
         {clearOpen && (
           <ClearReadDialog
@@ -670,6 +779,8 @@ export function NotificationsClient({
             onOpenChange={setClearOpen}
             onConfirm={handleClearRead}
             loading={clearLoading}
+            isAr={isAr}
+            t={t}
           />
         )}
       </AnimatePresence>

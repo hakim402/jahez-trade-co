@@ -1,6 +1,6 @@
 // app/[locale]/admin/(routes)/video-bookings/_components/VideoBookingPageSkeleton.tsx
 
-export function VideoBookingPageSkeleton() {
+export function BookingPageSkeleton() {
   return (
     <div className="flex flex-col gap-5 animate-pulse">
       {/* KPI */}

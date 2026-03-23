@@ -190,64 +190,64 @@ const ProductMockups = {
   ),
 
   production: (isAr: boolean) => (
-  <MockupShell gradient="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-card">
-    <div className="flex items-center gap-2 mb-3">
-      <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-        <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-      </div>
-      <p className="text-[10px] font-bold text-foreground">
-        {isAr ? "قيد الإنتاج" : "In Production"}
-      </p>
-      <span className="ml-auto text-[8px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-semibold">
-        {isAr ? "قيد_الإنتاج" : "IN_PRODUCTION"}
-      </span>
-    </div>
-    <div className="w-full bg-muted/40 rounded-full h-1.5 mb-1.5">
-      <motion.div
-        initial={{ width: 0 }}
-        whileInView={{ width: "65%" }}
-        viewport={{ once: true }}
-        transition={{ delay: 0.3, duration: 1 }}
-        className="h-full rounded-full bg-linear-to-r from-[#7b57fc] to-emerald-500"
-      />
-    </div>
-    <p className="text-[8px] text-muted-foreground mb-3">
-      {isAr ? "اكتمل الإنتاج ٦٥٪" : "Production 65% complete"}
-    </p>
-    <div className="grid grid-cols-3 gap-1.5">
-      {[
-        {
-          icon: Factory,
-          label: isAr ? "مصنع" : "Factory",
-          active: true,
-        },
-        {
-          icon: Package,
-          label: isAr ? "تغليف" : "Packaged",
-          active: true,
-        },
-        {
-          icon: Truck,
-          label: isAr ? "شحن" : "Shipping",
-          active: false,
-        },
-      ].map(({ icon: Icon, label, active }, i) => (
-        <div
-          key={i}
-          className={cn(
-            "rounded-lg py-1.5 text-center text-[8px] font-semibold flex items-center justify-center gap-1",
-            active
-              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          <Icon className="w-3 h-3" />
-          {label}
+    <MockupShell gradient="bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/20 dark:to-card">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+          <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
         </div>
-      ))}
-    </div>
-  </MockupShell>
-),
+        <p className="text-[10px] font-bold text-foreground">
+          {isAr ? "قيد الإنتاج" : "In Production"}
+        </p>
+        <span className="ml-auto text-[8px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-semibold">
+          {isAr ? "قيد_الإنتاج" : "IN_PRODUCTION"}
+        </span>
+      </div>
+      <div className="w-full bg-muted/40 rounded-full h-1.5 mb-1.5">
+        <motion.div
+          initial={{ width: 0 }}
+          whileInView={{ width: "65%" }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.3, duration: 1 }}
+          className="h-full rounded-full bg-linear-to-r from-[#7b57fc] to-emerald-500"
+        />
+      </div>
+      <p className="text-[8px] text-muted-foreground mb-3">
+        {isAr ? "اكتمل الإنتاج ٦٥٪" : "Production 65% complete"}
+      </p>
+      <div className="grid grid-cols-3 gap-1.5">
+        {[
+          {
+            icon: Factory,
+            label: isAr ? "مصنع" : "Factory",
+            active: true,
+          },
+          {
+            icon: Package,
+            label: isAr ? "تغليف" : "Packaged",
+            active: true,
+          },
+          {
+            icon: Truck,
+            label: isAr ? "شحن" : "Shipping",
+            active: false,
+          },
+        ].map(({ icon: Icon, label, active }, i) => (
+          <div
+            key={i}
+            className={cn(
+              "rounded-lg py-1.5 text-center text-[8px] font-semibold flex items-center justify-center gap-1",
+              active
+                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            <Icon className="w-3 h-3" />
+            {label}
+          </div>
+        ))}
+      </div>
+    </MockupShell>
+  ),
 
   delivered: (isAr: boolean) => (
     <MockupShell gradient="bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/20 dark:to-card">

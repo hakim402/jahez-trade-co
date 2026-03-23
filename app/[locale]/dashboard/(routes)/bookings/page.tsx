@@ -34,10 +34,9 @@ export default async function VideoBookingPage({
     <>
       <ClientHeader />
       <div
-        className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen"
+        className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 min-h-screen max-w-7xl m-auto"
         dir={isAr ? "rtl" : "ltr"}
       >
-
         <Suspense fallback={<BookingPageSkeleton isAr={isAr} />}>
           <BookingPageClient
             isAr={isAr}

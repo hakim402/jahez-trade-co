@@ -14,9 +14,27 @@ import { revalidatePath } from "next/cache"
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string }
 
-// Status is stored as plain String in the schema — these are the valid values.
 export type ConsultingStatus = "NEW" | "IN_REVIEW" | "SCHEDULED" | "CLOSED"
 export type ConsultingTopic  = ConsultingServiceTopic
+
+/**
+ * Billing gate info for the consulting dashboard.
+ *
+ * BILLING_ENABLED=false  → hasAccess = true, planName = "Platform Access"
+ * BILLING_ENABLED=true   → hasAccess = true only when user has an active
+ *                          subscription item (any plan).
+ *
+ * Note: Unlike requests/bookings, consulting does NOT have per-plan request
+ * quotas — access is binary (subscription required or not). The open-request
+ * cap of 5 applies to ALL users who have access.
+ */
+export type ConsultingPlanInfo = {
+  planName:       string
+  hasAccess:      boolean
+  billingEnabled: boolean
+  openCount:      number    // current open (NEW | IN_REVIEW) requests
+  openLimit:      number    // always MAX_OPEN_REQUESTS (5) when hasAccess
+}
 
 export type SerializedConsultingRequest = {
   id:          string
@@ -29,12 +47,10 @@ export type SerializedConsultingRequest = {
   description: string
   budget:      string | null
   status:      ConsultingStatus
-  // adminNotes only exposed when status is SCHEDULED or CLOSED
-  adminNotes:  string | null
+  adminNotes:  string | null   // only exposed when SCHEDULED or CLOSED
   isDeleted:   boolean
   createdAt:   string
   updatedAt:   string
-  // If this request originated from a service card, include brief service info
   linkedService: {
     id:          string
     title:       string
@@ -48,6 +64,7 @@ export type SerializedConsultingRequest = {
 
 export type ConsultingDashboardSummary = {
   user: { id: string; fullName: string | null; email: string; avatarUrl: string | null }
+  planInfo:     ConsultingPlanInfo
   freeForm: {
     items:      SerializedConsultingRequest[]
     total:      number
@@ -60,21 +77,15 @@ export type ConsultingDashboardSummary = {
     open:  number
   }
   totalOpen:     number
-  canSubmitMore: boolean   // false when totalOpen >= 5
+  canSubmitMore: boolean   // false when totalOpen >= 5 OR !planInfo.hasAccess
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Maximum open (NEW | IN_REVIEW) consulting requests per client across both
-// free-form and service-originated requests combined.
 const MAX_OPEN_REQUESTS = 5
-
-// Statuses that block new submissions
-const OPEN_STATUSES: ConsultingStatus[] = ["NEW", "IN_REVIEW"]
-
-// Statuses where adminNotes are visible to the client
+const OPEN_STATUSES: ConsultingStatus[]         = ["NEW", "IN_REVIEW"]
 const NOTES_VISIBLE_STATUSES: ConsultingStatus[] = ["SCHEDULED", "CLOSED"]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,14 +129,12 @@ async function notifyAdmins(title: string, message: string): Promise<void> {
         isRead:  false,
       })),
     })
-  } catch { /* non-fatal — notifications must never block the main flow */ }
+  } catch { /* non-fatal */ }
 }
 
 function serializeRequest(r: any): SerializedConsultingRequest {
   const showNotes = NOTES_VISIBLE_STATUSES.includes(r.status as ConsultingStatus)
-
-  // Grab the linked service from serviceRequests junction if present
-  const sr = r.serviceRequests?.[0]
+  const sr        = r.serviceRequests?.[0]
   const linkedService = sr?.service
     ? {
         id:           sr.service.id,
@@ -157,7 +166,6 @@ function serializeRequest(r: any): SerializedConsultingRequest {
   }
 }
 
-// Include for fetching requests with their linked service
 const requestInclude = {
   serviceRequests: {
     take:   1,
@@ -179,18 +187,76 @@ const requestInclude = {
   },
 } as const
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Open-request count (shared between free-form and service-originated)
-// ─────────────────────────────────────────────────────────────────────────────
-
 async function getOpenCount(userId: string): Promise<number> {
   return prisma.consultingRequest.count({
-    where: {
-      userId,
-      isDeleted: false,
-      status:    { in: OPEN_STATUSES },
+    where: { userId, isDeleted: false, status: { in: OPEN_STATUSES } },
+  })
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── BILLING GATE ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Resolves whether the user can access the consulting module.
+ *
+ * BILLING_ENABLED=false  →  unlimited / full platform access.
+ * BILLING_ENABLED=true   →  any active SubscriptionItem required.
+ *                           No plan-specific quotas — access is binary.
+ *
+ * The 5-open-request cap applies on top of billing access and is enforced
+ * in every mutation via `canSubmitMore`.
+ */
+export async function getUserConsultingPlanInfo(
+  userId: string,
+): Promise<ConsultingPlanInfo> {
+  const billingEnabled = process.env.BILLING_ENABLED === "true"
+
+  const openCount = await getOpenCount(userId)
+
+  // ── Billing disabled — full platform access, no cap ─────────────────────
+  if (!billingEnabled) {
+    return {
+      planName:       "Platform Access",
+      hasAccess:      true,
+      billingEnabled: false,
+      openCount,
+      openLimit:      Infinity,    // no cap when billing is off
+    }
+  }
+
+  // ── Billing enabled — any active subscription item grants access ──────────
+  const subscription = await prisma.subscription.findUnique({
+    where:  { userId },
+    select: {
+      items: {
+        where:   { status: "ACTIVE" },
+        orderBy: { isDefaultPlan: "asc" },
+        take:    1,
+        select:  { plan: { select: { name: true, isDefault: true } } },
+      },
     },
   })
+
+  const activePlan = subscription?.items[0]?.plan
+
+  if (!activePlan) {
+    return {
+      planName:       "No Plan",
+      hasAccess:      false,
+      billingEnabled: true,
+      openCount,
+      openLimit:      MAX_OPEN_REQUESTS,
+    }
+  }
+
+  return {
+    planName:       activePlan.name,
+    hasAccess:      true,
+    billingEnabled: true,
+    openCount,
+    openLimit:      MAX_OPEN_REQUESTS,
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -209,10 +275,6 @@ const submitFreeFormSchema = z.object({
   budget:      z.string().optional(),
 })
 
-/**
- * Submit a free-form consulting request from the dashboard.
- * Contact details are pre-filled from the user's profile but overridable.
- */
 export async function submitConsultingRequest(
   raw: z.infer<typeof submitFreeFormSchema>,
 ): Promise<ActionResult<{ id: string }>> {
@@ -220,11 +282,17 @@ export async function submitConsultingRequest(
     const user      = await requireClient()
     const validated = submitFreeFormSchema.parse(raw)
 
-    const openCount = await getOpenCount(user.id)
-    if (openCount >= MAX_OPEN_REQUESTS) {
+    // ── Billing gate ──────────────────────────────────────────────────────
+    const planInfo = await getUserConsultingPlanInfo(user.id)
+    if (!planInfo.hasAccess) {
+      return { success: false, error: "UPGRADE_REQUIRED" }
+    }
+
+    // ── Open-request cap (only applies when billing is enabled) ──────────────
+    if (planInfo.openLimit !== Infinity && planInfo.openCount >= planInfo.openLimit) {
       return {
         success: false,
-        error:   `You have ${openCount} open consulting request${openCount !== 1 ? "s" : ""}. Please wait for a response before submitting another.`,
+        error:   `You have ${planInfo.openCount} open consulting request${planInfo.openCount !== 1 ? "s" : ""}. Please wait for a response before submitting another.`,
       }
     }
 
@@ -273,12 +341,6 @@ const requestServiceSchema = z.object({
   budget:      z.string().optional(),
 })
 
-/**
- * Request a specific consulting service card.
- * Creates a ConsultingRequest pre-filled with the service's topic,
- * then creates the ConsultingServiceRequest junction record.
- * Increments the service's requestCount atomically.
- */
 export async function requestConsultingService(
   raw: z.infer<typeof requestServiceSchema>,
 ): Promise<ActionResult<{ consultingRequestId: string; serviceRequestId: string }>> {
@@ -286,7 +348,12 @@ export async function requestConsultingService(
     const user      = await requireClient()
     const validated = requestServiceSchema.parse(raw)
 
-    // Verify the service exists and is publicly accessible
+    // ── Billing gate ──────────────────────────────────────────────────────
+    const planInfo = await getUserConsultingPlanInfo(user.id)
+    if (!planInfo.hasAccess) {
+      return { success: false, error: "UPGRADE_REQUIRED" }
+    }
+
     const service = await prisma.consultingService.findUnique({
       where:  { id: validated.serviceId, isActive: true, isDeleted: false },
       select: { id: true, topic: true, title: true, titleAr: true },
@@ -295,16 +362,14 @@ export async function requestConsultingService(
       return { success: false, error: "Service not found or no longer available." }
     }
 
-    // Global open-request limit
-    const openCount = await getOpenCount(user.id)
-    if (openCount >= MAX_OPEN_REQUESTS) {
+    // ── Open-request cap (only applies when billing is enabled) ──────────────
+    if (planInfo.openLimit !== Infinity && planInfo.openCount >= planInfo.openLimit) {
       return {
         success: false,
-        error:   `You have ${openCount} open requests — the maximum allowed. Please wait for a response before submitting another.`,
+        error:   `You have ${planInfo.openCount} open requests — the maximum allowed. Please wait for a response before submitting another.`,
       }
     }
 
-    // Prevent duplicate open request for the same service by this user
     const duplicate = await prisma.consultingServiceRequest.findFirst({
       where: {
         serviceId: service.id,
@@ -320,7 +385,6 @@ export async function requestConsultingService(
       }
     }
 
-    // Atomic: create ConsultingRequest + junction + increment counter
     const [consultingReq, serviceReq] = await prisma.$transaction(async (tx) => {
       const cr = await tx.consultingRequest.create({
         data: {
@@ -329,7 +393,7 @@ export async function requestConsultingService(
           email:       validated.email.trim().toLowerCase(),
           phone:       validated.phone?.trim()   || null,
           company:     validated.company?.trim() || null,
-          topic:       service.topic,         // pre-filled from service
+          topic:       service.topic,
           description: validated.description.trim(),
           budget:      validated.budget?.trim() || null,
           status:      "NEW",
@@ -337,11 +401,7 @@ export async function requestConsultingService(
       })
 
       const sr = await tx.consultingServiceRequest.create({
-        data: {
-          serviceId: service.id,
-          requestId: cr.id,
-          userId:    user.id,
-        },
+        data: { serviceId: service.id, requestId: cr.id, userId: user.id },
       })
 
       await tx.consultingService.update({
@@ -360,10 +420,7 @@ export async function requestConsultingService(
     revalidatePath("/dashboard/consulting")
     return {
       success: true,
-      data: {
-        consultingRequestId: consultingReq.id,
-        serviceRequestId:    serviceReq.id,
-      },
+      data: { consultingRequestId: consultingReq.id, serviceRequestId: serviceReq.id },
     }
   } catch (err) {
     if (err instanceof z.ZodError) return { success: false, error: err.issues[0].message }
@@ -377,10 +434,6 @@ export async function requestConsultingService(
 // ── SECTION C: READ ──────────────────────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Get all free-form consulting requests (not originated from a service card),
- * paginated and optionally filtered by status.
- */
 export async function getMyConsultingRequests(opts: {
   page?:     number
   pageSize?: number
@@ -396,9 +449,8 @@ export async function getMyConsultingRequests(opts: {
     const pageSize = Math.min(50, opts.pageSize ?? 10)
 
     const where: Prisma.ConsultingRequestWhereInput = {
-      userId:    user.id,
-      isDeleted: false,
-      // Free-form only: exclude requests that came from a service card
+      userId:          user.id,
+      isDeleted:       false,
       serviceRequests: { none: {} },
       ...(opts.status && { status: opts.status }),
     }
@@ -406,11 +458,8 @@ export async function getMyConsultingRequests(opts: {
     const [totalCount, items, open] = await Promise.all([
       prisma.consultingRequest.count({ where }),
       prisma.consultingRequest.findMany({
-        where,
-        include: requestInclude,
-        orderBy: { createdAt: "desc" },
-        skip:    (page - 1) * pageSize,
-        take:    pageSize,
+        where, include: requestInclude, orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize, take: pageSize,
       }),
       getOpenCount(user.id),
     ])
@@ -430,10 +479,6 @@ export async function getMyConsultingRequests(opts: {
   }
 }
 
-/**
- * Get all service-originated consulting requests for the current user.
- * Returns the full list (not paginated — users typically have few of these).
- */
 export async function getMyServiceRequests(): Promise<ActionResult<{
   items: SerializedConsultingRequest[]
   total: number
@@ -444,12 +489,7 @@ export async function getMyServiceRequests(): Promise<ActionResult<{
 
     const [items, open] = await Promise.all([
       prisma.consultingRequest.findMany({
-        where: {
-          userId:    user.id,
-          isDeleted: false,
-          // Service-originated: has at least one junction row
-          serviceRequests: { some: {} },
-        },
+        where: { userId: user.id, isDeleted: false, serviceRequests: { some: {} } },
         include: requestInclude,
         orderBy: { createdAt: "desc" },
       }),
@@ -458,11 +498,7 @@ export async function getMyServiceRequests(): Promise<ActionResult<{
 
     return {
       success: true,
-      data: {
-        items: items.map(serializeRequest),
-        total: items.length,
-        open,
-      },
+      data: { items: items.map(serializeRequest), total: items.length, open },
     }
   } catch (err) {
     if (err instanceof Error && ["UNAUTHORIZED", "USER_NOT_FOUND", "FORBIDDEN"].includes(err.message)) return authError(err)
@@ -471,9 +507,6 @@ export async function getMyServiceRequests(): Promise<ActionResult<{
   }
 }
 
-/**
- * Get a single consulting request by ID, verifying ownership.
- */
 export async function getMyConsultingRequest(
   id: string,
 ): Promise<ActionResult<SerializedConsultingRequest>> {
@@ -481,12 +514,10 @@ export async function getMyConsultingRequest(
     const user = await requireClient()
 
     const req = await prisma.consultingRequest.findUnique({
-      where:   { id, isDeleted: false },
-      include: requestInclude,
+      where: { id, isDeleted: false }, include: requestInclude,
     })
-
-    if (!req)                    return { success: false, error: "Request not found." }
-    if (req.userId !== user.id)  return { success: false, error: "Access denied." }
+    if (!req)                   return { success: false, error: "Request not found." }
+    if (req.userId !== user.id) return { success: false, error: "Access denied." }
 
     return { success: true, data: serializeRequest(req) }
   } catch (err) {
@@ -496,10 +527,6 @@ export async function getMyConsultingRequest(
   }
 }
 
-/**
- * Full dashboard summary — one call to hydrate the entire consulting page.
- * Returns both free-form and service-originated requests plus counts.
- */
 export async function getConsultingDashboardSummary(
   page     = 1,
   pageSize = 10,
@@ -513,22 +540,21 @@ export async function getConsultingDashboardSummary(
     }
 
     const freeFormWhere: Prisma.ConsultingRequestWhereInput = {
-      ...baseWhere,
-      serviceRequests: { none: {} },
-      ...(status && { status }),
+      ...baseWhere, serviceRequests: { none: {} }, ...(status && { status }),
     }
 
     const serviceWhere: Prisma.ConsultingRequestWhereInput = {
-      ...baseWhere,
-      serviceRequests: { some: {} },
+      ...baseWhere, serviceRequests: { some: {} },
     }
 
     const [
+      planInfo,
       freeFormTotal,
       freeFormItems,
       serviceItems,
       totalOpen,
     ] = await Promise.all([
+      getUserConsultingPlanInfo(user.id),
       prisma.consultingRequest.count({ where: freeFormWhere }),
       prisma.consultingRequest.findMany({
         where:   freeFormWhere,
@@ -538,33 +564,32 @@ export async function getConsultingDashboardSummary(
         take:    pageSize,
       }),
       prisma.consultingRequest.findMany({
-        where:   serviceWhere,
-        include: requestInclude,
-        orderBy: { createdAt: "desc" },
+        where: serviceWhere, include: requestInclude, orderBy: { createdAt: "desc" },
       }),
       getOpenCount(user.id),
     ])
 
-    const serializedFreeForm   = freeFormItems.map(serializeRequest)
-    const serializedServiceReqs= serviceItems.map(serializeRequest)
+    const serializedFreeForm    = freeFormItems.map(serializeRequest)
+    const serializedServiceReqs = serviceItems.map(serializeRequest)
 
     const freeFormOpen = serializedFreeForm.filter((r) =>
       OPEN_STATUSES.includes(r.status as ConsultingStatus)
     ).length
 
-    const serviceOpen  = serializedServiceReqs.filter((r) =>
+    const serviceOpen = serializedServiceReqs.filter((r) =>
       OPEN_STATUSES.includes(r.status as ConsultingStatus)
     ).length
+
+    // canSubmitMore: billing gate passes AND under the open-request cap
+    // When BILLING_ENABLED=false → openLimit is Infinity → no cap → always true
+    const canSubmitMore = planInfo.hasAccess &&
+      (planInfo.openLimit === Infinity || totalOpen < planInfo.openLimit)
 
     return {
       success: true,
       data: {
-        user: {
-          id:        user.id,
-          fullName:  user.fullName,
-          email:     user.email,
-          avatarUrl: user.avatarUrl,
-        },
+        user: { id: user.id, fullName: user.fullName, email: user.email, avatarUrl: user.avatarUrl },
+        planInfo,
         freeForm: {
           items:      serializedFreeForm,
           total:      freeFormTotal,
@@ -577,7 +602,7 @@ export async function getConsultingDashboardSummary(
           open:  serviceOpen,
         },
         totalOpen,
-        canSubmitMore: totalOpen < MAX_OPEN_REQUESTS,
+        canSubmitMore,
       },
     }
   } catch (err) {
@@ -598,10 +623,6 @@ const updateSchema = z.object({
   budget:      z.string().optional(),
 })
 
-/**
- * Update a free-form consulting request.
- * Only allowed while status = "NEW" (before admin starts reviewing).
- */
 export async function updateMyConsultingRequest(
   id:  string,
   raw: z.infer<typeof updateSchema>,
@@ -638,11 +659,6 @@ export async function updateMyConsultingRequest(
   }
 }
 
-/**
- * Cancel / soft-delete a consulting request.
- * Only allowed while status = "NEW".
- * For service-originated requests, decrements the service's requestCount.
- */
 export async function cancelConsultingRequest(
   id: string,
 ): Promise<ActionResult<{ ok: boolean }>> {
@@ -650,7 +666,7 @@ export async function cancelConsultingRequest(
     const user = await requireClient()
 
     const req = await prisma.consultingRequest.findUnique({
-      where:   { id, isDeleted: false },
+      where:  { id, isDeleted: false },
       select: {
         userId:  true,
         status:  true,
@@ -665,7 +681,6 @@ export async function cancelConsultingRequest(
     const linkedServiceId = req.serviceRequests[0]?.serviceId ?? null
 
     if (linkedServiceId) {
-      // Decrement service request counter and soft-delete atomically
       await prisma.$transaction([
         prisma.consultingRequest.update({ where: { id }, data: { isDeleted: true } }),
         prisma.consultingService.update({
@@ -688,16 +703,8 @@ export async function cancelConsultingRequest(
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ── SECTION E: SERVICE CARD HELPERS ──────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// These are called from the public /services page to check state before
-// showing the "Request this service" button.
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Fast boolean check — disables the "Request" button on a public service card
- * if the current user already has an open request for that service.
- * Returns false if the user is not logged in (guest visitors).
- */
 export async function hasRequestedService(serviceId: string): Promise<boolean> {
   try {
     const { userId: clerkId } = await auth()
@@ -724,12 +731,6 @@ export async function hasRequestedService(serviceId: string): Promise<boolean> {
   }
 }
 
-/**
- * Returns the open-request count for the authenticated user.
- * Used by the public service page to disable the button with a message
- * if the user has reached the limit.
- * Returns null if the user is not logged in.
- */
 export async function getOpenRequestCount(): Promise<number | null> {
   try {
     const { userId: clerkId } = await auth()

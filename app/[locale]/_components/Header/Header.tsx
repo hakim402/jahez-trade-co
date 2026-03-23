@@ -1,8 +1,6 @@
 // app/[locale]/_components/Header/Header.tsx
-
 "use client";
 
-import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import React from "react";
@@ -12,20 +10,21 @@ import { ThemeToggle } from "../Theme/theme-toggle";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { LanguageSwitcher } from "../Language/LanguageSwitcher";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/routing";
 
 export const Header = () => {
   const t = useTranslations("Header");
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
 
-  // Menu items with translated names
+  // Use as const to preserve literal types for href
   const menuItems = [
     { name: t("home"), href: "/" },
     { name: t("products"), href: "/products" },
     { name: t("consulting"), href: "/consulting" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
-  ];
+  ] as const;
 
   const menuItemsSignedIn = [
     { name: t("home"), href: "/" },
@@ -34,12 +33,10 @@ export const Header = () => {
     { name: t("consulting"), href: "/consulting" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
-  ];
+  ] as const;
 
   React.useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -121,7 +118,6 @@ export const Header = () => {
                 <UserButton afterSignOutUrl="/" />
               </SignedIn>
 
-              {/* Mobile menu button */}
               <Button
                 variant="ghost"
                 size="icon"

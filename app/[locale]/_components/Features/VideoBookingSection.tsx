@@ -213,7 +213,7 @@ function MeetingLiveCard({
         {/* Admin */}
         <div className="rounded-xl bg-linear-to-br from-[#7b57fc] to-[#2b1cff] aspect-video relative overflow-hidden">
           <Image
-            src="/images/Video-Call-men.jpg"
+            src="/images/video-call-men.jpg"
             alt="video call"
             fill
             className="object-cover"

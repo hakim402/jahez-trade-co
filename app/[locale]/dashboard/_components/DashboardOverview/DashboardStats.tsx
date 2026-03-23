@@ -53,7 +53,7 @@ export function DashboardStatsCards({ stats }: DashboardStatsCardsProps) {
       subvalue:    stats.bookings.completed,
       icon:        Video,
       gradient:    'from-sky-500 to-cyan-500',
-      href:        '/dashboard/video-bookings',
+      href:        '/dashboard/bookings',
     },
     {
       labelKey:    'pendingQuotes',
@@ -62,7 +62,7 @@ export function DashboardStatsCards({ stats }: DashboardStatsCardsProps) {
       subvalue:    stats.quotes.total,
       icon:        MessageSquareQuote,
       gradient:    'from-amber-500 to-orange-500',
-      href:        '/dashboard/requests',
+      href:        '/dashboard/consulting',
       urgent:      stats.quotes.pending > 0,
     },
     {

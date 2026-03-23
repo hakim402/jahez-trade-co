@@ -12,6 +12,7 @@ import {
 } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
+import { arSA, enUS } from "date-fns/locale";
 import { motion, AnimatePresence } from "motion/react";
 import {
   MessageSquare,
@@ -34,11 +35,11 @@ import {
   Zap,
   BellDot,
   ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   startSession,
@@ -53,31 +54,134 @@ import {
 } from "../actions";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
+// Bilingual strings
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SESSION_POLL_MS = 5_000; // how often session list refreshes
-const MESSAGE_POLL_MS = 3_000; // how often active conversation polls for replies
+const T = {
+  en: {
+    messages: "Messages",
+    live: "Live",
+    newConversation: "New conversation",
+    starting: "Starting…",
+    upgradeToChat: "Upgrade to chat",
+    noConversations: "No conversations yet",
+    newTap: (n: number) => `${n} new — tap to load`,
+    selectOrStart:
+      "Select a session or start a new conversation with our sourcing team.",
+    yourConversations: "Your conversations",
+    updatesEvery: (s: number) => `Updates every ${s}s`,
+    active: "Active",
+    ended: "Ended",
+    msgs: (n: number) => `${n} msg${n !== 1 ? "s" : ""}`,
+    noMessagesYet: "No messages yet",
+    sourcingTeam: "Sourcing Team",
+    liveStatus: "Live",
+    endedStatus: "Ended",
+    messageCount: (n: number, ago: string) => `${n} messages · ${ago}`,
+    endBtn: "End",
+    endConfirmText:
+      "End this conversation? You won't be able to send more messages.",
+    cancel: "Cancel",
+    loadingConv: "Loading conversation…",
+    back: "Back",
+    howCanWeHelp: "How can we help?",
+    helpDesc:
+      "Ask our sourcing team about product requests, quotes, bookings, or anything about the platform.",
+    suggestions: [
+      "How do I submit a product request?",
+      "How long does a quote take?",
+      "What sourcing services do you offer?",
+    ],
+    inputPlaceholder:
+      "Ask anything…  (Enter to send · Shift+Enter for new line)",
+    aiFootnote:
+      "AI replies instantly · Our team follows up for complex requests",
+    convEnded: "Conversation ended",
+    upgradeTitle: "Upgrade to send messages",
+    upgradeDesc:
+      "Direct messaging with our sourcing team is available on paid plans.",
+    viewPlans: "View plans",
+    upgradePlanError: "Upgrade your plan to start a conversation.",
+    upgradeSendError: "Upgrade your plan to send messages.",
+    free: "Free",
+    today: "Today",
+    yesterday: "Yesterday",
+  },
+  ar: {
+    messages: "الرسائل",
+    live: "مباشر",
+    newConversation: "محادثة جديدة",
+    starting: "جارٍ البدء…",
+    upgradeToChat: "ترقية للدردشة",
+    noConversations: "لا توجد محادثات بعد",
+    newTap: (n: number) => `${n} جديد — اضغط للتحميل`,
+    selectOrStart: "اختر جلسة أو ابدأ محادثة جديدة مع فريق المصادر.",
+    yourConversations: "محادثاتك",
+    updatesEvery: (s: number) => `تحديث كل ${s} ث`,
+    active: "نشطة",
+    ended: "منتهية",
+    msgs: (n: number) => `${n} رسالة`,
+    noMessagesYet: "لا توجد رسائل بعد",
+    sourcingTeam: "فريق المصادر",
+    liveStatus: "مباشر",
+    endedStatus: "منتهية",
+    messageCount: (n: number, ago: string) => `${n} رسالة · ${ago}`,
+    endBtn: "إنهاء",
+    endConfirmText: "إنهاء هذه المحادثة؟ لن تتمكن من إرسال المزيد من الرسائل.",
+    cancel: "إلغاء",
+    loadingConv: "جارٍ تحميل المحادثة…",
+    back: "رجوع",
+    howCanWeHelp: "كيف يمكننا مساعدتك؟",
+    helpDesc:
+      "اسأل فريق المصادر عن طلبات المنتجات أو عروض الأسعار أو الحجوزات أو أي شيء عن المنصة.",
+    suggestions: [
+      "كيف أُرسل طلب منتج؟",
+      "كم يستغرق استلام عرض السعر؟",
+      "ما خدمات المصادر التي تقدمونها؟",
+    ],
+    inputPlaceholder: "اسأل أي شيء…  (Enter للإرسال · Shift+Enter لسطر جديد)",
+    aiFootnote: "يرد الذكاء الاصطناعي فوراً · يتابع فريقنا الطلبات المعقدة",
+    convEnded: "انتهت المحادثة",
+    upgradeTitle: "قم بالترقية لإرسال الرسائل",
+    upgradeDesc: "المراسلة المباشرة مع فريق المصادر متاحة في الخطط المدفوعة.",
+    viewPlans: "عرض الخطط",
+    upgradePlanError: "قم بترقية خطتك لبدء محادثة.",
+    upgradeSendError: "قم بترقية خطتك لإرسال الرسائل.",
+    free: "مجاني",
+    today: "اليوم",
+    yesterday: "أمس",
+  },
+} as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
+// Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-function timeAgo(d: Date | string) {
-  return formatDistanceToNow(new Date(d), { addSuffix: true });
+const SESSION_POLL_MS = 5_000;
+const MESSAGE_POLL_MS = 3_000;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function timeAgo(d: Date | string, isAr: boolean) {
+  return formatDistanceToNow(new Date(d), {
+    addSuffix: true,
+    locale: isAr ? arSA : enUS,
+  });
 }
 
-function msgTime(d: Date | string) {
+function msgTime(d: Date | string, t: typeof T.en) {
   const date = new Date(d);
   if (isToday(date)) return format(date, "HH:mm");
-  if (isYesterday(date)) return `Yesterday ${format(date, "HH:mm")}`;
+  if (isYesterday(date)) return `${t.yesterday} ${format(date, "HH:mm")}`;
   return format(date, "dd MMM, HH:mm");
 }
 
-function dayLabel(d: Date | string) {
+function dayLabel(d: Date | string, t: typeof T.en) {
   const date = new Date(d);
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
+  if (isToday(date)) return t.today;
+  if (isYesterday(date)) return t.yesterday;
   return format(date, "MMMM d, yyyy");
 }
 
@@ -92,10 +196,10 @@ function getInitials(name: string | null | undefined, email: string) {
   return email.slice(0, 2).toUpperCase();
 }
 
-function groupByDay(messages: ClientMessage[]) {
+function groupByDay(messages: ClientMessage[], t: typeof T.en) {
   const map = new Map<string, ClientMessage[]>();
   for (const m of messages) {
-    const label = dayLabel(m.createdAt);
+    const label = dayLabel(m.createdAt, t);
     if (!map.has(label)) map.set(label, []);
     map.get(label)!.push(m);
   }
@@ -103,12 +207,10 @@ function groupByDay(messages: ClientMessage[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HOOK: useSessionListSync
-// Keeps the session list up-to-date without resetting scroll or selection.
-// Detects new sessions and surfaces them as a banner count.
+// Hook: useSessionListSync
 // ─────────────────────────────────────────────────────────────────────────────
 
-function useSessionListSync(initial: ClientSession[], userId: string) {
+function useSessionListSync(initial: ClientSession[]) {
   const [sessions, setSessions] = useState<ClientSession[]>(initial);
   const [newCount, setNewCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
@@ -119,8 +221,6 @@ function useSessionListSync(initial: ClientSession[], userId: string) {
 
   const sync = useCallback(async (silent = true) => {
     if (!silent) setSyncing(true);
-    // Re-use getUserContext but we only need sessions; import is already available
-    // Call the action directly — it reads the auth from the session server-side
     const { getUserContext } = await import("../actions");
     const r = await getUserContext();
     if (!r.success) {
@@ -136,11 +236,8 @@ function useSessionListSync(initial: ClientSession[], userId: string) {
         if (!knownIds.current.has(s.id)) added++;
         prevMap.set(s.id, s);
       }
-      if (added > 0 && knownIds.current.size > 0) {
-        setNewCount((c) => c + added);
-      }
+      if (added > 0 && knownIds.current.size > 0) setNewCount((c) => c + added);
       knownIds.current = new Set(incoming.map((s) => s.id));
-      // Maintain order from server (newest first)
       return incoming.map((s) => prevMap.get(s.id) ?? s);
     });
     if (!silent) setSyncing(false);
@@ -151,15 +248,18 @@ function useSessionListSync(initial: ClientSession[], userId: string) {
     return () => clearInterval(timerRef.current);
   }, [sync]);
 
-  const clearNewCount = () => setNewCount(0);
-  const forceSync = () => sync(false);
-
-  return { sessions, setSessions, newCount, clearNewCount, forceSync, syncing };
+  return {
+    sessions,
+    setSessions,
+    newCount,
+    clearNewCount: () => setNewCount(0),
+    forceSync: () => sync(false),
+    syncing,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HOOK: useConversation
-// Loads a session's messages and polls for admin/AI replies every 3 s.
+// Hook: useConversation
 // ─────────────────────────────────────────────────────────────────────────────
 
 function useConversation(sessionId: string) {
@@ -192,11 +292,9 @@ function useConversation(sessionId: string) {
     load();
   }, [load]);
 
-  // Poll for new messages (admin replies + AI) when session is active
   useEffect(() => {
     clearInterval(pollTimer.current);
     if (loading || !detail?.isActive) return;
-
     pollTimer.current = setInterval(async () => {
       if (!isActiveRef.current) {
         clearInterval(pollTimer.current);
@@ -204,7 +302,6 @@ function useConversation(sessionId: string) {
       }
       const r = await pollClientMessages(sessionId, lastMsgId.current);
       if (!r.success) return;
-
       if (r.data.messages.length > 0) {
         setDetail((prev) => {
           if (!prev) return prev;
@@ -215,7 +312,6 @@ function useConversation(sessionId: string) {
           return { ...prev, messages: [...prev.messages, ...fresh] };
         });
       }
-
       if (r.data.sessionEndedAt) {
         setDetail((prev) =>
           prev
@@ -226,7 +322,6 @@ function useConversation(sessionId: string) {
         clearInterval(pollTimer.current);
       }
     }, MESSAGE_POLL_MS);
-
     return () => clearInterval(pollTimer.current);
   }, [loading, detail?.isActive, sessionId]);
 
@@ -275,14 +370,14 @@ function useConversation(sessionId: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PLAN BADGE
+// Plan badge
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PlanBadge({ plan }: { plan: PlanInfo }) {
+function PlanBadge({ plan, t }: { plan: PlanInfo; t: typeof T.en }) {
   if (plan.isDefault || plan.amount === 0) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted/60 text-muted-foreground ring-1 ring-border/50">
-        <MessageSquare size={9} /> Free
+        <MessageSquare size={9} /> {t.free}
       </span>
     );
   }
@@ -294,10 +389,10 @@ function PlanBadge({ plan }: { plan: PlanInfo }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UPGRADE WALL
+// Upgrade wall
 // ─────────────────────────────────────────────────────────────────────────────
 
-function UpgradeWall() {
+function UpgradeWall({ t }: { t: typeof T.en }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/25">
@@ -305,21 +400,21 @@ function UpgradeWall() {
       </div>
       <div>
         <h3 className="text-base font-semibold text-foreground">
-          Upgrade to send messages
+          {t.upgradeTitle}
         </h3>
         <p className="text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed">
-          Direct messaging with our sourcing team is available on paid plans.
+          {t.upgradeDesc}
         </p>
       </div>
       <Button className="bg-amber-500 hover:bg-amber-600 text-white gap-2 rounded-xl">
-        <Crown size={14} /> View plans
+        <Crown size={14} /> {t.viewPlans}
       </Button>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SESSION LIST ITEM
+// Session list item
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SessionItem({
@@ -327,16 +422,20 @@ function SessionItem({
   isSelected,
   isNew,
   onSelect,
+  t,
+  isAr,
 }: {
   session: ClientSession;
   isSelected: boolean;
   isNew: boolean;
   onSelect: () => void;
+  t: typeof T.en;
+  isAr: boolean;
 }) {
   return (
     <motion.button
       layout
-      initial={{ opacity: 0, x: -8, scale: 0.97 }}
+      initial={{ opacity: 0, x: isAr ? 8 : -8, scale: 0.97 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       transition={{ type: "spring", stiffness: 380, damping: 30 }}
       whileTap={{ scale: 0.98 }}
@@ -349,12 +448,17 @@ function SessionItem({
             ? "bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/8"
             : "hover:bg-muted/50 border border-transparent",
       )}
+      dir={isAr ? "rtl" : "ltr"}
     >
       {isNew && !isSelected && (
-        <span className="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <span
+          className={cn(
+            "absolute top-2.5 h-1.5 w-1.5 rounded-full bg-emerald-400",
+            isAr ? "left-2.5" : "right-2.5",
+          )}
+        />
       )}
 
-      {/* Icon */}
       <div
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl mt-0.5",
@@ -386,20 +490,21 @@ function SessionItem({
             )}
           >
             {isToday(new Date(session.startedAt))
-              ? `Today · ${format(new Date(session.startedAt), "HH:mm")}`
+              ? `${t.today} · ${format(new Date(session.startedAt), "HH:mm")}`
               : format(new Date(session.startedAt), "MMM d · HH:mm")}
           </p>
-          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
-            {timeAgo(session.startedAt)}
+          <span
+            className="text-[10px] text-muted-foreground shrink-0 tabular-nums"
+            suppressHydrationWarning
+          >
+            {timeAgo(session.startedAt, isAr)}
           </span>
         </div>
-
         <p className="text-xs text-muted-foreground truncate mt-0.5 leading-relaxed">
           {session.lastMessage
             ? `${session.lastMessage.role === "assistant" ? "🤖" : "👤"} ${session.lastMessage.content}`
-            : "No messages yet"}
+            : t.noMessagesYet}
         </p>
-
         <div className="flex items-center gap-2 mt-1.5">
           <span
             className={cn(
@@ -409,11 +514,11 @@ function SessionItem({
                 : "text-muted-foreground/60 ring-border/50",
             )}
           >
-            {session.isActive ? "Active" : "Ended"}
+            {session.isActive ? t.active : t.ended}
           </span>
           <span className="text-muted-foreground/40 text-[10px]">·</span>
           <span className="text-[10px] text-muted-foreground/60">
-            {session.messageCount} msg{session.messageCount !== 1 ? "s" : ""}
+            {t.msgs(session.messageCount)}
           </span>
         </div>
       </div>
@@ -422,7 +527,7 @@ function SessionItem({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPING INDICATOR (three bouncing dots)
+// Typing indicator
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TypingIndicator() {
@@ -441,6 +546,7 @@ function TypingIndicator() {
           {[0, 150, 300].map((delay) => (
             <span
               key={delay}
+              style={{ animationDelay: `${delay}ms` }}
               className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce"
             />
           ))}
@@ -451,17 +557,21 @@ function TypingIndicator() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MESSAGE BUBBLE
+// Message bubble
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MessageBubble({
   message,
   user,
   isOptimistic,
+  t,
+  isAr,
 }: {
   message: ClientMessage;
   user: { fullName: string | null; email: string; avatarUrl: string | null };
   isOptimistic?: boolean;
+  t: typeof T.en;
+  isAr: boolean;
 }) {
   const isUser = message.role === "user";
 
@@ -509,8 +619,11 @@ function MessageBubble({
           {message.content}
         </div>
         <div className="flex items-center gap-1.5 px-1">
-          <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-            {msgTime(message.createdAt)}
+          <span
+            className="text-[10px] text-muted-foreground/60 tabular-nums"
+            suppressHydrationWarning
+          >
+            {msgTime(message.createdAt, t)}
           </span>
           {isUser &&
             (isOptimistic ? (
@@ -528,7 +641,7 @@ function MessageBubble({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONVERSATION VIEW (right panel)
+// Conversation view
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ConversationViewProps {
@@ -542,6 +655,8 @@ interface ConversationViewProps {
   plan: PlanInfo;
   onEnded: (sessionId: string, endedAt: Date) => void;
   onBack?: () => void;
+  t: typeof T.en;
+  isAr: boolean;
 }
 
 function ConversationView({
@@ -550,6 +665,8 @@ function ConversationView({
   plan,
   onEnded,
   onBack,
+  t,
+  isAr,
 }: ConversationViewProps) {
   const {
     detail,
@@ -585,19 +702,16 @@ function ConversationView({
     setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 100);
   };
 
-  // Auto-scroll when new messages arrive
   useEffect(() => {
     if (!detail) return;
     const count = detail.messages.length;
     if (count > prevMsgCount.current) {
       prevMsgCount.current = count;
       if (atBottom) scrollToBottom();
-      // Dismiss AI typing when reply arrives
       setAiTyping(false);
     }
   }, [detail?.messages.length, atBottom, scrollToBottom]);
 
-  // Scroll on first load
   useEffect(() => {
     if (!loading && detail) setTimeout(() => scrollToBottom(false), 60);
   }, [loading]);
@@ -627,11 +741,7 @@ function ConversationView({
         removeOptimistic(tempId);
         setAiTyping(false);
         setReply(content);
-        setError(
-          r.error === "UPGRADE_REQUIRED"
-            ? "Upgrade your plan to send messages."
-            : r.error,
-        );
+        setError(r.error === "UPGRADE_REQUIRED" ? t.upgradeSendError : r.error);
       }
     });
   };
@@ -657,15 +767,14 @@ function ConversationView({
     }
   };
 
-  if (loading) {
+  if (loading)
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3">
         <Loader2 size={22} className="animate-spin text-muted-foreground/50" />
-        <p className="text-xs text-muted-foreground">Loading conversation…</p>
+        <p className="text-xs text-muted-foreground">{t.loadingConv}</p>
       </div>
     );
-  }
-  if (error && !detail) {
+  if (error && !detail)
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3 text-center px-8">
         <AlertTriangle size={22} className="text-red-400/70" />
@@ -675,31 +784,29 @@ function ConversationView({
             onClick={onBack}
             className="text-xs text-[#7b57fc] hover:underline mt-1"
           >
-            ← Back
+            ← {t.back}
           </button>
         )}
       </div>
     );
-  }
   if (!detail) return null;
 
-  const grouped = groupByDay(detail.messages);
+  const grouped = groupByDay(detail.messages, t);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* ── Header ─────────────────────────────────────────────────── */}
+    <div className="flex flex-col h-full" dir={isAr ? "rtl" : "ltr"}>
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/40 shrink-0 bg-card/60 backdrop-blur-sm">
         {onBack && (
           <Button
-            variant={"ghost"}
+            variant="ghost"
             onClick={onBack}
             className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-muted transition-colors shrink-0 md:hidden"
           >
-            <ChevronLeft size={18} />
+            {isAr ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
           </Button>
         )}
 
-        {/* Sourcing team avatar (static — represents the team, not a specific user) */}
         <div className="relative shrink-0">
           <div className="h-9 w-9 rounded-full bg-[#7b57fc]/15 ring-2 ring-border/40 flex items-center justify-center">
             <Bot size={16} className="text-[#7b57fc]" />
@@ -712,7 +819,7 @@ function ConversationView({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground">
-              Sourcing Team
+              {t.sourcingTeam}
             </p>
             {detail.isActive ? (
               <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
@@ -720,16 +827,19 @@ function ConversationView({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-70" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                 </span>
-                Live
+                {t.liveStatus}
               </span>
             ) : (
               <span className="text-[10px] text-muted-foreground/60 shrink-0">
-                Ended
+                {t.endedStatus}
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {detail.messageCount} messages · {timeAgo(detail.startedAt)}
+          <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+            {t.messageCount(
+              detail.messageCount,
+              timeAgo(detail.startedAt, isAr),
+            )}
           </p>
         </div>
 
@@ -738,12 +848,12 @@ function ConversationView({
             onClick={() => setEndConfirm(true)}
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-500 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/8"
           >
-            <StopCircle size={13} /> End
+            <StopCircle size={13} /> {t.endBtn}
           </button>
         )}
       </div>
 
-      {/* ── Error banner ────────────────────────────────────────────── */}
+      {/* Error banner */}
       <AnimatePresence>
         {error && (
           <motion.div
@@ -754,14 +864,14 @@ function ConversationView({
           >
             <AlertTriangle size={12} />
             <span className="flex-1">{error}</span>
-            <Button variant={"ghost"} onClick={() => setError(null)}>
+            <Button variant="ghost" onClick={() => setError(null)}>
               <X size={12} />
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── End confirm ─────────────────────────────────────────────── */}
+      {/* End confirm */}
       <AnimatePresence>
         {endConfirm && (
           <motion.div
@@ -772,13 +882,13 @@ function ConversationView({
           >
             <AlertTriangle size={13} className="text-amber-500 shrink-0" />
             <p className="text-xs text-amber-600 dark:text-amber-400 flex-1">
-              End this conversation? You won't be able to send more messages.
+              {t.endConfirmText}
             </p>
             <button
               onClick={() => setEndConfirm(false)}
               className="text-xs text-muted-foreground hover:text-foreground px-2"
             >
-              Cancel
+              {t.cancel}
             </button>
             <Button
               size="sm"
@@ -789,21 +899,20 @@ function ConversationView({
               {isPending ? (
                 <Loader2 size={11} className="animate-spin" />
               ) : (
-                "End"
+                t.endBtn
               )}
             </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Messages ────────────────────────────────────────────────── */}
+      {/* Messages */}
       <div
         ref={scrollAreaRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-0.5 min-h-0"
       >
         {detail.messages.length === 0 && !aiTyping ? (
-          /* Welcome empty state */
           <div className="flex flex-col items-center justify-center h-full gap-5 text-center">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -815,20 +924,14 @@ function ConversationView({
             </motion.div>
             <div className="space-y-1.5">
               <p className="text-sm font-semibold text-foreground">
-                How can we help?
+                {t.howCanWeHelp}
               </p>
               <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                Ask our sourcing team about product requests, quotes, bookings,
-                or anything about the platform.
+                {t.helpDesc}
               </p>
             </div>
-            {/* Quick suggestion chips */}
             <div className="flex flex-wrap justify-center gap-2 mt-1">
-              {[
-                "How do I submit a product request?",
-                "How long does a quote take?",
-                "What sourcing services do you offer?",
-              ].map((q) => (
+              {t.suggestions.map((q) => (
                 <button
                   key={q}
                   onClick={() => {
@@ -858,13 +961,14 @@ function ConversationView({
                   message={m}
                   user={user}
                   isOptimistic={m.id.startsWith("opt-")}
+                  t={t}
+                  isAr={isAr}
                 />
               ))}
             </Fragment>
           ))
         )}
 
-        {/* AI typing indicator */}
         <AnimatePresence>
           {aiTyping && (
             <div className="mt-2">
@@ -891,7 +995,7 @@ function ConversationView({
         )}
       </AnimatePresence>
 
-      {/* ── Composer ────────────────────────────────────────────────── */}
+      {/* Composer */}
       <div className="shrink-0 border-t border-border/40 p-3 bg-card/60 backdrop-blur-sm">
         {detail.isActive ? (
           <>
@@ -901,10 +1005,11 @@ function ConversationView({
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything…  (Enter to send · Shift+Enter for new line)"
+                placeholder={t.inputPlaceholder}
                 rows={2}
                 disabled={isPending}
                 className="flex-1 resize-none text-sm bg-muted/40 border-border/50 rounded-xl focus:bg-background focus:border-[#7b57fc]/40 focus:ring-1 focus:ring-[#7b57fc]/20 min-h-13 max-h-35 transition-all"
+                dir={isAr ? "rtl" : "ltr"}
               />
               <Button
                 onClick={handleSend}
@@ -919,18 +1024,20 @@ function ConversationView({
               </Button>
             </div>
             <p className="text-[10px] text-muted-foreground/50 mt-1.5 flex items-center gap-1">
-              <Bot size={9} />
-              AI replies instantly · Our team follows up for complex requests
+              <Bot size={9} /> {t.aiFootnote}
             </p>
           </>
         ) : (
           <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-muted/30 border border-dashed border-border/50">
             <CheckCircle2 size={13} className="text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground">Conversation ended</p>
+            <p className="text-xs text-muted-foreground">{t.convEnded}</p>
             {detail.endedAt && (
-              <span className="text-[10px] text-muted-foreground/50">
+              <span
+                className="text-[10px] text-muted-foreground/50"
+                suppressHydrationWarning
+              >
                 · <Clock size={9} className="inline" />{" "}
-                {timeAgo(detail.endedAt)}
+                {timeAgo(detail.endedAt, isAr)}
               </span>
             )}
           </div>
@@ -941,17 +1048,19 @@ function ConversationView({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EMPTY STATE (no session selected)
+// Empty state
 // ─────────────────────────────────────────────────────────────────────────────
 
 function EmptyState({
   onNew,
   plan,
   isPending,
+  t,
 }: {
   onNew: () => void;
   plan: PlanInfo;
   isPending: boolean;
+  t: typeof T.en;
 }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 text-center px-8">
@@ -966,10 +1075,10 @@ function EmptyState({
       </motion.div>
       <div>
         <p className="text-sm font-semibold text-foreground/80">
-          Your conversations
+          {t.yourConversations}
         </p>
         <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-xs">
-          Select a session or start a new conversation with our sourcing team.
+          {t.selectOrStart}
         </p>
       </div>
       {plan.hasAccess && (
@@ -980,11 +1089,11 @@ function EmptyState({
         >
           {isPending ? (
             <>
-              <Loader2 size={13} className="animate-spin" /> Starting…
+              <Loader2 size={13} className="animate-spin" /> {t.starting}
             </>
           ) : (
             <>
-              <Plus size={14} /> New conversation
+              <Plus size={14} /> {t.newConversation}
             </>
           )}
         </Button>
@@ -994,14 +1103,14 @@ function EmptyState({
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
         </span>
-        Updates every {SESSION_POLL_MS / 1000}s
+        {t.updatesEvery(SESSION_POLL_MS / 1000)}
       </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOT COMPONENT
+// Root component
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -1013,15 +1122,19 @@ interface Props {
   };
   initialPlan: PlanInfo;
   initialSessions: ClientSession[];
+  isAr?: boolean;
 }
 
 export function ClientMessagesClient({
   initialUser,
   initialPlan,
   initialSessions,
+  isAr = false,
 }: Props) {
+  const t = (isAr ? T.ar : T.en) as typeof T.en;
+
   const { sessions, setSessions, newCount, clearNewCount, forceSync, syncing } =
-    useSessionListSync(initialSessions, initialUser.id);
+    useSessionListSync(initialSessions);
 
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSessions.find((s) => s.isActive)?.id ??
@@ -1033,7 +1146,6 @@ export function ClientMessagesClient({
   const [startError, setStartError] = useState<string | null>(null);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
-  // Track new sessions for highlight
   const prevIdsRef = useRef<Set<string>>(
     new Set(initialSessions.map((s) => s.id)),
   );
@@ -1067,13 +1179,10 @@ export function ClientMessagesClient({
         setSessions((prev) => [r.data, ...prev]);
         setSelectedId(r.data.id);
         setMobileView("chat");
-      } else {
+      } else
         setStartError(
-          r.error === "UPGRADE_REQUIRED"
-            ? "Upgrade your plan to start a conversation."
-            : r.error,
+          r.error === "UPGRADE_REQUIRED" ? t.upgradePlanError : r.error,
         );
-      }
     });
   };
 
@@ -1094,12 +1203,15 @@ export function ClientMessagesClient({
   };
 
   return (
-    // ✅ No inline styles — layout driven by Tailwind flex + h-full
-    <div className="h-full rounded-2xl border border-border/50 bg-card overflow-hidden flex shadow-sm">
-      {/* ── Left: session list ──────────────────────────────────────── */}
+    <div
+      className="h-full rounded-2xl border border-border/50 bg-card overflow-hidden flex shadow-sm"
+      dir={isAr ? "rtl" : "ltr"}
+    >
+      {/* Left: session list */}
       <div
         className={cn(
           "w-full md:w-72 lg:w-80 shrink-0 border-r border-border/30 flex flex-col",
+          isAr && "border-r-0 border-l",
           mobileView === "chat" ? "hidden md:flex" : "flex",
         )}
       >
@@ -1108,23 +1220,22 @@ export function ClientMessagesClient({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-foreground">
-                Messages
+                {t.messages}
               </span>
-              {/* Live pulse */}
               <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                 </span>
-                Live
+                {t.live}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <PlanBadge plan={initialPlan} />
+              <PlanBadge plan={initialPlan} t={t} />
               <Button
-                variant={"ghost"}
+                variant="ghost"
                 onClick={forceSync}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors h-7 w-7 p-0"
               >
                 <RefreshCw
                   size={11}
@@ -1143,11 +1254,11 @@ export function ClientMessagesClient({
             >
               {isPending ? (
                 <>
-                  <Loader2 size={11} className="animate-spin" /> Starting…
+                  <Loader2 size={11} className="animate-spin" /> {t.starting}
                 </>
               ) : (
                 <>
-                  <Plus size={12} /> New conversation
+                  <Plus size={12} /> {t.newConversation}
                 </>
               )}
             </Button>
@@ -1157,7 +1268,7 @@ export function ClientMessagesClient({
               variant="outline"
               className="w-full h-8 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/8 gap-1.5 rounded-lg"
             >
-              <Crown size={11} /> Upgrade to chat
+              <Crown size={11} /> {t.upgradeToChat}
             </Button>
           )}
           {startError && <p className="text-xs text-red-500">{startError}</p>}
@@ -1176,8 +1287,7 @@ export function ClientMessagesClient({
               }}
               className="w-full flex items-center justify-center gap-2 py-2 bg-[#7b57fc]/10 border-b border-[#7b57fc]/20 text-xs font-semibold text-[#7b57fc] hover:bg-[#7b57fc]/15 transition-colors shrink-0"
             >
-              <BellDot size={12} />
-              {newCount} new — tap to load
+              <BellDot size={12} /> {t.newTap(newCount)}
             </motion.button>
           )}
         </AnimatePresence>
@@ -1190,7 +1300,7 @@ export function ClientMessagesClient({
                 <MessageSquare size={18} className="text-muted-foreground/40" />
               </div>
               <p className="text-xs text-muted-foreground">
-                No conversations yet
+                {t.noConversations}
               </p>
             </div>
           ) : (
@@ -1202,13 +1312,15 @@ export function ClientMessagesClient({
                   isSelected={selectedId === s.id}
                   isNew={newIds.has(s.id)}
                   onSelect={() => handleSelect(s.id)}
+                  t={t}
+                  isAr={isAr}
                 />
               ))}
             </AnimatePresence>
           )}
         </div>
 
-        {/* Footer — user identity */}
+        {/* Footer */}
         <div className="px-3 py-3 border-t border-border/40 flex items-center gap-2.5 shrink-0">
           <Avatar className="h-7 w-7 ring-1 ring-border/40 shrink-0">
             <AvatarImage src={initialUser.avatarUrl ?? undefined} />
@@ -1227,7 +1339,7 @@ export function ClientMessagesClient({
         </div>
       </div>
 
-      {/* ── Right: conversation ─────────────────────────────────────── */}
+      {/* Right: conversation */}
       <div
         className={cn(
           "flex-1 flex flex-col min-w-0 relative",
@@ -1235,7 +1347,7 @@ export function ClientMessagesClient({
         )}
       >
         {!initialPlan.hasAccess ? (
-          <UpgradeWall />
+          <UpgradeWall t={t} />
         ) : selectedId ? (
           <ConversationView
             key={selectedId}
@@ -1244,12 +1356,15 @@ export function ClientMessagesClient({
             plan={initialPlan}
             onEnded={handleEnded}
             onBack={() => setMobileView("list")}
+            t={t}
+            isAr={isAr}
           />
         ) : (
           <EmptyState
             onNew={handleNewSession}
             plan={initialPlan}
             isPending={isPending}
+            t={t}
           />
         )}
       </div>

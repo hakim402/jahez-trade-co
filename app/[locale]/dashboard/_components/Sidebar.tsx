@@ -6,11 +6,9 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Settings,
-  HelpCircle,
   ChevronLeft,
   ChevronRight,
   Bell,
-  MessageSquare,
   PackageSearch,
   Video,
   BotMessageSquare,
@@ -18,9 +16,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
+import { Link, usePathname } from "@/i18n/routing";
 
 interface NavItem {
   icon: React.ElementType;
@@ -32,7 +29,7 @@ interface NavItem {
 export function Sidebar() {
   const t = useTranslations("Sidebar");
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
-  const pathname = usePathname();
+  const pathname = usePathname(); // returns path without locale
   const clerk = useClerk();
 
   const handleLinkClick = () => {
@@ -52,35 +49,15 @@ export function Sidebar() {
 
   const mainNavItems: NavItem[] = [
     { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
-    {
-      icon: PackageSearch,
-      labelKey: "myRequests",
-      href: "/dashboard/requests",
-    },
-    {
-      icon: Video,
-      labelKey: "videoBookings",
-      href: "/dashboard/bookings",
-    },
-    {
-      icon: BriefcaseBusiness,
-      labelKey: "consulting",
-      href: "/dashboard/consulting",
-    },
-    {
-      icon: Bell,
-      labelKey: "notifications",
-      href: "/dashboard/notifications",
-    },
+    { icon: PackageSearch, labelKey: "myRequests", href: "/dashboard/requests" },
+    { icon: Video, labelKey: "videoBookings", href: "/dashboard/bookings" },
+    { icon: BriefcaseBusiness, labelKey: "consulting", href: "/dashboard/consulting" },
+    { icon: BotMessageSquare, labelKey: "support", href: "/dashboard/support" },
   ];
 
   const bottomNavItems: NavItem[] = [
-    {
-      icon: BotMessageSquare,
-      labelKey: "support",
-      href: "/dashboard/support",
-    },
-    { icon: Settings, labelKey: "settings" }, // no href, will trigger modal
+    { icon: Bell, labelKey: "notifications", href: "/dashboard/notifications" },
+    { icon: Settings, labelKey: "settings" }, // no href, opens modal
   ];
 
   return (
@@ -96,14 +73,13 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed top-0 z-50 h-screen bg-sidebar/90 border-sidebar-border/5 transition-all duration-300",
-          // Desktop positioning – always visible
+          // Desktop positioning
           "lg:block lg:translate-x-0",
           "ltr:lg:left-0 rtl:lg:right-0",
           "ltr:border-r rtl:border-l",
-          collapsed ? "lg:w-22" : "lg:w-64",
-          // Base width (mobile uses this)
+          collapsed ? "lg:w-20" : "lg:w-64",
           "w-64",
-          // Mobile transforms – only apply below lg breakpoint
+          // Mobile transforms
           mobileOpen
             ? "max-lg:translate-x-0"
             : "ltr:max-lg:-translate-x-full rtl:max-lg:translate-x-full",
@@ -138,11 +114,7 @@ export function Sidebar() {
             className="hidden lg:flex text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/10 cursor-pointer"
           >
             <span className="inline-block rtl:rotate-180">
-              {collapsed ? (
-                <ChevronRight size={18} />
-              ) : (
-                <ChevronLeft size={18} />
-              )}
+              {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
             </span>
           </Button>
         </div>
@@ -152,7 +124,7 @@ export function Sidebar() {
             {mainNavItems.map((item) => (
               <Link
                 key={item.labelKey}
-                href={item.href!}
+                href={item.href as any}
                 onClick={handleLinkClick}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
@@ -182,7 +154,7 @@ export function Sidebar() {
                 return (
                   <Link
                     key={item.labelKey}
-                    href={item.href}
+                    href={item.href as any}
                     onClick={handleLinkClick}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
@@ -205,7 +177,6 @@ export function Sidebar() {
                   </Link>
                 );
               }
-              // Settings button without href
               return (
                 <button
                   key={item.labelKey}

@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getAdminBadgeCounts } from "./actions/badge-counts-actions"; // ← import
-import { BadgeCountsProvider } from "@/context/admin-badge-counts-context"; 
+import { BadgeCountsProvider } from "@/context/admin-badge-counts-context";
 import AdminLayoutContent from "./_components/AdminLayoutContent";
 
 export default async function AdminLayout({

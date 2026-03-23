@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/admin/(routes)/video-bookings/_components/VideoBookingPageClient.tsx
-// All sub-components private — only VideoBookingPageClient exported.
 
 import { useState, useTransition, useRef, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -140,11 +139,11 @@ const STATUS_CFG: Record<
 };
 
 const PROVIDER_LABELS: Record<MeetingProvider, string> = {
-  ZOOM: "🟦 Zoom",
-  GOOGLE_MEET: "🟢 Google Meet",
-  WHATSAPP: "📱 WhatsApp",
-  MICROSOFT_TEAMS: "🔵 Teams",
-  CUSTOM: "🔗 Custom",
+  ZOOM: "Zoom",
+  GOOGLE_MEET: "Google Meet",
+  WHATSAPP: "WhatsApp",
+  MICROSOFT_TEAMS: "Teams",
+  CUSTOM: "Custom",
 };
 
 const ALL_STATUSES = Object.keys(STATUS_CFG) as BookingStatus[];
@@ -674,7 +673,12 @@ function ScheduleDialog({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="p-0 gap-0 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden">
+      <DialogContent
+        className={cn(
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
+      >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-[#7b57fc]/10 flex items-center justify-center shrink-0">
@@ -927,7 +931,12 @@ function CompleteDialog({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="p-0 gap-0 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden">
+      <DialogContent
+        className={cn(
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
+      >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
@@ -1128,7 +1137,12 @@ function BookingDetailDialog({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="p-0 gap-0 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden">
+      <DialogContent
+        className={cn(
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
+      >
         {/* Header */}
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -1652,7 +1666,12 @@ function CreateSlotDialog({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="p-0 gap-0 max-w-sm w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden">
+      <DialogContent
+        className={cn(
+          "w-full max-w-none! sm:max-w-4xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
+      >
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-[#7b57fc]/10 flex items-center justify-center shrink-0">
@@ -2350,7 +2369,7 @@ interface Props {
   };
 }
 
-export function VideoBookingPageClient({
+export function BookingPageClient({
   kpi,
   availableSlotCount,
   initialBookings,

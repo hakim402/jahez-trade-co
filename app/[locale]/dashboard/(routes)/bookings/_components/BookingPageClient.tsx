@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/dashboard/(routes)/video-booking/_components/BookingPageClient.tsx
-// One file — all sub-components private. Only BookingPageClient exported.
 
 import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -307,11 +306,11 @@ const TYPE_ICONS: Record<BookingType, React.ElementType> = {
 };
 
 const PROVIDER_ICONS: Record<MeetingProvider, string> = {
-  ZOOM: "🟦 Zoom",
-  GOOGLE_MEET: "🟢 Google Meet",
-  WHATSAPP: "📱 WhatsApp",
-  MICROSOFT_TEAMS: "🔵 Teams",
-  CUSTOM: "🔗 Link",
+  ZOOM: "Zoom",
+  GOOGLE_MEET: "Google Meet",
+  WHATSAPP: "WhatsApp",
+  MICROSOFT_TEAMS: "Teams",
+  CUSTOM: "Link",
 };
 
 const ALL_STATUSES = Object.keys(STATUS_CFG) as BookingStatus[];
@@ -541,78 +540,6 @@ function PlanBar({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KPI strip
-// ─────────────────────────────────────────────────────────────────────────────
-
-function KpiStrip({ kpi, t }: { kpi: BookingKpi; t: typeof T.en }) {
-  const cards = [
-    {
-      label: t.total,
-      value: kpi.total,
-      icon: Video,
-      grad: "from-[#7b57fc] to-[#2b1cff]",
-      sh: "shadow-[#7b57fc]/20",
-    },
-    {
-      label: t.pending,
-      value: kpi.pending,
-      icon: Clock,
-      grad: "from-amber-400 to-orange-500",
-      sh: "shadow-amber-500/20",
-    },
-    {
-      label: t.confirmed,
-      value: kpi.confirmed,
-      icon: CheckCircle,
-      grad: "from-emerald-400 to-teal-500",
-      sh: "shadow-emerald-500/20",
-    },
-    {
-      label: t.completed,
-      value: kpi.completed,
-      icon: TrendingUp,
-      grad: "from-sky-400 to-blue-500",
-      sh: "shadow-sky-500/20",
-    },
-  ];
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {cards.map(({ label, value, icon: Icon, grad, sh }, i) => (
-        <motion.div
-          key={label}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.06 }}
-          className="group relative rounded-2xl border border-border/50 bg-card overflow-hidden p-4 flex items-center gap-3"
-        >
-          <div
-            className={cn(
-              "absolute -top-4 -right-4 h-14 w-14 rounded-full blur-2xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 bg-linear-to-br",
-              grad,
-            )}
-          />
-          <div
-            className={cn(
-              "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-linear-to-br shadow-md",
-              grad,
-              sh,
-            )}
-          >
-            <Icon size={15} className="text-white" />
-          </div>
-          <div className="relative">
-            <p className="text-xs text-muted-foreground font-medium">{label}</p>
-            <p className="text-2xl font-bold text-foreground tabular-nums leading-tight">
-              {value}
-            </p>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // New Booking Dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -724,7 +651,10 @@ function NewBookingDialog({
       }}
     >
       <DialogContent
-        className="p-0 gap-0 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden [&>button:last-child]:hidden"
+        className={cn(
+          "w-full max-w-none! sm:max-w-3xl! max-h-[90vh] rounded-2xl border border-border/50 bg-card shadow-2xl flex flex-col overflow-hidden p-0 gap-0",
+          "[&>button:last-child]:hidden",
+        )}
         dir={isAr ? "rtl" : "ltr"}
       >
         {/* Header */}
@@ -1559,9 +1489,6 @@ export function BookingPageClient({
     <div className="flex flex-col gap-5" dir={isAr ? "rtl" : "ltr"}>
       {/* Plan bar */}
       <PlanBar plan={planInfo} t={t} isAr={isAr} />
-
-      {/* KPI strip */}
-      <KpiStrip kpi={kpi} t={t} />
 
       {/* Status filter + New booking button */}
       <div className="flex flex-wrap items-center gap-2">

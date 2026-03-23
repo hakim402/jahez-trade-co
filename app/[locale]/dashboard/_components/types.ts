@@ -24,7 +24,7 @@ export type SubscriptionInfo = {
   periodEndsAt: Date | null
   billingEnabled: boolean
   hasAccess: boolean
-  requestLimit: number         
+  requestLimit: number
   bookingLimit: number
   requestsUsed: number
   bookingsUsed: number
