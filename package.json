@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint",
-    "copy-flags": "copyfiles -u 2 \"node_modules/flag-icons/flags/**/*\" public/flags/",
-    "postbuild": "npm run copy-flags"
+    "lint": "eslint"
   },
   "dependencies": {
     "@clerk/localizations": "^3.37.2",
