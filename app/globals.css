@@ -1,8 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+
 @import 'flag-icons/css/flag-icons.css';
 
+/* Force the font to load from the correct absolute path */
+@font-face {
+  font-family: 'flag-icons';
+  src: url('/flags/flags.woff2') format('woff2'),
+       url('/flags/flags.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
 
 @custom-variant dark (&:is(.dark *));
 
