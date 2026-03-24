@@ -1,6 +1,4 @@
-
 // app/[locale]/(pages)/products/_components/product-breadcrumb.tsx
-
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";

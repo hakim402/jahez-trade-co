@@ -709,10 +709,6 @@ export async function rejectQuote(
 // ── 6. DELETE OWN REQUEST ────────────────────────────────────────────────────
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Clients can soft-delete their own request only while it's SUBMITTED
- * (i.e. before the admin starts reviewing it).
- */
 export async function deleteMyRequest(
   requestId: string,
 ): Promise<ActionResult<{ ok: boolean }>> {

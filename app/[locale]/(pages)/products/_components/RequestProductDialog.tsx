@@ -39,6 +39,11 @@ import { cn } from "@/lib/utils";
 import { createProductRequest } from "@/app/[locale]/dashboard/(routes)/requests/actions";
 import { linkProductRequest } from "@/app/[locale]/(pages)/products/actions";
 import { Button } from "@/components/ui/button";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
+import US from "country-flag-icons/react/3x2/US";
+import CN from "country-flag-icons/react/3x2/CN";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -69,22 +74,15 @@ interface FormState {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Static data (with flag‑icon class)
+// Static data (now with SVG flag components)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COUNTRIES = [
-  { code: "SA", en: "Saudi Arabia", ar: "المملكة", flagIcon: "sa" },
-  { code: "AE", en: "UAE", ar: "الإمارات", flagIcon: "ae" },
-  { code: "YE", en: "Yemen", ar: "اليمن", flagIcon: "ye" },
-  { code: "KW", en: "Kuwait", ar: "الكويت", flagIcon: "kw" },
-  { code: "QA", en: "Qatar", ar: "قطر", flagIcon: "qa" },
-  { code: "BH", en: "Bahrain", ar: "البحرين", flagIcon: "bh" },
-  { code: "OM", en: "Oman", ar: "عُمان", flagIcon: "om" },
-  { code: "JO", en: "Jordan", ar: "الأردن", flagIcon: "jo" },
-  { code: "EG", en: "Egypt", ar: "مصر", flagIcon: "eg" },
-  { code: "US", en: "United States", ar: "الولايات المتحدة", flagIcon: "us" },
-  { code: "GB", en: "United Kingdom", ar: "المملكة المتحدة", flagIcon: "gb" },
-  { code: "DE", en: "Germany", ar: "ألمانيا", flagIcon: "de" },
+  { code: "SA", en: "Saudi Arabia", ar: "المملكة", flag: SA },
+  { code: "AE", en: "UAE", ar: "الإمارات", flag: AE },
+  { code: "YE", en: "Yemen", ar: "اليمن", flag: YE },
+  { code: "US", en: "United States", ar: "الولايات المتحدة", flag: US },
+  { code: "CN", en: "China", ar: "الصين", flag: CN },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -225,7 +223,7 @@ function ProductBanner({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Country picker (flag‑icons)
+// Country picker (SVG flags)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CountryPicker({
@@ -242,7 +240,7 @@ function CountryPicker({
   return (
     <div className="space-y-1.5">
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-        {COUNTRIES.map(({ code, en, ar, flagIcon }) => (
+        {COUNTRIES.map(({ code, en, ar, flag: FlagComponent }) => (
           <button
             key={code}
             type="button"
@@ -254,9 +252,7 @@ function CountryPicker({
                 : "border-border/50 bg-muted/30 text-muted-foreground hover:border-[#7b57fc]/40 hover:text-foreground",
             )}
           >
-            <span
-              className={`fi fi-${flagIcon} text-lg leading-none shrink-0`}
-            ></span>
+            <FlagComponent className="w-5 h-5 shrink-0 rounded-full shadow-sm" />
             <span className="text-[10px] font-medium truncate">
               {isAr ? ar : en}
             </span>
@@ -344,7 +340,7 @@ function ReviewSummary({
             label: isAr ? "دولة الشحن" : "Ships to",
             value: country ? (
               <span className="flex items-center gap-1">
-                <span className={`fi fi-${country.flagIcon} text-sm`}></span>
+                <country.flag className="w-4 h-4 rounded-full" />
                 {isAr ? country.ar : country.en}
               </span>
             ) : (
@@ -550,7 +546,8 @@ function RequestForm({
             error={errors.quantity}
           >
             <div className="flex items-center gap-2" dir="ltr">
-              <Button variant={'ghost'}
+              <Button
+                variant={"ghost"}
                 type="button"
                 onClick={() => {
                   setForm((p) => ({
@@ -581,7 +578,8 @@ function RequestForm({
                   errors.quantity && "border-red-400",
                 )}
               />
-              <Button variant={'ghost'}
+              <Button
+                variant={"ghost"}
                 type="button"
                 onClick={() => {
                   setForm((p) => ({ ...p, quantity: p.quantity + 1 }));
@@ -754,7 +752,7 @@ function RequestForm({
           const c = COUNTRIES.find((x) => x.code === form.shippingCountry);
           return c ? (
             <span className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-muted text-muted-foreground border border-border/50">
-              <span className={`fi fi-${c.flagIcon} text-sm`}></span>
+              <c.flag className="w-4 h-4 rounded-full" />
               {isAr ? c.ar : c.en}
             </span>
           ) : null;

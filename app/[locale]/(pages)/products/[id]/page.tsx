@@ -19,6 +19,11 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getPublicProductById, incrementProductView } from "../actions";
 import { Header } from "@/app/[locale]/_components/Header/Header";
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
 
 export const revalidate = 300;
 
@@ -26,15 +31,13 @@ interface PageProps {
   params: Promise<{ id: string; locale: string }>;
 }
 
-// Map country code to flag‑icon class
-const COUNTRY_FLAG_ICON: Record<string, string> = {
-  CN: "cn",
-  US: "us",
-  SA: "sa",
-  AE: "ae",
-  YE: "ye",
-  TR: "tr",
-  IN: "in",
+// Map country code to SVG flag component
+const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
+  CN,
+  US,
+  SA,
+  AE,
+  YE,
 };
 
 export async function generateMetadata({
@@ -111,8 +114,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
           ? "text-amber-500"
           : "text-muted-foreground";
 
-  const flagIconClass = product.sourceCountry
-    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+  const FlagComponent = product.sourceCountry
+    ? COUNTRY_FLAG_COMPONENT[product.sourceCountry]
     : null;
 
   return (
@@ -168,9 +171,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   {category}
                 </Badge>
               )}
-              {flagIconClass && (
+              {FlagComponent && (
                 <Badge variant="outline" className="gap-1">
-                  <span className={`fi fi-${flagIconClass} text-sm`}></span>
+                  <FlagComponent className="w-4 h-4" />
                   {isAr ? "المصدر" : "Source"}: {product.sourceCountry}
                 </Badge>
               )}
@@ -272,15 +275,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 <Globe className="w-3.5 h-3.5 shrink-0" />
                 <span>
                   {isAr ? "المورد" : "Supplier"}:&nbsp;
-                  <span className="text-foreground font-medium">
+                  <span className="text-foreground font-medium flex items-center gap-1">
                     {product.supplier ?? product.sourceCountry}
-                    {flagIconClass && (
-                      <span className="ml-1">
-                        <span
-                          className={`fi fi-${flagIconClass} text-sm`}
-                        ></span>
-                      </span>
-                    )}
+                    {FlagComponent && <FlagComponent className="w-4 h-4" />}
                   </span>
                 </span>
               </div>

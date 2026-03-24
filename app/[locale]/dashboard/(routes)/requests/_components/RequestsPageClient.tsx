@@ -79,6 +79,54 @@ import {
 } from "../actions";
 import Link from "next/link";
 
+// Import all required SVG flags
+import CN from "country-flag-icons/react/3x2/CN";
+import YE from "country-flag-icons/react/3x2/YE";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import US from "country-flag-icons/react/3x2/US";
+// import GB from "country-flag-icons/react/3x2/GB";
+// import DE from "country-flag-icons/react/3x2/DE";
+// import FR from "country-flag-icons/react/3x2/FR";
+// import JP from "country-flag-icons/react/3x2/JP";
+// import KR from "country-flag-icons/react/3x2/KR";
+// import IN from "country-flag-icons/react/3x2/IN";
+// import EG from "country-flag-icons/react/3x2/EG";
+// import JO from "country-flag-icons/react/3x2/JO";
+// import KW from "country-flag-icons/react/3x2/KW";
+// import QA from "country-flag-icons/react/3x2/QA";
+// import BH from "country-flag-icons/react/3x2/BH";
+// import OM from "country-flag-icons/react/3x2/OM";
+// import IQ from "country-flag-icons/react/3x2/IQ";
+// import SY from "country-flag-icons/react/3x2/SY";
+// import LB from "country-flag-icons/react/3x2/LB";
+// import TR from "country-flag-icons/react/3x2/TR";
+
+// Map country code to SVG flag component
+const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
+  CN,
+  YE,
+  SA,
+  AE,
+  US,
+  // GB,
+  // DE,
+  // FR,
+  // JP,
+  // KR,
+  // IN,
+  // EG,
+  // JO,
+  // KW,
+  // QA,
+  // BH,
+  // OM,
+  // IQ,
+  // SY,
+  // LB,
+  // TR,
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Bilingual config
 // ─────────────────────────────────────────────────────────────────────────────
@@ -552,49 +600,28 @@ function PlanBar({
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COUNTRIES = [
+  "CN",
+  "YE",
   "SA",
   "AE",
   "US",
-  "GB",
-  "DE",
-  "FR",
-  "CN",
-  "JP",
-  "KR",
-  "IN",
-  "EG",
-  "JO",
-  "KW",
-  "QA",
-  "BH",
-  "OM",
-  "IQ",
-  "SY",
-  "LB",
-  "TR",
+  // "GB",
+  // "DE",
+  // "FR",
+  // "JP",
+  // "KR",
+  // "IN",
+  // "EG",
+  // "JO",
+  // "KW",
+  // "QA",
+  // "BH",
+  // "OM",
+  // "IQ",
+  // "SY",
+  // "LB",
+  // "TR",
 ];
-const flagIconMap: Record<string, string> = {
-  SA: "sa",
-  AE: "ae",
-  US: "us",
-  GB: "gb",
-  DE: "de",
-  FR: "fr",
-  CN: "cn",
-  JP: "jp",
-  KR: "kr",
-  IN: "in",
-  EG: "eg",
-  JO: "jo",
-  KW: "kw",
-  QA: "qa",
-  BH: "bh",
-  OM: "om",
-  IQ: "iq",
-  SY: "sy",
-  LB: "lb",
-  TR: "tr",
-};
 
 function NewRequestDialog({
   open,
@@ -878,20 +905,23 @@ function NewRequestDialog({
                         <SelectValue placeholder={t.countryPh} />
                       </SelectTrigger>
                       <SelectContent>
-                        {COUNTRIES.map((c) => (
-                          <SelectItem
-                            key={c}
-                            value={c}
-                            className="text-xs font-mono"
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span
-                                className={`fi fi-${flagIconMap[c]}`}
-                              ></span>
-                              <span>{c}</span>
-                            </span>
-                          </SelectItem>
-                        ))}
+                        {COUNTRIES.map((c) => {
+                          const FlagComponent = COUNTRY_FLAG_COMPONENT[c];
+                          return (
+                            <SelectItem
+                              key={c}
+                              value={c}
+                              className="text-xs font-mono"
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                {FlagComponent && (
+                                  <FlagComponent className="w-4 h-4" />
+                                )}
+                                <span>{c}</span>
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     {errors.shippingCountry && (
@@ -1364,6 +1394,7 @@ function RequestCard({
   };
 
   const shortId = `#${request.id.slice(-6).toUpperCase()}`;
+  const FlagComponent = COUNTRY_FLAG_COMPONENT[request.shippingCountry];
 
   return (
     <motion.div
@@ -1450,9 +1481,7 @@ function RequestCard({
           </span>
           <span className="inline-flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-full border border-border/40">
             <Globe className="w-3 h-3" />
-            <span
-              className={`fi fi-${flagIconMap[request.shippingCountry] ?? request.shippingCountry.toLowerCase()} text-sm`}
-            ></span>
+            {FlagComponent && <FlagComponent className="w-4 h-4" />}
             {request.shippingCountry}
           </span>
           {/* rest of the chips */}

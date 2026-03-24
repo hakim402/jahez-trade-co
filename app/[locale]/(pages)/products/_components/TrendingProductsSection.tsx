@@ -27,20 +27,23 @@ import {
 } from "../actions";
 import type { Product } from "./ProductCard";
 import { Button } from "@/components/ui/button";
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Category = { value: string; labelAr: string | null };
 
-// Map country code to flag‑icon class
-const COUNTRY_FLAG_ICON: Record<string, string> = {
-  CN: "cn",
-  US: "us",
-  SA: "sa",
-  AE: "ae",
-  YE: "ye",
-  TR: "tr",
-  IN: "in",
+// Map country code to SVG flag component
+const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
+  CN,
+  US,
+  SA,
+  AE,
+  YE,
 };
 
 function getTrendBadge(score: number, isAr: boolean) {
@@ -88,8 +91,8 @@ function FeaturedHeroCard({
   const desc =
     isAr && product.shortDescAr ? product.shortDescAr : product.shortDesc;
   const trendBadge = getTrendBadge(product.trendScore, isAr);
-  const flagIconClass = product.sourceCountry
-    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+  const FlagComponent = product.sourceCountry
+    ? COUNTRY_FLAG_COMPONENT[product.sourceCountry]
     : null;
 
   return (
@@ -121,9 +124,9 @@ function FeaturedHeroCard({
             <Sparkles className="w-3 h-3" />
             {isAr ? "منتج مميز" : "Featured Pick"}
           </div>
-          {flagIconClass && (
-            <div className="absolute top-3 right-3 text-xl leading-none drop-shadow">
-              <span className={`fi fi-${flagIconClass} text-xl`}></span>
+          {FlagComponent && (
+            <div className="absolute top-3 right-3">
+              <FlagComponent className="w-5 h-5 rounded-full shadow-sm" />
             </div>
           )}
         </Link>
@@ -249,8 +252,8 @@ function CarouselCard({
   const cat =
     isAr && product.categoryAr ? product.categoryAr : product.category;
   const trendBadge = getTrendBadge(product.trendScore, isAr);
-  const flagIconClass = product.sourceCountry
-    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+  const FlagComponent = product.sourceCountry
+    ? COUNTRY_FLAG_COMPONENT[product.sourceCountry]
     : null;
 
   return (
@@ -284,9 +287,9 @@ function CarouselCard({
             </span>
           )}
         </div>
-        {flagIconClass && (
-          <div className="absolute top-2.5 right-2.5 text-lg leading-none drop-shadow-sm">
-            <span className={`fi fi-${flagIconClass} text-xl`}></span>
+        {FlagComponent && (
+          <div className="absolute top-2.5 right-2.5">
+            <FlagComponent className="w-5 h-5 rounded-full shadow-sm" />
           </div>
         )}
         {product.viewCount > 0 && (
@@ -517,7 +520,7 @@ export function TrendingProductsSection() {
         </motion.div>
 
         {/* Category pills */}
-        {!loading && (
+        if (!loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -531,7 +534,7 @@ export function TrendingProductsSection() {
               isAr={isAr}
             />
           </motion.div>
-        )}
+        )
 
         {/* Content */}
         {loading ? (

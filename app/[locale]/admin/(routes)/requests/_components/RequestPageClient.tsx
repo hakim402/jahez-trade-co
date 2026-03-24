@@ -83,7 +83,41 @@ import type { SerializedShippingEstimate } from "../actions";
 import Link from "next/link";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Domain types
+// SVG flags for supported countries
+// ─────────────────────────────────────────────────────────────────────────────
+import US from "country-flag-icons/react/3x2/US";
+import YE from "country-flag-icons/react/3x2/YE";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+
+// Map country code to SVG flag component (only for supported ones)
+const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
+  US,
+  YE,
+  SA,
+  AE,
+  // If you have more supported countries, add them here (e.g., CN)
+};
+
+// Helper to render country with flag (if available)
+function CountryWithFlag({
+  code,
+  className,
+}: {
+  code: string;
+  className?: string;
+}) {
+  const FlagComponent = COUNTRY_FLAG_COMPONENT[code];
+  return (
+    <span className={cn("inline-flex items-center gap-1.5", className)}>
+      {FlagComponent ? <FlagComponent className="w-4 h-4 shrink-0" /> : null}
+      <span className="text-xs font-mono text-muted-foreground">{code}</span>
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Domain types (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RequestFile = {
@@ -173,7 +207,7 @@ export type SerializedRequest = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Config maps
+// Config maps (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const S = {
@@ -264,7 +298,6 @@ const STATUS_FLOW: Record<RequestStatus, RequestStatus[]> = {
   COMPLETED: [],
 };
 
-
 function RelativeTime({
   date,
   className,
@@ -294,7 +327,7 @@ function RelativeTime({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared micro-components
+// Shared micro-components (unchanged except where flags are added)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: RequestStatus }) {
@@ -441,7 +474,7 @@ function Pagination({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Stats strip
+// Stats strip (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StatsStrip({
@@ -523,7 +556,7 @@ function StatsStrip({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Filter bar
+// Filter bar (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FilterBar({
@@ -843,7 +876,7 @@ function FilterBar({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Request Detail Dialog
+// Request Detail Dialog (with flags added in overview and shipping tab)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type DialogSection = "overview" | "quotes" | "files" | "shipping" | "history";
@@ -920,7 +953,7 @@ function RequestDetailDialog({
     });
   };
 
-  // Actions
+  // Actions (unchanged)
   const handleStatus = (s: RequestStatus) => {
     if (!data) return;
     start(async () => {
@@ -1079,7 +1112,6 @@ function RequestDetailDialog({
   const labelCls =
     "text-[10px] font-bold text-muted-foreground uppercase tracking-wide";
 
-  // Computed title — always a stable string for screen readers
   const dialogTitle = data
     ? `Request from ${data.client.fullName ?? data.client.email}`
     : "Request Details";
@@ -1103,7 +1135,7 @@ function RequestDetailDialog({
           </VisuallyHidden>
         )}
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* Header (unchanged) */}
         <DialogHeader className="shrink-0 flex-row items-center justify-between gap-3 px-6 py-4 border-b border-border/50 bg-muted/10 space-y-0">
           {loading || !data ? (
             <div className="flex items-center gap-3 animate-pulse">
@@ -1117,7 +1149,6 @@ function RequestDetailDialog({
             <div className="flex items-center gap-3 min-w-0">
               <Avatar client={data.client} />
               <div className="min-w-0">
-                {/* Visible DialogTitle — satisfies a11y when data is present */}
                 <DialogTitle className="text-sm font-bold text-foreground truncate leading-tight">
                   {data.client.fullName ?? data.client.email}
                 </DialogTitle>
@@ -1208,7 +1239,7 @@ function RequestDetailDialog({
           </div>
         </DialogHeader>
 
-        {/* ── Section tabs ───────────────────────────────────────────────── */}
+        {/* Section tabs */}
         <div className="shrink-0 flex border-b border-border/40 px-6 overflow-x-auto scrollbar-none">
           {sections.map(({ id, label, icon: Icon, badge }) => (
             <button
@@ -1239,11 +1270,10 @@ function RequestDetailDialog({
           ))}
         </div>
 
-        {/* ── Scrollable body ────────────────────────────────────────────── */}
+        {/* Scrollable body */}
         <div
           className={cn(
             "flex-1 min-h-0 overflow-y-auto px-6 py-6",
-            // Thin, beautiful scrollbar
             "[&::-webkit-scrollbar]:w-1.5",
             "[&::-webkit-scrollbar-track]:bg-transparent",
             "[&::-webkit-scrollbar-thumb]:rounded-full",
@@ -1259,7 +1289,7 @@ function RequestDetailDialog({
 
           {!loading && data && (
             <AnimatePresence mode="wait">
-              {/* ── OVERVIEW ─────────────────────────────────────────────── */}
+              {/* ── OVERVIEW ── */}
               {section === "overview" && (
                 <motion.div
                   key="overview"
@@ -1268,7 +1298,7 @@ function RequestDetailDialog({
                   exit={{ opacity: 0 }}
                   className="space-y-6"
                 >
-                  {/* AI banner */}
+                  {/* AI banner (unchanged) */}
                   {data.aiEstimatedPrice && (
                     <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[#7b57fc]/8 border border-[#7b57fc]/20">
                       <Zap className="w-4 h-4 text-[#7b57fc] shrink-0" />
@@ -1288,7 +1318,7 @@ function RequestDetailDialog({
 
                   {/* Client + request details grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Client info */}
+                    {/* Client info (unchanged) */}
                     <div className="space-y-2">
                       <p
                         className={cn(
@@ -1360,6 +1390,10 @@ function RequestDetailDialog({
                           icon: Globe,
                           label: "Ship To",
                           val: data.shippingCountry,
+                          // Use CountryWithFlag helper
+                          customRender: (val: string) => (
+                            <CountryWithFlag code={val} className="mt-0.5" />
+                          ),
                         },
                         {
                           icon: Calendar,
@@ -1371,7 +1405,7 @@ function RequestDetailDialog({
                           label: "Priority",
                           val: `P${data.priority} — ${PRIO[data.priority as keyof typeof PRIO]?.label ?? "None"}`,
                         },
-                      ].map(({ icon: Icon, label, val }) => (
+                      ].map(({ icon: Icon, label, val, customRender }) => (
                         <div
                           key={label}
                           className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/20 border border-border/40"
@@ -1379,14 +1413,18 @@ function RequestDetailDialog({
                           <Icon className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
                           <div>
                             <p className={cn(labelCls, "mb-0.5")}>{label}</p>
-                            <p className="text-xs text-foreground">{val}</p>
+                            {customRender ? (
+                              customRender(val)
+                            ) : (
+                              <p className="text-xs text-foreground">{val}</p>
+                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Product link */}
+                  {/* Product link (unchanged) */}
                   {data.productLink && (
                     <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-muted/20 border border-border/40">
                       <Link2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -1404,7 +1442,7 @@ function RequestDetailDialog({
                     </div>
                   )}
 
-                  {/* Description */}
+                  {/* Description (unchanged) */}
                   {data.description && (
                     <div>
                       <p
@@ -1423,7 +1461,7 @@ function RequestDetailDialog({
                     </div>
                   )}
 
-                  {/* Custom notes */}
+                  {/* Custom notes (unchanged) */}
                   {data.customNotes && (
                     <div>
                       <p className={cn(labelCls, "mb-2")}>Additional Notes</p>
@@ -1435,7 +1473,7 @@ function RequestDetailDialog({
                     </div>
                   )}
 
-                  {/* AI Estimator */}
+                  {/* AI Estimator (unchanged) */}
                   <div className="rounded-xl border border-border/50 p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -1498,7 +1536,7 @@ function RequestDetailDialog({
                 </motion.div>
               )}
 
-              {/* ── QUOTES ───────────────────────────────────────────────── */}
+              {/* ── QUOTES ── (unchanged) */}
               {section === "quotes" && (
                 <motion.div
                   key="quotes"
@@ -1613,7 +1651,7 @@ function RequestDetailDialog({
                     </div>
                   )}
 
-                  {/* Create quote form */}
+                  {/* Create quote form (unchanged) */}
                   <div className="rounded-xl border border-dashed border-border/60 p-4 space-y-3.5">
                     <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <Plus className="w-3.5 h-3.5 text-[#7b57fc]" /> New Quote
@@ -1741,7 +1779,7 @@ function RequestDetailDialog({
                 </motion.div>
               )}
 
-              {/* ── FILES ────────────────────────────────────────────────── */}
+              {/* ── FILES ── (unchanged) */}
               {section === "files" && (
                 <motion.div
                   key="files"
@@ -1750,7 +1788,7 @@ function RequestDetailDialog({
                   exit={{ opacity: 0 }}
                   className="space-y-4"
                 >
-                  {/* Upload zone */}
+                  {/* Upload zone (unchanged) */}
                   <div
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
@@ -1847,7 +1885,7 @@ function RequestDetailDialog({
                 </motion.div>
               )}
 
-              {/* ── SHIPPING ─────────────────────────────────────────────── */}
+              {/* ── SHIPPING ── (with flags in the route display) */}
               {section === "shipping" && (
                 <motion.div
                   key="shipping"
@@ -1867,6 +1905,18 @@ function RequestDetailDialog({
                           {
                             l: "Route",
                             v: `${data.shippingEstimate.originCountry} → ${data.shippingEstimate.destinationCountry}`,
+                            render: (v: string) => {
+                              const [orig, dest] = v.split(" → ");
+                              return (
+                                <span className="inline-flex items-center gap-1">
+                                  <CountryWithFlag code={orig} />
+                                  <span className="text-muted-foreground">
+                                    →
+                                  </span>
+                                  <CountryWithFlag code={dest} />
+                                </span>
+                              );
+                            },
                           },
                           {
                             l: "Type",
@@ -1895,7 +1945,7 @@ function RequestDetailDialog({
                               ? `${data.shippingEstimate.volumeCbm} CBM`
                               : "—",
                           },
-                        ].map(({ l, v }) => (
+                        ].map(({ l, v, render }) => (
                           <div
                             key={l}
                             className="bg-background/60 rounded-lg p-2.5"
@@ -1903,16 +1953,16 @@ function RequestDetailDialog({
                             <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">
                               {l}
                             </p>
-                            <p className="text-xs font-semibold text-foreground mt-0.5">
-                              {v}
-                            </p>
+                            <div className="text-xs font-semibold text-foreground mt-0.5">
+                              {render ? render(v as string) : v}
+                            </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Add new estimate form */}
+                  {/* Add new estimate form (unchanged) */}
                   <div className="rounded-xl border border-dashed border-border/60 p-4 space-y-3.5">
                     <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <Plus className="w-3.5 h-3.5 text-[#7b57fc]" /> Add
@@ -2102,7 +2152,7 @@ function RequestDetailDialog({
                 </motion.div>
               )}
 
-              {/* ── HISTORY ──────────────────────────────────────────────── */}
+              {/* ── HISTORY ── (unchanged) */}
               {section === "history" && (
                 <motion.div
                   key="history"
@@ -2151,7 +2201,7 @@ function RequestDetailDialog({
           )}
         </div>
 
-        {/* ── Footer ─────────────────────────────────────────────────────── */}
+        {/* Footer (unchanged) */}
         <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-border/50 bg-muted/10">
           <div>
             {!showDelete ? (
@@ -2403,11 +2453,9 @@ function RequestsTable({
                       )}
                     </td>
 
-                    {/* Country */}
+                    {/* Country (with flag) */}
                     <td className="px-3 py-3.5">
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {req.shippingCountry}
-                      </span>
+                      <CountryWithFlag code={req.shippingCountry} />
                     </td>
 
                     {/* Created */}
@@ -2485,7 +2533,8 @@ function RequestsTable({
                   <Hash className="w-3 h-3" /> {req.quantity.toLocaleString()}
                 </span>
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Globe className="w-3 h-3" /> {req.shippingCountry}
+                  <Globe className="w-3 h-3" />
+                  <CountryWithFlag code={req.shippingCountry} />
                 </span>
                 <PriorityDots value={req.priority} />
                 {req._count.quotes > 0 && (

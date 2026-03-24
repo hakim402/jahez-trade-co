@@ -8,6 +8,11 @@ import { motion } from "motion/react";
 import { Star, Package, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RequestProductButton } from "./RequestProductDialog";
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
 
 // ─── Type ─────────────────────────────────────────────────────────────────────
 
@@ -19,7 +24,7 @@ export type Product = {
   shortDescAr: string | null;
   description: string | null;
   descriptionAr: string | null;
-  estimatedPrice: number | null; 
+  estimatedPrice: number | null;
   currency: string;
   category: string | null;
   categoryAr: string | null;
@@ -33,15 +38,13 @@ export type Product = {
   images: { url: string; isPrimary: boolean; altText: string | null }[];
 };
 
-// Map country code to flag‑icon class
-const COUNTRY_FLAG_ICON: Record<string, string> = {
-  CN: "cn",
-  US: "us",
-  SA: "sa",
-  AE: "ae",
-  YE: "ye",
-  TR: "tr",
-  IN: "in",
+// Map country code to SVG flag component
+const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
+  CN,
+  US,
+  SA,
+  AE,
+  YE,
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -81,9 +84,9 @@ export function ProductCard({
           }
         : null;
 
-  // Get flag‑icon class if country code exists
-  const flagIconClass = product.sourceCountry
-    ? COUNTRY_FLAG_ICON[product.sourceCountry]
+  // Get the flag component if country code exists
+  const FlagComponent = product.sourceCountry
+    ? COUNTRY_FLAG_COMPONENT[product.sourceCountry]
     : null;
 
   return (
@@ -141,10 +144,10 @@ export function ProductCard({
               )}
             </div>
 
-            {/* Country flag (flag‑icon) */}
-            {flagIconClass && (
-              <div className="absolute top-2.5 right-2.5 text-xl leading-none drop-shadow">
-                <span className={`fi fi-${flagIconClass} text-xl`}></span>
+            {/* Country flag (SVG) */}
+            {FlagComponent && (
+              <div className="absolute top-2.5 right-2.5">
+                <FlagComponent className="w-5 h-5 rounded-full shadow-sm" />
               </div>
             )}
 
