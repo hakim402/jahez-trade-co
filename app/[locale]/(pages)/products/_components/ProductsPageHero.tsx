@@ -1,8 +1,6 @@
 "use client";
 
 // app/[locale]/(pages)/products/_components/products-page-hero.tsx
-// Hero section for the public products listing page
-// Shows: headline, search, stats, country badges, category quick-links
 
 import { useState } from "react";
 import { motion } from "motion/react";
@@ -10,26 +8,18 @@ import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   Flame,
-  Search,
-  TrendingUp,
   Star,
   Package,
   Globe,
   Sparkles,
-  ChevronRight,
-  ArrowRight,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Map emoji to country code for flag-icons
-const flagToCode: Record<string, string> = {
-  "🇨🇳": "cn",
-  "🇺🇸": "us",
-  "🇸🇦": "sa",
-  "🇦🇪": "ae",
-  "🇾🇪": "ye",
-};
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -115,114 +105,6 @@ function TrendRing({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Search bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-function HeroSearch({
-  isAr,
-  onSearch,
-}: {
-  isAr: boolean;
-  onSearch?: (q: string) => void;
-}) {
-  const [value, setValue] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch?.(value.trim());
-  };
-
-  return (
-    <motion.form
-      onSubmit={handleSubmit}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.45, duration: 0.5 }}
-      className="relative w-full max-w-lg mx-auto"
-      dir={isAr ? "rtl" : "ltr"}
-    >
-      <div className="relative flex items-center">
-        <Search
-          className={cn(
-            "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10",
-            isAr ? "right-4" : "left-4",
-          )}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={
-            isAr
-              ? "ابحث عن منتج إلكترونيات، ملابس، إكسسوارات…"
-              : "Search products electronics, fashion, accessories…"
-          }
-          className={cn(
-            "w-full h-12 bg-white dark:bg-card border border-border/60 rounded-2xl text-sm text-foreground",
-            "placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#7b57fc]/30 focus:border-[#7b57fc]/50",
-            "shadow-sm transition-all",
-            isAr ? "pr-12 pl-28" : "pl-12 pr-28",
-          )}
-        />
-        <button
-          type="submit"
-          className={cn(
-            "absolute top-1/2 -translate-y-1/2 h-8 px-4 rounded-xl bg-[#7b57fc] text-white text-xs font-semibold",
-            "hover:bg-[#6a48eb] transition-all shadow-sm shadow-[#7b57fc]/20",
-            isAr ? "left-2" : "right-2",
-          )}
-        >
-          {isAr ? "بحث" : "Search"}
-        </button>
-      </div>
-    </motion.form>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Quick category chips
-// ─────────────────────────────────────────────────────────────────────────────
-
-function QuickCategories({
-  categories,
-  isAr,
-  onSelect,
-}: {
-  categories: { value: string; labelAr: string | null }[];
-  isAr: boolean;
-  onSelect?: (cat: string) => void;
-}) {
-  if (!categories.length) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.6 }}
-      className="flex flex-wrap justify-center gap-2"
-      dir={isAr ? "rtl" : "ltr"}
-    >
-      <span className="text-xs text-muted-foreground self-center">
-        {isAr ? "تصفح حسب الفئة:" : "Browse by:"}
-      </span>
-      {categories.slice(0, 5).map((cat, i) => (
-        <motion.button
-          key={cat.value}
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6 + i * 0.06 }}
-          onClick={() => onSelect?.(cat.value)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border/60 bg-white/60 dark:bg-card/60 backdrop-blur-sm text-xs font-medium text-muted-foreground hover:text-[#7b57fc] hover:border-[#7b57fc]/40 hover:bg-white dark:hover:bg-card transition-all"
-        >
-          {isAr && cat.labelAr ? cat.labelAr : cat.value}
-          <ChevronRight className={cn("w-3 h-3", isAr && "rotate-180")} />
-        </motion.button>
-      ))}
-    </motion.div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Stat pill
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -288,15 +170,6 @@ export function ProductsPageHero({
       <div className="absolute -bottom-20 -right-20 w-60 h-60 rounded-full orb-brand pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full orb-brand pointer-events-none" />
 
-      {/* Subtle grid */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04]"
-        style={{
-          backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
-          backgroundSize: "48px 48px",
-        }}
-      />
-
       <div className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-14 md:py-20">
         <div className="flex flex-col items-center gap-8">
           {/* ── Top badge ── */}
@@ -343,11 +216,6 @@ export function ProductsPageHero({
             </p>
           </motion.div>
 
-          {/* ── Search bar ── */}
-          <div className="w-full max-w-lg">
-            <HeroSearch isAr={isAr} onSearch={onSearch} />
-          </div>
-
           {/* ── Stats row ── */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -389,14 +257,7 @@ export function ProductsPageHero({
             />
           </motion.div>
 
-          {/* ── Category quick links ── */}
-          <QuickCategories
-            categories={categories}
-            isAr={isAr}
-            onSelect={onCategoryChange}
-          />
-
-          {/* ── Operating countries ── */}
+          {/* ── Operating countries with SVG flags ── */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -407,26 +268,23 @@ export function ProductsPageHero({
               {isAr ? "مصادر منتجاتنا" : "Sourced from"}
             </span>
             {[
-              { flag: "🇨🇳", name: isAr ? "الصين" : "China" },
-              { flag: "🇺🇸", name: isAr ? "أمريكا" : "USA" },
-              { flag: "🇸🇦", name: isAr ? "السعودية" : "Saudi Arabia" },
-              { flag: "🇦🇪", name: isAr ? "الإمارات" : "UAE" },
-              { flag: "🇾🇪", name: isAr ? "اليمن" : "Yemen" },
-            ].map(({ flag, name }, i) => {
-              const code = flagToCode[flag];
-              return (
-                <motion.div
-                  key={name}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.75 + i * 0.05 }}
-                  className="flex items-center gap-1 text-xs text-muted-foreground"
-                >
-                  <span className={`fi fi-${code} text-base`} />
-                  <span className="hidden md:inline">{name}</span>
-                </motion.div>
-              );
-            })}
+              { name: isAr ? "الصين" : "China", flag: CN },
+              { name: isAr ? "أمريكا" : "USA", flag: US },
+              { name: isAr ? "السعودية" : "Saudi Arabia", flag: SA },
+              { name: isAr ? "الإمارات" : "UAE", flag: AE },
+              { name: isAr ? "اليمن" : "Yemen", flag: YE },
+            ].map(({ name, flag: FlagComponent }, i) => (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.75 + i * 0.05 }}
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+              >
+                <FlagComponent className="w-4 h-4 shrink-0" />
+                <span className="hidden md:inline">{name}</span>
+              </motion.div>
+            ))}
           </motion.div>
         </div>
       </div>

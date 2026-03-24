@@ -23,6 +23,11 @@ import {
   Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import SA from "country-flag-icons/react/3x2/SA";
+import YE from "country-flag-icons/react/3x2/YE";
+import AE from "country-flag-icons/react/3x2/AE";
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Animated counter hook
@@ -187,43 +192,30 @@ export function HomeHero() {
   const locale = useLocale();
   const isAr = locale === "ar";
 
-  // Map emoji to country code for flag-icons
-  const flagMap: Record<string, string> = {
-    "🇸🇦": "sa",
-    "🇾🇪": "ye",
-    "🇦🇪": "ae",
-    "🇨🇳": "cn",
-    "🇺🇸": "us",
-  };
-
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-16 pb-10">
       {/* Background */}
       <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04]"
-        style={{
-          backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
-          backgroundSize: "52px 52px",
-        }}
-      />
+      <div className="absolute inset-0 pointer-events-none opacity-[0.04]" />
 
       <div
         className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 w-full flex flex-col items-center gap-10 md:gap-14"
         dir={isAr ? "rtl" : "ltr"}
       >
-        {/* ── Trust badge ── */}
+        {/* ── Trust badge with SVG flags ── */}
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
           className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8"
         >
-          <div className="flex space-x-1">
-            {["🇸🇦", "🇾🇪", "🇦🇪", "🇨🇳", "🇺🇸"].map((f, i) => (
-              <span key={i} className={`fi fi-${flagMap[f]} text-sm`}></span>
-            ))}
+          <div className="flex items-center gap-1">
+            <SA className="w-4 h-4" />
+            <YE className="w-4 h-4" />
+            <AE className="w-4 h-4" />
+            <CN className="w-4 h-4" />
+            <US className="w-4 h-4" />
           </div>
 
           <span className="text-xs font-semibold text-[#7b57fc]">
@@ -261,8 +253,8 @@ export function HomeHero() {
             className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed"
           >
             {isAr
-              ? "أرسل طلبك، شاهد المصنع عبر الفيديو، استلم عرض سعر دقيق — كل شيء في منصة واحدة مع فريق متخصص في الصين وأمريكا."
-              : "Submit your request, watch the factory live, receive an accurate quote — all in one platform with our specialist team on the ground in China and the USA."}
+              ? "أرسل طلبك، شاهد المصنع عبر الفيديو، استلم عرض سعر دقيق كل شيء في منصة واحدة مع فريق متخصص في الصين وأمريكا."
+              : "Submit your request, watch the factory live, receive an accurate quote all in one platform with our specialist team on the ground in China and the USA."}
           </motion.p>
         </div>
 

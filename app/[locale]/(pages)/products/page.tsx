@@ -1,5 +1,3 @@
-// app/[locale]/(pages)/products/page.tsx
-
 import { Suspense } from "react";
 import { getLocale } from "next-intl/server";
 import { getTrendingProducts, getPublicProductCategories } from "./actions";
@@ -10,16 +8,55 @@ import { FooterSection } from "../../_components/Footer/FooterSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Trending Products",
-  description:
-    "Browse our latest trending products sourced from global markets.",
-};
-
 export const revalidate = 300;
 
 interface PageProps {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<{ category?: string; search?: string; sort?: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+  const isAr = locale === "ar";
+
+  return {
+    title: isAr
+      ? "المنتجات الرائجة | ميوان"
+      : "Trending Products | Mewan",
+    description: isAr
+      ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
+      : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.",
+    openGraph: {
+      title: isAr ? "المنتجات الرائجة | ميوان" : "Trending Products | Mewan",
+      description: isAr
+        ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
+        : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.",
+      images: [
+        {
+          url: "/og-products.jpg", // Adjust to your actual OG image path
+          width: 1200,
+          height: 630,
+          alt: isAr ? "منتجات ميوان الرائجة" : "Mewan Trending Products",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: isAr ? "المنتجات الرائجة | ميوان" : "Trending Products | Mewan",
+      description: isAr
+        ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
+        : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.",
+      images: ["/og-products.jpg"],
+    },
+    alternates: {
+      languages: {
+        en: "/en/products",
+        ar: "/ar/products",
+      },
+    },
+  };
 }
 
 export default async function ProductsPage({ searchParams }: PageProps) {
@@ -28,7 +65,6 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const isAr = locale === "ar";
 
   // getTrendingProducts already serializes Decimal → number and Date → ISO string
-  // No additional mapping needed here.
   const [products, categories] = await Promise.all([
     getTrendingProducts(50),
     getPublicProductCategories(),

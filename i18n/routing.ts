@@ -16,7 +16,7 @@ export const routing = defineRouting({
 
     // Public pages
     '/products': '/products',
-    '/consulting': '/consulting',
+    '/services': '/services',
     '/about': '/about',
     '/contact': '/contact',
 

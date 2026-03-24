@@ -21,7 +21,7 @@ export const Header = () => {
   const menuItems = [
     { name: t("home"), href: "/" },
     { name: t("products"), href: "/products" },
-    { name: t("consulting"), href: "/consulting" },
+    { name: t("service"), href: "/services" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
   ] as const;
@@ -30,7 +30,7 @@ export const Header = () => {
     { name: t("home"), href: "/" },
     { name: t("profile"), href: "/dashboard" },
     { name: t("products"), href: "/products" },
-    { name: t("consulting"), href: "/consulting" },
+    { name: t("service"), href: "/services" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
   ] as const;

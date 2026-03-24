@@ -12,6 +12,7 @@ import { FooterHero } from "./_components/Footer/FooterHero";
 import { HowWeOperate } from "./(pages)/about/_components/HowWeOperate";
 import { getLocale } from "next-intl/server";
 import { MissionValues } from "./(pages)/about/_components/MissionValues";
+import { ServicesShowcase } from "./(pages)/services/_components/ServicesShowcase";
 
 export default async function Home() {
   const locale = await getLocale();
@@ -20,6 +21,7 @@ export default async function Home() {
     <div>
       <Header />
       <HomeHero />
+      <ServicesShowcase isAr={isAr} heading="What we offer" subheading="Discover services to enhance your productivity" />
       <TrendingProductsSection />
       <FeatureSections />
       <HowWeOperate isAr={isAr} locale={locale} />
