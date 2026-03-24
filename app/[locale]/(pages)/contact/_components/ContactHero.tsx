@@ -33,13 +33,7 @@ export function ContactHero({ isAr, locale }: ContactHeroProps) {
       {/* Background */}
       <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.04]"
-        style={{
-          backgroundImage: `linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)`,
-          backgroundSize: "52px 52px",
-        }}
-      />
+      <div className="absolute inset-0 pointer-events-none opacity-[0.04]" />
       <div className="absolute -top-28 left-1/2 -translate-x-1/2 w-150 h-75 rounded-full orb-brand pointer-events-none" />
       <div className="absolute -bottom-16 -right-16 w-56 h-56 rounded-full orb-brand pointer-events-none" />
 

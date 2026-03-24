@@ -2,22 +2,18 @@
 
 import { motion } from "motion/react";
 import { MapPin } from "lucide-react";
-
-// Map emoji to country code for flag-icons
-const flagToCode: Record<string, string> = {
-  "🇨🇳": "cn",
-  "🇺🇸": "us",
-  "🇸🇦": "sa",
-  "🇦🇪": "ae",
-  "🇾🇪": "ye",
-};
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
 
 const PINS = [
-  { flag: "🇨🇳", name: "China", x: 74, y: 38, color: "#ef4444" },
-  { flag: "🇺🇸", name: "USA", x: 18, y: 36, color: "#3b82f6" },
-  { flag: "🇸🇦", name: "Saudi Arabia", x: 57, y: 44, color: "#10b981" },
-  { flag: "🇦🇪", name: "UAE", x: 60, y: 46, color: "#f59e0b" },
-  { flag: "🇾🇪", name: "Yemen", x: 59, y: 49, color: "#8b5cf6" },
+  { flag: CN, name: "China", x: 74, y: 38, color: "#ef4444" },
+  { flag: US, name: "USA", x: 18, y: 36, color: "#3b82f6" },
+  { flag: SA, name: "Saudi Arabia", x: 57, y: 44, color: "#10b981" },
+  { flag: AE, name: "UAE", x: 60, y: 46, color: "#f59e0b" },
+  { flag: YE, name: "Yemen", x: 59, y: 49, color: "#8b5cf6" },
 ];
 
 export function ContactMap({ isAr }: { isAr: boolean }) {
@@ -54,50 +50,52 @@ export function ContactMap({ isAr }: { isAr: boolean }) {
         />
 
         {/* Pin overlays */}
-        {PINS.map(({ flag, name, x, y, color }, i) => {
-          const code = flagToCode[flag];
-          return (
-            <motion.div
-              key={name}
-              initial={{ opacity: 0, scale: 0 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 + i * 0.1, type: "spring" }}
-              className="absolute flex flex-col items-center gap-0.5 z-10 pointer-events-none"
-              style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -100%)" }}
+        {PINS.map(({ flag: FlagComponent, name, x, y, color }, i) => (
+          <motion.div
+            key={name}
+            initial={{ opacity: 0, scale: 0 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 + i * 0.1, type: "spring" }}
+            className="absolute flex flex-col items-center gap-0.5 z-10 pointer-events-none"
+            style={{
+              left: `${x}%`,
+              top: `${y}%`,
+              transform: "translate(-50%, -100%)",
+            }}
+          >
+            <div
+              className="w-7 h-7 rounded-full shadow-lg flex items-center justify-center border-2 border-white dark:border-slate-800"
+              style={{ background: color }}
             >
-              <div
-                className="w-7 h-7 rounded-full shadow-lg flex items-center justify-center border-2 border-white dark:border-slate-800"
-                style={{ background: color }}
-              >
-                <span className={`fi fi-${code} text-sm`}></span>
-              </div>
-              <div
-                className="w-0 h-0"
-                style={{
-                  borderLeft: "4px solid transparent",
-                  borderRight: "4px solid transparent",
-                  borderTop: `6px solid ${color}`,
-                }}
-              />
-            </motion.div>
-          );
-        })}
+              <FlagComponent className="w-4 h-4" />
+            </div>
+            <div
+              className="w-0 h-0"
+              style={{
+                borderLeft: "4px solid transparent",
+                borderRight: "4px solid transparent",
+                borderTop: `6px solid ${color}`,
+              }}
+            />
+          </motion.div>
+        ))}
       </div>
 
       {/* Pin legend */}
       <div className="px-4 py-3 border-t border-border/50 flex flex-wrap gap-2">
-        {PINS.map(({ flag, name, color }) => {
-          const code = flagToCode[flag];
-          return (
-            <div key={name} className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-              <span className="text-[10px] text-muted-foreground">
-                <span className={`fi fi-${code} mr-1`}></span> {name}
-              </span>
-            </div>
-          );
-        })}
+        {PINS.map(({ flag: FlagComponent, name, color }) => (
+          <div key={name} className="flex items-center gap-1">
+            <div
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: color }}
+            />
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <FlagComponent className="w-3 h-3" />
+              {name}
+            </span>
+          </div>
+        ))}
       </div>
     </motion.div>
   );

@@ -18,6 +18,11 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
+import SA from "country-flag-icons/react/3x2/SA";
+import AE from "country-flag-icons/react/3x2/AE";
+import YE from "country-flag-icons/react/3x2/YE";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Animated counter hook
@@ -109,8 +114,8 @@ function RequestMockup() {
           {isAr ? "مقتبس" : "Quoted"}
         </span>
       </div>
-      <p className="text-[9px] text-muted-foreground mb-2 truncate">
-        <span className="fi fi-cn text-xs mr-1"></span>
+      <p className="text-[9px] text-muted-foreground mb-2 truncate flex items-center gap-1">
+        <CN className="w-3.5 h-3.5 inline-block" />
         {isAr
           ? "سماعات أذن لاسلكية - الكمية 500"
           : "Wireless Earbuds — Qty 500"}
@@ -211,26 +216,25 @@ function QuoteMockup() {
 // Central orbit graphic — abstract globe showing routes (wider, bilingual)
 // ─────────────────────────────────────────────────────────────────────────────
 function OrbitGraphic({ isAr }: { isAr: boolean }) {
+  // Define the country flags and labels with their SVG components
   const countries = isAr
     ? [
-        { flag: "🇨🇳", label: "الصين", angle: 315, dist: 90 },
-        { flag: "🇺🇸", label: "الولايات المتحدة", angle: 45, dist: 90 },
-        { flag: "🇸🇦", label: "السعودية", angle: 180, dist: 82 },
-        { flag: "🇦🇪", label: "الإمارات", angle: 135, dist: 90 },
-        { flag: "🇾🇪", label: "اليمن", angle: 225, dist: 82 },
+        { flag: CN, label: "الصين", angle: 315, dist: 90 },
+        { flag: US, label: "الولايات المتحدة", angle: 45, dist: 90 },
+        { flag: SA, label: "السعودية", angle: 180, dist: 82 },
+        { flag: AE, label: "الإمارات", angle: 135, dist: 90 },
+        { flag: YE, label: "اليمن", angle: 225, dist: 82 },
       ]
     : [
-        { flag: "🇨🇳", label: "China", angle: 315, dist: 90 },
-        { flag: "🇺🇸", label: "USA", angle: 45, dist: 90 },
-        { flag: "🇸🇦", label: "Saudi Arabia", angle: 180, dist: 82 },
-        { flag: "🇦🇪", label: "UAE", angle: 135, dist: 90 },
-        { flag: "🇾🇪", label: "Yemen", angle: 225, dist: 82 },
+        { flag: CN, label: "China", angle: 315, dist: 90 },
+        { flag: US, label: "USA", angle: 45, dist: 90 },
+        { flag: SA, label: "Saudi Arabia", angle: 180, dist: 82 },
+        { flag: AE, label: "UAE", angle: 135, dist: 90 },
+        { flag: YE, label: "Yemen", angle: 225, dist: 82 },
       ];
 
   return (
     <div className="relative w-80 h-80 mx-auto">
-      {" "}
-      {/* increased from w-72 */}
       {/* Outer dashed ring */}
       <motion.div
         animate={{ rotate: 360 }}
@@ -253,8 +257,6 @@ function OrbitGraphic({ isAr }: { isAr: boolean }) {
         >
           {/* Glow effect */}
           <div className="absolute inset-0 bg-indigo-500/20 blur-xl opacity-60 group-hover:opacity-80 transition" />
-          {/* Glow effect */}
-          <div className="absolute inset-0 bg-indigo-500/20 blur-xl opacity-60 group-hover:opacity-80 transition" />
           {/* Logo */}
           <div className="relative w-60 h-60">
             <Image
@@ -266,25 +268,15 @@ function OrbitGraphic({ isAr }: { isAr: boolean }) {
               priority
             />
           </div>
-
           {/* Optional subtle ring */}
           <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
         </motion.div>
       </div>
       {/* Country nodes on orbit */}
-      {countries.map(({ flag, label, angle, dist }, i) => {
+      {countries.map(({ flag: FlagComponent, label, angle, dist }, i) => {
         const rad = (angle * Math.PI) / 180;
         const x = Math.cos(rad) * dist;
         const y = Math.sin(rad) * dist;
-
-        const countryCodeMap: Record<string, string> = {
-          "🇨🇳": "cn",
-          "🇺🇸": "us",
-          "🇸🇦": "sa",
-          "🇦🇪": "ae",
-          "🇾🇪": "ye",
-        };
-        const code = countryCodeMap[flag];
 
         return (
           <motion.div
@@ -313,8 +305,8 @@ function OrbitGraphic({ isAr }: { isAr: boolean }) {
                 top: "50%",
               }}
             />
-            <div className="w-10 h-10 rounded-xl bg-white dark:bg-card shadow-md shadow-black/10 border border-border/50 flex items-center justify-center text-xl z-10">
-              <span className={`fi fi-${code} text-2xl`}></span>
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-card shadow-md shadow-black/10 border border-border/50 flex items-center justify-center z-10">
+              <FlagComponent className="w-6 h-6" />
             </div>
             <span className="text-[8px] font-medium text-muted-foreground whitespace-nowrap z-10">
               {label}
@@ -372,14 +364,6 @@ function StatCard({
 export function FooterHero() {
   const locale = useLocale();
   const isAr = locale === "ar";
-
-  const flagMap: Record<string, string> = {
-    "🇸🇦": "sa",
-    "🇾🇪": "ye",
-    "🇦🇪": "ae",
-    "🇨🇳": "cn",
-    "🇺🇸": "us",
-  };
 
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-16 pb-20">

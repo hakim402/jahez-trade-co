@@ -10,15 +10,11 @@ import {
   Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-// Map flag emoji to country code for flag-icons
-const flagToCode: Record<string, string> = {
-  "🇸🇦": "sa",
-  "🇾🇪": "ye",
-  "🇦🇪": "ae",
-  "🇨🇳": "cn",
-  "🇺🇸": "us",
-};
+import SA from "country-flag-icons/react/3x2/SA";
+import YE from "country-flag-icons/react/3x2/YE";
+import AE from "country-flag-icons/react/3x2/AE";
+import CN from "country-flag-icons/react/3x2/CN";
+import US from "country-flag-icons/react/3x2/US";
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -72,7 +68,8 @@ export function ContactInfo({
       color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
       labelEn: "Operating in",
       labelAr: "نعمل في",
-      value: isAr ? "🇸🇦 🇾🇪 🇦🇪 🇨🇳 🇺🇸" : "🇸🇦 🇾🇪 🇦🇪 🇨🇳 🇺🇸",
+      // Instead of a string of emojis, store an array of flag components
+      flags: [SA, YE, AE, CN, US],
       href: null,
     },
   ];
@@ -122,7 +119,7 @@ export function ContactInfo({
       {/* Channels */}
       <div className="space-y-2.5">
         {channels.map(
-          ({ icon: Icon, color, labelEn, labelAr, value, href }) => {
+          ({ icon: Icon, color, labelEn, labelAr, value, href, flags }) => {
             const inner = (
               <div
                 className={cn(
@@ -147,17 +144,12 @@ export function ContactInfo({
                   <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                     {isAr ? labelAr : labelEn}
                   </p>
-                  {labelEn === "Operating in" ? (
+                  {/* Special case for Operating in: render flags as SVG */}
+                  {labelEn === "Operating in" && flags ? (
                     <div className="flex items-center gap-1 mt-0.5">
-                      {value.split(" ").map((emoji, i) => {
-                        const code = flagToCode[emoji];
-                        return (
-                          <span
-                            key={i}
-                            className={`fi fi-${code} text-base`}
-                          ></span>
-                        );
-                      })}
+                      {flags.map((FlagComponent, i) => (
+                        <FlagComponent key={i} className="w-4 h-4" />
+                      ))}
                     </div>
                   ) : (
                     <p className="text-sm font-semibold text-foreground mt-0.5 truncate">
