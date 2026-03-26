@@ -520,7 +520,7 @@ export function TrendingProductsSection() {
         </motion.div>
 
         {/* Category pills */}
-        if (!loading && (
+        {!loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -534,7 +534,7 @@ export function TrendingProductsSection() {
               isAr={isAr}
             />
           </motion.div>
-        )
+        )}
 
         {/* Content */}
         {loading ? (
