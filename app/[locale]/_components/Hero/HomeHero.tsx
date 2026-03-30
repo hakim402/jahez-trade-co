@@ -1,6 +1,6 @@
 "use client";
 
-// app/[locale]/_components/hero.tsx
+// app/[locale]/_components/Hero/HomeHero.tsx
 
 import { useState, useEffect, useRef } from "react";
 import { motion, useInView, animate } from "motion/react";
@@ -11,13 +11,7 @@ import {
   Package,
   Video,
   TrendingUp,
-  CheckCircle,
-  Clock,
   Zap,
-  Star,
-  ChevronRight,
-  FileText,
-  Truck,
   MessageSquare,
   Factory,
   Store,
@@ -28,6 +22,7 @@ import YE from "country-flag-icons/react/3x2/YE";
 import AE from "country-flag-icons/react/3x2/AE";
 import CN from "country-flag-icons/react/3x2/CN";
 import US from "country-flag-icons/react/3x2/US";
+import IpadPreview from "./IpadPreview";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Animated counter hook
@@ -160,7 +155,7 @@ function ServicePills({ isAr }: { isAr: boolean }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 1.1, duration: 0.5 }}
-      className="flex flex-wrap justify-center gap-2"
+      className="flex flex-wrap justify-center gap-2 hidden sm:flex"
     >
       {services.map(({ icon: Icon, label, color }, i) => (
         <motion.div
@@ -278,17 +273,19 @@ export function HomeHero() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.5 }}
-          className="flex flex-col sm:flex-row items-center gap-3"
+          className="flex items-center gap-3 w-full max-w-md mx-auto"
         >
           {/* WhatsApp */}
           <a
             href={`https://wa.me/${whatsapp}?text=${msg}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-2 px-6 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold shadow-lg shadow-emerald-500/25 hover:-translate-y-0.5 transition-all w-full sm:w-auto justify-center"
+            className="group flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-sm font-semibold shadow-lg shadow-emerald-500/25 hover:-translate-y-0.5 transition-all"
           >
             <WhatsAppIcon className="w-4 h-4" />
-            {isAr ? "واتساب مباشر" : "Chat on WhatsApp"}
+            <span className="whitespace-nowrap">
+              {isAr ? "واتساب مباشر" : "Chat on WhatsApp"}
+            </span>
             <ArrowRight
               className={cn(
                 "w-4 h-4 transition-transform group-hover:translate-x-1",
@@ -297,18 +294,10 @@ export function HomeHero() {
             />
           </a>
 
-          {/* <Link
-            href={`/${locale}/dashboard/requests`}
-            className="group flex items-center gap-2 px-7 py-3.5 rounded-full bg-[#7b57fc] text-white text-sm font-semibold shadow-lg shadow-[#7b57fc]/30 hover:bg-[#6a48eb] hover:shadow-xl hover:shadow-[#7b57fc]/35 hover:-translate-y-0.5 transition-all"
-          >
-            <Package className="w-4 h-4" />
-            {isAr ? "ابدأ طلبك الآن" : "Start your request"}
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link> */}
-
+          {/* Video Booking */}
           <Link
             href={`/${locale}/dashboard/bookings`}
-            className="group flex items-center gap-2 px-7 py-3.5 rounded-full border border-border/70 bg-background/80 backdrop-blur-sm text-sm font-semibold text-foreground hover:border-[#7b57fc]/50 hover:text-[#7b57fc] hover:-translate-y-0.5 transition-all"
+            className="group flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-full border border-border/70 bg-background/80 backdrop-blur-sm text-[10px] sm:text-sm font-semibold text-foreground hover:border-[#7b57fc]/50 hover:text-[#7b57fc] hover:-translate-y-0.5 transition-all whitespace-nowrap"
           >
             <Video className="w-4 h-4" />
             {isAr ? "احجز جلسة فيديو" : "Book a video session"}
@@ -317,6 +306,7 @@ export function HomeHero() {
 
         {/* ── Service pills ── */}
         <ServicePills isAr={isAr} />
+        <IpadPreview />
       </div>
     </section>
   );

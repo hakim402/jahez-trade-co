@@ -21,13 +21,13 @@ export default async function Home() {
     <div>
       <Header />
       <HomeHero />
-      <ServicesShowcase isAr={isAr} heading="What we offer" subheading="Discover services to enhance your productivity" />
       <TrendingProductsSection />
       <FeatureSections />
       <HowWeOperate isAr={isAr} locale={locale} />
       <VideoBookingSections />
       <MissionValues isAr={isAr} />
       <HowItWorks />
+      <ServicesShowcase isAr={isAr} heading="What we offer" subheading="Discover services to enhance your productivity" />
       {/* <Pricing /> */}
       <FooterHero />
       <FooterSection />
