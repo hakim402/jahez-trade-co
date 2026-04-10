@@ -53,7 +53,7 @@ export const Header = () => {
     <header>
       <nav
         className={cn(
-          "fixed top-0 z-50 w-full transition-all duration-300",
+          "fixed top-4 z-50 w-full transition-all duration-300",
           scrolled
             ? "border-border/40 backdrop-blur-lg border-b shadow-sm"
             : "bg-transparent"
@@ -64,11 +64,11 @@ export const Header = () => {
             {/* Logo */}
             <Link href="/" className="flex items-center">
               <Image
-                src="/logo/mewan.jpg"
+                src="/logo/jahez.jpg"
                 alt="Mewan Logo"
                 width={120}
                 height={50}
-                className="h-28 md:h-36 lg:h-36 xl:h-36 w-auto object-contain -ml-4 md:ml-0 lg:ml-4 xl:ml-0"
+                className="h-20 md:h-26 lg:h-26 xl:h-26 w-auto object-contain -ml-4 md:ml-0 lg:ml-4 xl:ml-0"
                 priority
               />
             </Link>

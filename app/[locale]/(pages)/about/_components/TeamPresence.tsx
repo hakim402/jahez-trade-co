@@ -38,8 +38,8 @@ import YE from "country-flag-icons/react/3x2/YE";
 const LOCATIONS = [
   {
     flag: CN,
-    cityEn: "Guangzhou, China",
-    cityAr: "قوانغتشو، الصين",
+    cityEn: "Yiwu, China",
+    cityAr: "يي وو، الصين",
     roleEn: "Product sourcing hub",
     roleAr: "مركز استيراد المنتجات",
     descEn:
@@ -86,8 +86,8 @@ const LOCATIONS = [
   },
   {
     flag: YE,
-    cityEn: "Sana'a, Yemen",
-    cityAr: "صنعاء، اليمن",
+    cityEn: "Hadhramaut, Aden, Yemen",
+    cityAr: "حضرموت، عدن، اليمن",
     roleEn: "Regional outreach",
     roleAr: "الوصول للأسواق الإقليمية",
     descEn:

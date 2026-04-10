@@ -29,7 +29,7 @@ export function ContactHero({ isAr, locale }: ContactHeroProps) {
   );
 
   return (
-    <section className="relative overflow-hidden py-20 md:py-28 bg-background">
+    <section className="relative overflow-hidden py-24 bg-background">
       {/* Background */}
       <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />

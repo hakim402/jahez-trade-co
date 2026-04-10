@@ -203,7 +203,7 @@ export function HomeHero() {
   );
 
   return (
-    <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-16 pb-10">
+    <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden bg-background pt-24 pb-10">
       {/* Background */}
       <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
@@ -243,10 +243,10 @@ export function HomeHero() {
             className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground leading-[1.1] tracking-tight"
           >
             {isAr ? (
-              <>
+              <span className="leading-normal">
                 استورد أي منتج <span className="text-color">بثقة وسهولة</span>{" "}
                 من الصين وأمريكا
-              </>
+              </span>
             ) : (
               <>
                 Source any product{" "}
