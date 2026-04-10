@@ -124,7 +124,7 @@ export function AboutHero({ isAr, locale }: AboutHeroProps) {
       ];
 
   return (
-    <section className="relative min-h-[88vh] flex flex-col items-center justify-center overflow-hidden bg-background pb-10 pt-20">
+    <section className="relative min-h-[88vh] flex flex-col items-center justify-center overflow-hidden bg-background pb-10 pt-24">
       {/* ── Background ── */}
       <div className="absolute inset-0 bg-[oklch(0.97_0.01_280)] dark:bg-[oklch(0.14_0.02_270)]" />
       <div className="absolute inset-0 bg-brand-pattern opacity-[0.03] pointer-events-none" />
@@ -164,13 +164,13 @@ export function AboutHero({ isAr, locale }: AboutHeroProps) {
         >
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground leading-[1.1] tracking-tight">
             {isAr ? (
-              <>
+              <span className="leading-normal">
                 نبني جسوراً <span className="text-color">تجارية</span> بين
                 العالم وأسواقكم
-              </>
+              </span>
             ) : (
               <>
-                Building <span className="text-color">trade bridges</span>{" "}
+                Building <span className="text-color">trade <br /> bridges</span>{" "}
                 between global markets & you
               </>
             )}

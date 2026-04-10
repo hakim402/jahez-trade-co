@@ -258,13 +258,13 @@ function OrbitGraphic({ isAr }: { isAr: boolean }) {
           {/* Glow effect */}
           <div className="absolute inset-0 bg-indigo-500/20 blur-xl opacity-60 group-hover:opacity-80 transition" />
           {/* Logo */}
-          <div className="relative w-60 h-60">
+          <div className="relative w-30 h-30">
             <Image
-              src="/logo/icon.png"
+              src="/logo/icons.png"
               alt="Platform logo"
               fill
               className="object-contain"
-              sizes="80px"
+              sizes="30px"
               priority
             />
           </div>
