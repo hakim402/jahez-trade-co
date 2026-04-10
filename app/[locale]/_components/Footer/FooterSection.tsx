@@ -331,7 +331,7 @@ export function FooterSection() {
               <div className="w-10 h-10 rounded-2xl bg-background flex items-center justify-center shadow-lg shadow-[#7b57fc]/25">
                 <div className="relative w-40 h-40">
                   <Image
-                    src="/logo/icon.png"
+                    src="/logo/icons.png"
                     alt="Platform logo"
                     fill
                     className="object-contain"
