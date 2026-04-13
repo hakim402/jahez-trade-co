@@ -1,3 +1,4 @@
+// app/[locale]/(pages)/products/page.tsx
 import { Suspense } from "react";
 import { getLocale } from "next-intl/server";
 import { getTrendingProducts, getPublicProductCategories } from "./actions";
@@ -7,6 +8,7 @@ import { Header } from "../../_components/Header/Header";
 import { FooterSection } from "../../_components/Footer/FooterSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "next";
+import { routing } from "@/i18n/routing";
 
 export const revalidate = 300;
 
@@ -20,41 +22,49 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   const isAr = locale === "ar";
+  const baseUrl = "https://jahez.online";
+
+  const title = isAr
+    ? "المنتجات الرائجة | جاهز"
+    : "Trending Products | JAHEZ";
+
+  const description = isAr
+    ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
+    : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.";
+
+  const alternates = {
+    canonical: `${baseUrl}/${locale}/products`,
+    languages: {
+      en: `${baseUrl}/en/products`,
+      ar: `${baseUrl}/ar/products`,
+    },
+  };
+
+  const ogImage = {
+    url: `${baseUrl}/images/products-og.jpg`, // Update with actual path if available
+    width: 1200,
+    height: 630,
+    alt: isAr ? "منتجات جاهز الرائجة" : "JAHEZ Trending Products",
+  };
 
   return {
-    title: isAr
-      ? "المنتجات الرائجة | ميوان"
-      : "Trending Products | Mewan",
-    description: isAr
-      ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
-      : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.",
+    title,
+    description,
+    alternates,
     openGraph: {
-      title: isAr ? "المنتجات الرائجة | ميوان" : "Trending Products | Mewan",
-      description: isAr
-        ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
-        : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.",
-      images: [
-        {
-          url: "/og-products.jpg", // Adjust to your actual OG image path
-          width: 1200,
-          height: 630,
-          alt: isAr ? "منتجات ميوان الرائجة" : "Mewan Trending Products",
-        },
-      ],
+      title,
+      description,
+      url: `${baseUrl}/${locale}/products`,
+      siteName: isAr ? "جاهز" : "JAHEZ",
+      locale: isAr ? "ar_SA" : "en_US",
+      type: "website",
+      images: ogImage,
     },
     twitter: {
       card: "summary_large_image",
-      title: isAr ? "المنتجات الرائجة | ميوان" : "Trending Products | Mewan",
-      description: isAr
-        ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
-        : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.",
-      images: ["/og-products.jpg"],
-    },
-    alternates: {
-      languages: {
-        en: "/en/products",
-        ar: "/ar/products",
-      },
+      title,
+      description,
+      images: ogImage,
     },
   };
 }
@@ -64,7 +74,6 @@ export default async function ProductsPage({ searchParams }: PageProps) {
   const locale = await getLocale();
   const isAr = locale === "ar";
 
-  // getTrendingProducts already serializes Decimal → number and Date → ISO string
   const [products, categories] = await Promise.all([
     getTrendingProducts(50),
     getPublicProductCategories(),

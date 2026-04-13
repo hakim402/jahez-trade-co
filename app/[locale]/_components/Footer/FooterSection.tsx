@@ -342,7 +342,7 @@ export function FooterSection() {
               </div>
               <div>
                 <p className="text-base font-bold text-foreground leading-none">
-                  Mewan
+                  {isAr ? "جاهز" : "JAHEZ"}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
                   {isAr
@@ -360,8 +360,8 @@ export function FooterSection() {
               )}
             >
               {isAr
-                ? "نربطك بالموردين في الصين وأمريكا وغيرها. طلبات استيراد، جلسات فيديو، واستشارات تجارية — كل شيء في منصة واحدة."
-                : "Connecting you to suppliers in China, the USA, and beyond. Product requests, video sessions, and business consulting — all in one platform."}
+                ? "نربطك بالموردين في الصين وأمريكا وغيرها. طلبات استيراد، جلسات فيديو، واستشارات تجارية كل شيء في منصة واحدة."
+                : "Connecting you to suppliers in China, the USA, and beyond. Product requests, video sessions, and business consulting all in one platform."}
             </p>
 
             {/* Contact */}
@@ -417,8 +417,8 @@ export function FooterSection() {
           {/* Copyright */}
           <p className="text-xs text-muted-foreground/70 text-center sm:text-left">
             {isAr
-              ? `© ${year} منصة ميوان. جميع الحقوق محفوظة.`
-              : `© ${year} Mewan Platform. All rights reserved.`}
+              ? `© ${year} منصة جاهز. جميع الحقوق محفوظة.`
+              : `© ${year} JAHEZ Platform. All rights reserved.`}
           </p>
 
           {/* Bottom links */}

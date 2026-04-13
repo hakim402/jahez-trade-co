@@ -142,3 +142,20 @@ export async function linkProductRequest(
 
   return link
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SITEMAP HELPER – Lightweight fetch of all public product IDs and updatedAt
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getAllProductIdsForSitemap(): Promise<
+  Array<{ id: string; updatedAt: Date }>
+> {
+  const products = await prisma.trendingProduct.findMany({
+    where: { isActive: true, isDeleted: false },
+    select: { id: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return products;
+}

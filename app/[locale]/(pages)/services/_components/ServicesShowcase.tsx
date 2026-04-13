@@ -260,14 +260,16 @@ export async function ServicesShowcase({
       <div className="relative max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         {/* Header */}
         {!hideHeader && (
-          <div className="mb-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8 text-xs font-semibold text-[#7b57fc] mb-4">
+          <div className="mb-10 max-w-2xl mx-auto text-center">
+            <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8 text-xs font-semibold text-[#7b57fc] mb-4">
               <Sparkles className="w-3.5 h-3.5" />
               {t.badge}
             </div>
+
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight leading-tight">
               {heading ?? t.heading}
             </h2>
+
             <p className="mt-3 text-lg text-muted-foreground leading-relaxed">
               {subheading ?? t.subheading}
             </p>

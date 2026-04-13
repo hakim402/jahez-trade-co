@@ -1,11 +1,11 @@
 // app/layout.tsx
-
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { Cairo, Roboto } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
-import 'flag-icons/css/flag-icons.min.css';
+import "flag-icons/css/flag-icons.min.css";
 
 const inter = Roboto({
   subsets: ["latin"],
@@ -21,9 +21,17 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "MEWAN - Your Personal Products Tracker",
+  // Default metadata (overridden in locale layouts)
+  title: {
+    template: "%s | JAHEZ",
+    default: "JAHEZ - Your Personal Products Tracker",
+  },
   description:
-    "Mewan is a cutting-edge web application designed to help you effortlessly track and manage your favorite products.",
+    "JAHEZ is a cutting-edge web application designed to help you effortlessly track and manage your favorite products.",
+  // Google Site Verification (replace with your actual verification code from GSC)
+  verification: {
+    google: "google-site-verification=nZi9ngdAitHA46eBbJIOdPwpAQcfe7a2PRaB1R6LR68",
+  },
 };
 
 export default function RootLayout({
@@ -41,6 +49,8 @@ export default function RootLayout({
           {children}
           <Toaster />
         </ThemeProvider>
+        {/* Google Analytics 4 – loads after page is interactive */}
+        <GoogleAnalytics gaId="G-BTTGNXH9T3" />
       </body>
     </html>
   );

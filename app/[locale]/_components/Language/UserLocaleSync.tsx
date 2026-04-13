@@ -1,3 +1,6 @@
+// app/[locale]/_components/Language/UserLocaleSync.tsx
+
+
 'use client';
 
 import { useUser } from '@clerk/nextjs';

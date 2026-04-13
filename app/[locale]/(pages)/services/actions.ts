@@ -1,21 +1,6 @@
 "use server";
 
 // app/[locale]/(pages)/services/actions.ts
-//
-// Public-facing actions — no authentication required.
-// Used by:
-//   • /services          listing page (SSR + client filter)
-//   • /services/[id]     detail page
-//   • Homepage featured section
-//   • Any component that needs service data without auth
-//
-// Rules:
-//   • Only returns isActive + !isDeleted records
-//   • Strips all internal admin fields (addedById, featuredUntil, sortOrder, etc.)
-//   • Decimal priceFrom serialised to number at source
-//   • Dates serialised to ISO strings at source
-//   • All functions are safe to call from server components or client components
-//   • View counter is fire-and-forget — never throws, never blocks rendering
 
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -712,4 +697,21 @@ export async function incrementServiceView(id: string): Promise<void> {
   } catch {
     /* non-fatal */
   }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SITEMAP HELPER – Lightweight fetch of all public service IDs and updatedAt
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getAllServiceIdsForSitemap(): Promise<
+  Array<{ id: string; updatedAt: Date }>
+> {
+  const services = await prisma.consultingService.findMany({
+    where: { isActive: true, isDeleted: false },
+    select: { id: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return services;
 }

@@ -1,3 +1,4 @@
+// app/[locale]/(pages)/services/page.tsx
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getListingPageMeta, getPublicConsultingServices } from "./actions";
@@ -24,23 +25,49 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   const isAr = locale === "ar";
-  return {
-    title: isAr ? "خدمات الاستشارة | ميوان" : "Consulting Services | Mewan",
-    description: isAr
-      ? "استكشف خدمات الاستشارة المتخصصة في مصادر المنتجات واللوجستيات ودخول الأسواق"
-      : "Explore expert consulting services for product sourcing, logistics, and market entry",
-    openGraph: {
-      title: isAr ? "خدمات الاستشارة | ميوان" : "Consulting Services | Mewan",
-      description: isAr
-        ? "استكشف خدمات الاستشارة المتخصصة في مصادر المنتجات واللوجستيات ودخول الأسواق"
-        : "Explore expert consulting services for product sourcing, logistics, and market entry",
-      images: [{ url: "/og-services.jpg", width: 1200, height: 630 }],
+  const baseUrl = "https://jahez.online";
+
+  const title = isAr
+    ? "خدمات الاستشارة | جاهز"
+    : "Consulting Services | JAHEZ";
+
+  const description = isAr
+    ? "استكشف خدمات الاستشارة المتخصصة في مصادر المنتجات واللوجستيات ودخول الأسواق. خبراء في مساعدتك على النمو."
+    : "Explore expert consulting services for product sourcing, logistics, and market entry. We help your business grow.";
+
+  const alternates = {
+    canonical: `${baseUrl}/${locale}/services`,
+    languages: {
+      en: `${baseUrl}/en/services`,
+      ar: `${baseUrl}/ar/services`,
     },
-    alternates: {
-      languages: {
-        en: "/en/services",
-        ar: "/ar/services",
-      },
+  };
+
+  const ogImage = {
+    url: `${baseUrl}/images/services-og.jpg`, // Update with actual path if available
+    width: 1200,
+    height: 630,
+    alt: isAr ? "خدمات جاهز الاستشارية" : "JAHEZ Consulting Services",
+  };
+
+  return {
+    title,
+    description,
+    alternates,
+    openGraph: {
+      title,
+      description,
+      url: `${baseUrl}/${locale}/services`,
+      siteName: isAr ? "جاهز" : "JAHEZ",
+      locale: isAr ? "ar_SA" : "en_US",
+      type: "website",
+      images: ogImage,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImage,
     },
   };
 }
