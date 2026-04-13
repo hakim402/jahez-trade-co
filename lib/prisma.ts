@@ -16,7 +16,9 @@ if (!connectionString) {
 
 // Create a PostgreSQL connection pool
 const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
+
+// Type assertion avoids TS conflict between different @types/pg versions
+const adapter = new PrismaPg(pool as any)
 
 // Instantiate Prisma Client with the adapter
 export const prisma =
