@@ -18,6 +18,7 @@ import {
   BotMessageSquare,
   TrendingUp,
   BriefcaseBusiness,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -61,6 +62,11 @@ export function Sidebar() {
       icon: BriefcaseBusiness,
       label: "Consulations",
       href: "/admin/consulting",
+    },
+    {
+      icon: Megaphone,
+      label: "Blogs",
+      href: "/admin/blogs",
     },
     {
       icon: BotMessageSquare,
@@ -136,7 +142,7 @@ export function Sidebar() {
           >
             <div className="w-10 h-10 flex items-center justify-center">
               <Image
-                src="/logo/icon.png"
+                src="/logo/icons.png"
                 alt="mewan logo"
                 width={48}
                 height={48}

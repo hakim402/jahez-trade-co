@@ -212,7 +212,7 @@ const postListInclude = {
             tag: { select: { id: true, slug: true, nameEn: true, nameAr: true } },
         },
     },
-    _count: { select: { comments: true, reactions: true } },
+    _count: { select: { comments: true, reactions: true, videos: true, images: true } },
 } satisfies Prisma.PostInclude
 
 const postDetailInclude = {
