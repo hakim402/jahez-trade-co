@@ -587,7 +587,7 @@ export async function getPostComments(
     const { dbUserId } = await getOptionalAuth()
 
     // Verify the post is public
-    const post = await prisma.post.findUnique({
+    const post = await prisma.post.findFirst({
       where: { id: postId, ...publicPostBase },
       select: { id: true },
     })
