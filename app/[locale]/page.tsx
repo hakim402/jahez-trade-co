@@ -13,6 +13,7 @@ import { FooterHero } from "./_components/Footer/FooterHero";
 import { HowWeOperate } from "./(pages)/about/_components/HowWeOperate";
 import { MissionValues } from "./(pages)/about/_components/MissionValues";
 import { ServicesShowcase } from "./(pages)/services/_components/ServicesShowcase";
+import HomeBlogShowCase from "./(pages)/blogs/_components/HomeBlogShowCase";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -78,6 +79,7 @@ export default async function Home() {
     <div>
       <Header />
       <HomeHero />
+      <HomeBlogShowCase />
       <TrendingProductsSection />
       <FeatureSections />
       <HowWeOperate isAr={isAr} locale={locale} />

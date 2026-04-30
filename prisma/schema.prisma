@@ -100,6 +100,17 @@ enum ConsultingDeliveryFormat {
   async
 }
 
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ReactionType {
+  LIKE
+  DISLIKE
+}
+
 // ------------------------------------------------
 // USER MODEL
 // ------------------------------------------------
@@ -133,6 +144,10 @@ model User {
   availabilitySlots    AvailabilitySlot[]
   addedServices             ConsultingService[]          @relation("AdminAddedServices")
   consultingServiceRequests ConsultingServiceRequest[]
+  blogPosts         Post[]
+  comments          Comment[]
+  postReactions     PostReaction[]
+  commentReactions  CommentReaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -679,6 +694,221 @@ model ConsultingServiceRequest {
   @@index([requestId])
   @@index([userId])
 }
+
+
+// ------------------------------------------------
+// BLOGS POST
+// ------------------------------------------------
+model PostCategory {
+  id         String   @id @default(cuid())
+  slug       String   @unique        // language‑neutral (e.g. "web-dev")
+  nameEn     String
+  nameAr     String?
+  descEn     String?  @db.Text
+  descAr     String?  @db.Text
+
+  parentId   String?
+  parent     PostCategory?  @relation("CatHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children   PostCategory[] @relation("CatHierarchy")
+
+  posts      Post[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model PostTag {
+  id     String @id @default(cuid())
+  slug   String @unique
+  nameEn String
+  nameAr String?
+
+  posts  PostTagOnPost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id          String     @id @default(cuid())
+
+  // ── Content ─────────────────────────────────────
+  titleEn     String
+  titleAr     String?
+  slugEn      String     @unique
+  slugAr      String?    @unique
+  excerptEn   String?    @db.Text
+  excerptAr   String?    @db.Text
+  contentEn   String     @db.Text   // rich HTML / JSON
+  contentAr   String?    @db.Text
+
+  // ── Status & visibility ─────────────────────────
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  isDeleted   Boolean    @default(false)
+
+  // ── Author (must be an ADMIN in your app) ───────
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+
+  // ── Category ────────────────────────────────────
+  categoryId  String?
+  category    PostCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // ── SEO (bilingual) ─────────────────────────────
+  metaTitleEn       String?
+  metaTitleAr       String?
+  metaDescriptionEn String? @db.Text
+  metaDescriptionAr String? @db.Text
+  ogImageUrl        String?               // shared or overridable
+  ogImageAltEn      String?
+  ogImageAltAr      String?
+  twitterCard       String? @default("summary_large_image")
+  canonicalUrl      String?
+
+  // ── Media ───────────────────────────────────────
+  images PostImage[]
+  videos PostVideoEmbed[]
+
+  // ── Taxonomy ────────────────────────────────────
+  tags PostTagOnPost[]
+
+  // ── User interactions ───────────────────────────
+  comments   Comment[]
+  reactions  PostReaction[]
+  viewCount     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt, isDeleted])
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([slugEn])
+  @@index([slugAr])
+}
+
+model PostImage {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  url       String                       // required, no fallback to File
+  altText   String?
+
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([postId, sortOrder])
+}
+
+model PostVideoEmbed {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  url       String           
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([postId, sortOrder])
+}
+
+model PostTagOnPost {
+  postId String
+  tagId  String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    PostTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+
+  content    String   @db.Text
+
+  // Nested replies
+  parentId   String?
+  parent     Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[] @relation("CommentReplies")
+
+  isDeleted  Boolean  @default(false)
+  deletedAt  DateTime?
+
+  // Reactions on this comment
+  reactions  CommentReaction[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+model PostReaction {
+  id       String       @id @default(cuid())
+  postId   String
+  post     Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  userId   String
+  user     User         @relation(fields: [userId], references: [id])
+
+  type     ReactionType
+
+  createdAt DateTime     @default(now())
+
+  @@unique([postId, userId])   // one reaction per user per post
+  @@index([postId, type])
+}
+
+model CommentReaction {
+  id        String       @id @default(cuid())
+  commentId String
+  comment   Comment      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+
+  type      ReactionType
+
+  createdAt DateTime     @default(now())
+
+  @@unique([commentId, userId])   // one reaction per user per comment
+  @@index([commentId, type])
+}
+
+model GoogleAd {
+  id          String   @id @default(cuid())
+
+  // Placement identifier (e.g. "post-sidebar", "in-content-1", "site-header")
+  placement   String   @unique
+
+  // Ad unit codes per language (AdSense publisher ID + slot ID)
+  adCodeEn    String?  // English ad code
+  adCodeAr    String?  // Arabic ad code
+
+  // Optional: ad type (display, in‑article, etc.)
+  adType      String?  @default("display")
+
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([placement, isActive])
+}
+
 
 // ============================================================
 // WHATSAPP LOGS

@@ -560,7 +560,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
     : [
         {
           icon: Store,
-          image: "/images/market-tour.jpg",
+          image: "/images/market-tour-2.jpg",
           label: "Market Tour",
           desc: "Browse Chinese markets live",
           color:

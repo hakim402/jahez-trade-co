@@ -33,7 +33,7 @@ import Image from "next/image";
 const SERVICES = [
   {
     icon: MessageSquare,
-    image: "/images/consulations-illustration.jpg",
+    image: "/images/consulations-illustration-2.jpg",
     gradient: "from-emerald-400 to-teal-500",
     titleEn: "Business Consulting",
     titleAr: "الاستشارات التجارية",
@@ -46,7 +46,7 @@ const SERVICES = [
   },
   {
     icon: TrendingUp,
-    image: "/images/trending-products-illustration.jpg",
+    image: "/images/trending-products-illustration-2.jpg",
     gradient: "from-rose-500 to-pink-500",
     titleEn: "Trending Products",
     titleAr: "المنتجات الرائجة",
@@ -59,7 +59,7 @@ const SERVICES = [
   },
   {
     icon: Truck,
-    image: "/images/shipping-illustration.jpg",
+    image: "/images/shipping-illustration-2.jpg",
     gradient: "from-indigo-400 to-violet-500",
     titleEn: "Shipping & Logistics",
     titleAr: "الشحن واللوجستيك",
