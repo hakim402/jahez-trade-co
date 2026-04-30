@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/[slug]/page.tsx
+
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import type { Metadata } from "next";
@@ -12,22 +14,26 @@ import { RelatedPosts } from "./_components/RelatedPosts";
 import { CommentsSection } from "./_components/CommentsSection";
 import { SocialShare } from "./_components/SocialShare";
 import { PostSkeleton } from "./_components/PostSkeleton";
+import { PostMedia } from "./_components/PostMedia";
+import { PostVideo } from "./_components/PostVideo";
+import { headers } from "next/headers";
 
 interface PageProps {
   params: Promise<{ locale: string; slug: string }>;
 }
 
-// Generate metadata dynamically
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { locale, slug } = await params;
-  const result = await getPostBySlug({ slug, locale: locale as "en" | "ar" });
-  if (!result.success || !result.data) {
+  const result = await getPostBySlug(slug, locale as "en" | "ar");
+  if (!result.success) {
     return { title: "Post not found" };
   }
   const post = result.data;
-  const title = post.metaTitle || post.title;
-  const description = post.metaDescription || post.excerpt;
-  const imageUrl = post.ogImageUrl || post.images?.[0]?.resolvedUrl;
+  const title = post.seo?.metaTitle ?? post.title;
+  const description = post.seo?.metaDescription ?? post.excerpt ?? undefined;
+  const imageUrl = post.seo?.ogImageUrl ?? post.images?.[0]?.url;
 
   return {
     title,
@@ -36,8 +42,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: "article",
-      publishedTime: post.publishedAt?.toISOString(),
-      authors: [post.author.fullName || "JAHEZ"],
+      publishedTime: post.publishedAt ?? undefined,
+      authors: [post.author.fullName ?? "JAHEZ"],
       images: imageUrl ? [{ url: imageUrl }] : [],
     },
     twitter: {
@@ -52,19 +58,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function BlogPostPage({ params }: PageProps) {
   const { locale, slug } = await params;
   const isAr = locale === "ar";
-  const postResult = await getPostBySlug({ slug, locale: locale as "en" | "ar" });
+  const postResult = await getPostBySlug(slug, locale as "en" | "ar");
+  const headersList = await headers();
+  const host = headersList.get("host");
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const baseUrl = `${protocol}://${host}`;
+  const absoluteUrl = `${baseUrl}/${locale}/blogs/${slug}`;
 
-  if (!postResult.success || !postResult.data) {
+  if (!postResult.success) {
     notFound();
   }
 
   const post = postResult.data;
-  const relatedResult = await getRelatedPosts({
-    postId: post.id,
-    categoryId: post.category?.id,
-    locale: locale as "en" | "ar",
-    limit: 3,
-  });
+  const relatedResult = await getRelatedPosts(
+    post.id,
+    locale as "en" | "ar",
+    3,
+  );
   const relatedPosts = relatedResult.success ? relatedResult.data : [];
 
   return (
@@ -73,16 +83,22 @@ export default async function BlogPostPage({ params }: PageProps) {
       <article className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <Suspense fallback={<PostSkeleton isAr={isAr} />}>
           <PostHeader post={post} isAr={isAr} />
-          <PostMeta post={post} isAr={isAr} />
+          <PostMedia post={post} isAr={isAr} />
           <PostContent content={post.content} isAr={isAr} />
+          <PostVideo
+            videos={post.videos}
+            isAr={isAr}
+            title={isAr ? "فيديوهات ذات صلة" : "Related Videos"}
+          />
+          <PostMeta post={post} isAr={isAr} />
           <div className="my-8 flex flex-wrap items-center justify-between gap-4 border-y border-border/40 py-4">
             <AuthorCard author={post.author} isAr={isAr} />
-            <SocialShare url={`/${locale}/blogs/${slug}`} title={post.title} isAr={isAr} />
+            <SocialShare url={absoluteUrl} title={post.title} isAr={isAr} />
           </div>
           {relatedPosts.length > 0 && (
             <RelatedPosts posts={relatedPosts} isAr={isAr} />
           )}
-          <CommentsSection postId={post.id} postSlug={slug} isAr={isAr} />
+          <CommentsSection postId={post.id} isAr={isAr} />
         </Suspense>
       </article>
       <FooterSection />

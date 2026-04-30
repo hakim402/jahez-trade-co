@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/[slug]/_components/AuthorCard.tsx
+
 import Image from "next/image";
 import { User } from "lucide-react";
 

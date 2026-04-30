@@ -1,3 +1,6 @@
+
+// app/[locale]/(pages)/blogs/[slug]/_components/PostSkeleton.tsx
+
 export function PostSkeleton({ isAr }: { isAr: boolean }) {
   return (
     <div className="animate-pulse">

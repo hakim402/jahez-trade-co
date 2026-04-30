@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/_components/BlogListClient.tsx
+
 "use client";
 
 import { useState, useCallback, useRef } from "react";
@@ -6,13 +8,11 @@ import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, Loader2, Layou
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { PublicPostSummary } from "../actions";
-import { listPostsPublic } from "../actions";
+import type { PublicPostCard, PublicCategory, PublicTag } from "../actions";
+import { getPublishedPosts } from "../actions";
 import { BlogCard } from "./BlogCard";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Translations (no sort strings)
-// ─────────────────────────────────────────────────────────────────────────────
+// Translations (unchanged)
 const T = {
   en: {
     search: "Search articles…",
@@ -44,12 +44,12 @@ const T = {
 
 interface Props {
   isAr: boolean;
-  initialPosts: PublicPostSummary[];
+  initialPosts: PublicPostCard[];
   initialTotal: number;
   initialTotalPages: number;
   initialPage: number;
-  categories: { slug: string; name: string; postCount: number }[];
-  tags: { slug: string; name: string; postCount: number }[];
+  categories: PublicCategory[];
+  tags: PublicTag[];
   initialFilters: {
     category?: string;
     tag?: string;
@@ -86,18 +86,18 @@ export function BlogListClient({
   const fetchPosts = useCallback(
     async (opts: { search?: string; category?: string; tag?: string; page?: number }) => {
       setLoading(true);
-      const result = await listPostsPublic({
+      const result = await getPublishedPosts({
         locale: isAr ? "ar" : "en",
         search: opts.search || undefined,
         categorySlug: opts.category || undefined,
         tagSlug: opts.tag || undefined,
         page: opts.page ?? 1,
-        pageSize: 12,
+        limit: 12,
       });
       if (result.success) {
         setPosts(result.data.posts);
         setTotal(result.data.total);
-        setTotalPages(result.data.totalPages);
+        setTotalPages(result.data.pages);
         setPage(result.data.page);
       }
       setLoading(false);

@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/_components/BlogCard.tsx
+
 "use client";
 
 import Link from "next/link";
@@ -7,10 +9,10 @@ import { CalendarDays, ArrowRight, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { PublicPostSummary } from "../actions";
+import type { PublicPostCard } from "../actions";
 
 interface BlogCardProps {
-  post: PublicPostSummary;
+  post: PublicPostCard;
   isAr: boolean;
   layout: "grid" | "list";
 }
@@ -21,7 +23,7 @@ export function BlogCard({ post, isAr, layout }: BlogCardProps) {
     year: "numeric",
     month: "short",
     day: "numeric",
-  }).format(post.publishedAt || post.createdAt);
+  }).format(post.publishedAt ? new Date(post.publishedAt) : new Date());
 
   const title = post.title;
   const excerpt = post.excerpt || "...";
@@ -36,10 +38,10 @@ export function BlogCard({ post, isAr, layout }: BlogCardProps) {
         <Link href={postUrl} className="flex items-center gap-5 p-5">
           {/* Image */}
           <div className="w-28 h-28 rounded-xl overflow-hidden shrink-0 bg-muted/30">
-            {post.ogImageUrl ? (
+            {post.primaryImage?.url ? (
               <Image
-                src={post.ogImageUrl}
-                alt={title}
+                src={post.primaryImage.url}
+                alt={post.primaryImage.altText ?? title}
                 width={112}
                 height={112}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -91,10 +93,10 @@ export function BlogCard({ post, isAr, layout }: BlogCardProps) {
   return (
     <Card className="group h-full flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-color/30">
       <Link href={postUrl} className="block relative h-48 w-full overflow-hidden bg-muted">
-        {post.ogImageUrl ? (
+        {post.primaryImage?.url ? (
           <Image
-            src={post.ogImageUrl}
-            alt={title}
+            src={post.primaryImage.url}
+            alt={post.primaryImage.altText ?? title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -121,7 +123,7 @@ export function BlogCard({ post, isAr, layout }: BlogCardProps) {
         <p className="text-muted-foreground line-clamp-3 text-sm">{excerpt}</p>
       </CardContent>
       <CardFooter className="pt-2 flex items-center justify-between border-t">
-        <time dateTime={post.publishedAt?.toISOString() || post.createdAt.toISOString()} className="text-xs text-muted-foreground flex items-center gap-1">
+        <time dateTime={post.publishedAt ?? undefined} className="text-xs text-muted-foreground flex items-center gap-1">
           <CalendarDays className="w-3 h-3" /> {formattedDate}
         </time>
         <Button asChild variant="link" className="p-0 text-color hover:opacity-80 transition-opacity">

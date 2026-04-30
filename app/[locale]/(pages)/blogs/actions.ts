@@ -1,879 +1,1454 @@
-'use server'
+"use server"
 
-// app/[locale]/(pages)/blog/actions.ts
+// app/[locale]/(pages)/blogs/actions.ts
+//
+// Public-facing server actions for the blog system.
+// Rules:
+//  • Only PUBLISHED, non-deleted posts are ever exposed.
+//  • All bilingual fields are resolved to the requested locale with
+//    automatic fallback to English when the Arabic value is absent.
+//  • Auth (Clerk) is optional for read actions, required for mutations
+//    (reactions, comments). Clients are never allowed to moderate.
+//  • Every mutating action revalidates only what it touches to keep
+//    ISR as aggressive as possible.
 
-import { revalidatePath } from 'next/cache'
-import { auth } from '@clerk/nextjs/server'
-import { prisma } from '@/lib/prisma'
-import { ReactionType } from '@prisma/client'
+import { revalidatePath, revalidateTag } from "next/cache"
+import { auth, currentUser } from "@clerk/nextjs/server"
+import { prisma } from "@/lib/prisma"
+import { z } from "zod"
+import { Prisma, ReactionType } from "@prisma/client"
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TYPES
+// Shared types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Locale = 'en' | 'ar'
+export type Locale = "en" | "ar"
 
-type ActionResult<T = undefined> =
+type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
+// Auth helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function getAuthenticatedUser() {
+/** Returns the internal DB user id (not Clerk id) for the signed-in user.
+ *  Throws a friendly string if the user is not authenticated or not found. */
+async function requireAuthUser(): Promise<string> {
   const { userId: clerkId } = await auth()
-  if (!clerkId) return null
+  if (!clerkId) throw new Error("You must be signed in to do that.")
 
-  return prisma.user.findUnique({
-    where: { clerkId },
-    select: { id: true, role: true, isActive: true, isDeleted: true },
+  const user = await prisma.user.findUnique({
+    where: { clerkId, isDeleted: false },
+    select: { id: true, isActive: true },
   })
+  if (!user) throw new Error("User account not found.")
+  if (!user.isActive) throw new Error("Your account has been suspended.")
+
+  return user.id
 }
 
-async function requireAuthenticatedUser() {
-  const user = await getAuthenticatedUser()
-  if (!user) throw new Error('Unauthorized')
-  if (!user.isActive || user.isDeleted) throw new Error('Account is inactive')
-  return user
-}
+/** Returns { userId, dbUserId } — both nullable — so read actions can
+ *  optionally attach per-user state (e.g. "did I react to this post?"). */
+async function getOptionalAuth(): Promise<{
+  clerkId: string | null
+  dbUserId: string | null
+}> {
+  try {
+    const { userId: clerkId } = await auth()
+    if (!clerkId) return { clerkId: null, dbUserId: null }
 
-/**
- * Selects locale-aware scalar fields for a post.
- * The select object is used in Prisma queries.
- */
-function postLocaleSelect(locale: Locale) {
-  return {
-    id: true,
-    slugEn: true,
-    slugAr: true,
-    status: true,
-    publishedAt: true,
-    createdAt: true,
-    updatedAt: true,
-    ogImageUrl: true,
-    twitterCard: true,
-    canonicalUrl: true,
-    // Bilingual scalars — always include En; include Ar only when needed
-    titleEn: true,
-    titleAr: locale === 'ar',
-    excerptEn: true,
-    excerptAr: locale === 'ar',
-    contentEn: true,
-    contentAr: locale === 'ar',
-    metaTitleEn: true,
-    metaTitleAr: locale === 'ar',
-    metaDescriptionEn: true,
-    metaDescriptionAr: locale === 'ar',
-    ogImageAltEn: true,
-    ogImageAltAr: locale === 'ar',
+    const user = await prisma.user.findUnique({
+      where: { clerkId, isDeleted: false, isActive: true },
+      select: { id: true },
+    })
+    return { clerkId, dbUserId: user?.id ?? null }
+  } catch {
+    return { clerkId: null, dbUserId: null }
   }
 }
 
-/** Resolves the display value: use Arabic if locale=ar AND value exists, else fall back to English. */
-function resolveLocaleField<T>(en: T, ar: T | null | undefined, locale: Locale): T {
-  if (locale === 'ar' && ar != null) return ar
-  return en
+// ─────────────────────────────────────────────────────────────────────────────
+// Locale-aware field resolver
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Picks the localised value of a bilingual field, falling back to English. */
+function l<T>(enVal: T, arVal: T | null | undefined, locale: Locale): T {
+  if (locale === "ar" && arVal != null && arVal !== "") return arVal
+  return enVal
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PUBLIC POST LISTING
+// Serialisation helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface ListPostsPublicInput {
-  locale: Locale
-  page?: number
-  pageSize?: number
-  categorySlug?: string
-  tagSlug?: string
-  search?: string
+/** Strips raw Date objects so Next.js can safely pass the result across
+ *  the server → client boundary without "non-serialisable" warnings. */
+function toISO(d: Date | string | null | undefined): string | null {
+  if (!d) return null
+  return d instanceof Date ? d.toISOString() : d
 }
 
-export interface PublicPostSummary {
-  id: string
-  slug: string           // resolved slug for this locale
-  title: string
-  excerpt: string | null
-  publishedAt: Date | null
-  createdAt: Date
-  ogImageUrl: string | null
-  author: { fullName: string | null; avatarUrl: string | null }
-  category: { slug: string; name: string } | null
-  tags: Array<{ slug: string; name: string }>
-  reactionCounts: { LIKE: number; DISLIKE: number }
-  commentCount: number
+// ─────────────────────────────────────────────────────────────────────────────
+// Revalidation helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function revalidateBlogList(locale?: Locale) {
+  revalidatePath(`/en/blog`)
+  revalidatePath(`/ar/blog`)
+  if (locale) revalidatePath(`/${locale}/blog`)
 }
 
-export async function listPostsPublic(
-  input: ListPostsPublicInput
+function revalidateBlogPost(slugEn: string, slugAr?: string | null) {
+  revalidatePath(`/en/blog/${slugEn}`)
+  if (slugAr) revalidatePath(`/ar/blog/${slugAr}`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prisma include shapes (shared across read actions)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const publicPostListInclude = {
+  author: {
+    select: { id: true, fullName: true, avatarUrl: true },
+  },
+  category: {
+    select: { id: true, slug: true, nameEn: true, nameAr: true },
+  },
+  images: {
+    where: { isPrimary: true },
+    take: 1,
+    select: { url: true, altText: true },
+  },
+  tags: {
+    include: {
+      tag: { select: { id: true, slug: true, nameEn: true, nameAr: true } },
+    },
+  },
+  _count: { select: { comments: { where: { isDeleted: false } }, reactions: true } },
+} satisfies Prisma.PostInclude
+
+const publicPostDetailInclude = {
+  author: {
+    select: { id: true, fullName: true, avatarUrl: true },
+  },
+  category: {
+    select: { id: true, slug: true, nameEn: true, nameAr: true, descEn: true, descAr: true },
+  },
+  images: {
+    orderBy: [
+      { isPrimary: "desc" as Prisma.SortOrder },
+      { sortOrder: "asc" as Prisma.SortOrder },
+    ],
+    select: { id: true, url: true, altText: true, isPrimary: true, sortOrder: true },
+  },
+  videos: {
+    orderBy: { sortOrder: "asc" as Prisma.SortOrder },
+    select: { id: true, url: true, sortOrder: true },
+  },
+  tags: {
+    include: {
+      tag: { select: { id: true, slug: true, nameEn: true, nameAr: true } },
+    },
+  },
+  _count: {
+    select: { comments: { where: { isDeleted: false } }, reactions: true },
+  },
+} satisfies Prisma.PostInclude
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared where-clause: always restrict to public-visible posts
+// ─────────────────────────────────────────────────────────────────────────────
+
+const publicPostBase: Prisma.PostWhereInput = {
+  status: "PUBLISHED",
+  isDeleted: false,
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION A: POSTS – PUBLIC READ ───────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A1. GET PUBLISHED POSTS (paginated, filtered, locale-aware)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const listPublicPostsSchema = z.object({
+  locale: z.enum(["en", "ar"]).default("en"),
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(50).default(12),
+  search: z.string().default(""),
+  categorySlug: z.string().optional(),
+  tagSlug: z.string().optional(),
+  authorId: z.string().optional(),
+  sortBy: z
+    .enum(["publishedAt", "createdAt", "viewCount", "titleEn"])
+    .default("publishedAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+})
+
+export type ListPublicPostsInput = z.infer<typeof listPublicPostsSchema>
+
+export async function getPublishedPosts(
+  raw: Partial<ListPublicPostsInput> = {},
 ): Promise<
   ActionResult<{
-    posts: PublicPostSummary[]
+    posts: PublicPostCard[]
     total: number
     page: number
-    pageSize: number
-    totalPages: number
+    limit: number
+    pages: number
+    hasNext: boolean
+    hasPrev: boolean
   }>
 > {
   try {
-    const { locale, page = 1, pageSize = 12, categorySlug, tagSlug, search } = input
-    const skip = (page - 1) * pageSize
+    const {
+      locale,
+      page,
+      limit,
+      search,
+      categorySlug,
+      tagSlug,
+      authorId,
+      sortBy,
+      sortOrder,
+    } = listPublicPostsSchema.parse(raw)
 
-    const where = {
-      isDeleted: false,
-      status: 'PUBLISHED' as const,
-      ...(categorySlug
-        ? { category: { slug: categorySlug } }
-        : {}),
-      ...(tagSlug
-        ? { tags: { some: { tag: { slug: tagSlug } } } }
-        : {}),
-      ...(search
-        ? {
-            OR: [
-              { titleEn: { contains: search, mode: 'insensitive' as const } },
-              { titleAr: { contains: search, mode: 'insensitive' as const } },
-              { excerptEn: { contains: search, mode: 'insensitive' as const } },
-              { excerptAr: { contains: search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
+    const skip = (page - 1) * limit
+    const where: Prisma.PostWhereInput = { ...publicPostBase }
+
+    if (categorySlug) {
+      where.category = { slug: categorySlug }
+    }
+    if (tagSlug) {
+      where.tags = { some: { tag: { slug: tagSlug } } }
+    }
+    if (authorId) {
+      where.authorId = authorId
+    }
+    if (search.trim()) {
+      // Search both languages so users typing in either script get results
+      where.OR = [
+        { titleEn: { contains: search, mode: "insensitive" } },
+        { titleAr: { contains: search, mode: "insensitive" } },
+        { excerptEn: { contains: search, mode: "insensitive" } },
+        { excerptAr: { contains: search, mode: "insensitive" } },
+      ]
     }
 
-    const [rawPosts, total] = await Promise.all([
+    const [posts, total] = await Promise.all([
       prisma.post.findMany({
         where,
+        include: publicPostListInclude,
+        orderBy: { [sortBy]: sortOrder },
         skip,
-        take: pageSize,
-        orderBy: { publishedAt: 'desc' },
-        select: {
-          id: true,
-          slugEn: true,
-          slugAr: true,
-          titleEn: true,
-          titleAr: true,
-          excerptEn: true,
-          excerptAr: true,
-          publishedAt: true,
-          createdAt: true,
-          ogImageUrl: true,
-          author: { select: { fullName: true, avatarUrl: true } },
-          category: { select: { slug: true, nameEn: true, nameAr: true } },
-          tags: {
-            select: { tag: { select: { slug: true, nameEn: true, nameAr: true } } },
-          },
-          reactions: { select: { type: true } },
-          _count: { select: { comments: { where: { isDeleted: false } } } },
-        },
+        take: limit,
       }),
       prisma.post.count({ where }),
     ])
 
-    const posts: PublicPostSummary[] = rawPosts.map((p) => {
-      const reactionCounts = { LIKE: 0, DISLIKE: 0 }
-      for (const r of p.reactions) reactionCounts[r.type]++
-
-      // Slug: for Arabic routes, prefer slugAr; fall back to slugEn if absent
-      const slug = locale === 'ar' ? (p.slugAr ?? p.slugEn) : p.slugEn
-
-      return {
-        id: p.id,
-        slug,
-        title: resolveLocaleField(p.titleEn, p.titleAr, locale),
-        excerpt: resolveLocaleField(p.excerptEn ?? null, p.excerptAr ?? null, locale),
-        publishedAt: p.publishedAt,
-        createdAt: p.createdAt,
-        ogImageUrl: p.ogImageUrl,
-        author: p.author,
-        category: p.category
-          ? {
-              slug: p.category.slug,
-              name: resolveLocaleField(p.category.nameEn, p.category.nameAr, locale),
-            }
-          : null,
-        tags: p.tags.map((t) => ({
-          slug: t.tag.slug,
-          name: resolveLocaleField(t.tag.nameEn, t.tag.nameAr, locale),
-        })),
-        reactionCounts,
-        commentCount: p._count.comments,
-      }
-    })
-
     return {
       success: true,
-      data: { posts, total, page, pageSize, totalPages: Math.ceil(total / pageSize) },
+      data: {
+        posts: posts.map((p) => serializePostCard(p, locale)),
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
     }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to list posts' }
+  } catch (err) {
+    console.error("[getPublishedPosts]", err)
+    return { success: false, error: "Failed to load posts." }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET SINGLE POST BY SLUG (bilingual with Arabic fallback)
+// A2. GET SINGLE POST BY SLUG (locale-aware, increments view count)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface GetPostBySlugInput {
-  slug: string
-  locale: Locale
+export async function getPostBySlug(
+  slug: string,
+  locale: Locale = "en",
+): Promise<ActionResult<PublicPostDetail>> {
+  try {
+    // Build a locale-specific where clause but also accept the opposite
+    // language slug so deep-links never hard-404.
+    const where: Prisma.PostWhereInput = {
+      ...publicPostBase,
+      OR:
+        locale === "ar"
+          ? [{ slugAr: slug }, { slugEn: slug }]
+          : [{ slugEn: slug }, { slugAr: slug }],
+    }
+
+    const post = await prisma.post.findFirst({
+      where,
+      include: publicPostDetailInclude,
+    })
+
+    if (!post) return { success: false, error: "Post not found." }
+
+    // Fire-and-forget view count increment (no await so it doesn't slow SSR)
+    prisma.post
+      .update({ where: { id: post.id }, data: { viewCount: { increment: 1 } } })
+      .catch(() => {/* non-critical */ })
+
+    const { dbUserId } = await getOptionalAuth()
+    const userReaction = dbUserId
+      ? await prisma.postReaction.findUnique({
+        where: { postId_userId: { postId: post.id, userId: dbUserId } },
+        select: { type: true },
+      })
+      : null
+
+    return { success: true, data: serializePostDetail(post, locale, userReaction?.type ?? null) }
+  } catch (err) {
+    console.error("[getPostBySlug]", err)
+    return { success: false, error: "Failed to load post." }
+  }
 }
 
-export async function getPostBySlug(
-  input: GetPostBySlugInput
-): Promise<ActionResult<any>> {
-  try {
-    const { slug, locale } = input
+// ─────────────────────────────────────────────────────────────────────────────
+// A3. GET RELATED POSTS (same category or overlapping tags, excludes current)
+// ─────────────────────────────────────────────────────────────────────────────
 
-    // Build slug lookup based on locale rules:
-    // • en routes: ONLY match slugEn
-    // • ar routes: try slugAr first; if not found, fall back to slugEn
-    let post = await prisma.post.findFirst({
+export async function getRelatedPosts(
+  postId: string,
+  locale: Locale = "en",
+  limit = 4,
+): Promise<ActionResult<PublicPostCard[]>> {
+  try {
+    const source = await prisma.post.findFirst({
+      where: { ...publicPostBase, id: postId },
+      select: {
+        categoryId: true,
+        tags: { select: { tagId: true } },
+      },
+    }) as { categoryId: string | null; tags: { tagId: string }[] } | null
+    if (!source) return { success: true, data: [] }
+
+    const tagIds = source.tags.map((t) => t.tagId)
+
+    const posts = await prisma.post.findMany({
       where: {
-        isDeleted: false,
-        status: 'PUBLISHED',
-        // For English: only slugEn. For Arabic: slugAr OR slugEn fallback.
-        ...(locale === 'en'
-          ? { slugEn: slug }
-          : { OR: [{ slugAr: slug }, { slugEn: slug }] }),
+        ...publicPostBase,
+        id: { not: postId },
+        OR: [
+          ...(source.categoryId ? [{ categoryId: source.categoryId }] : []),
+          ...(tagIds.length ? [{ tags: { some: { tagId: { in: tagIds } } } }] : []),
+        ],
+      },
+      include: publicPostListInclude,
+      orderBy: { publishedAt: "desc" },
+      take: limit,
+    })
+
+    return { success: true, data: posts.map((p) => serializePostCard(p, locale)) }
+  } catch (err) {
+    console.error("[getRelatedPosts]", err)
+    return { success: false, error: "Failed to load related posts." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A4. GET FEATURED / LATEST POSTS (for homepage hero sections)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getFeaturedPosts(
+  locale: Locale = "en",
+  limit = 6,
+): Promise<ActionResult<PublicPostCard[]>> {
+  try {
+    const posts = await prisma.post.findMany({
+      where: publicPostBase,
+      include: publicPostListInclude,
+      orderBy: [{ viewCount: "desc" }, { publishedAt: "desc" }],
+      take: limit,
+    })
+    return { success: true, data: posts.map((p) => serializePostCard(p, locale)) }
+  } catch (err) {
+    console.error("[getFeaturedPosts]", err)
+    return { success: false, error: "Failed to load featured posts." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A5. GET POST METADATA ONLY (for <head> / generateMetadata usage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPostMeta(
+  slug: string,
+  locale: Locale = "en",
+): Promise<
+  ActionResult<{
+    title: string
+    description: string | null
+    ogImageUrl: string | null
+    ogImageAlt: string | null
+    canonicalUrl: string | null
+    twitterCard: string | null
+    publishedAt: string | null
+    author: string | null
+    slugEn: string
+    slugAr: string | null
+  }>
+> {
+  try {
+    const post = await prisma.post.findFirst({
+      where: {
+        ...publicPostBase,
+        OR:
+          locale === "ar"
+            ? [{ slugAr: slug }, { slugEn: slug }]
+            : [{ slugEn: slug }, { slugAr: slug }],
       },
       select: {
-        id: true,
-        slugEn: true,
-        slugAr: true,
-        status: true,
-        publishedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        ogImageUrl: true,
-        twitterCard: true,
-        canonicalUrl: true,
         titleEn: true,
         titleAr: true,
-        excerptEn: true,
-        excerptAr: true,
-        contentEn: true,
-        contentAr: true,
         metaTitleEn: true,
         metaTitleAr: true,
         metaDescriptionEn: true,
         metaDescriptionAr: true,
+        ogImageUrl: true,
         ogImageAltEn: true,
         ogImageAltAr: true,
-        author: { select: { id: true, fullName: true, avatarUrl: true } },
-        category: {
-          select: { id: true, slug: true, nameEn: true, nameAr: true },
-        },
-        tags: {
-          select: { tag: { select: { id: true, slug: true, nameEn: true, nameAr: true } } },
-        },
-        images: {
-          orderBy: { sortOrder: 'asc' },
-          select: {
-            id: true,
-            url: true,
-            altEn: true,
-            altAr: true,
-            captionEn: true,
-            captionAr: true,
-            sortOrder: true,
-            file: { select: { url: true } },
-          },
-        },
-        videos: {
-          orderBy: { sortOrder: 'asc' },
-          select: {
-            id: true,
-            provider: true,
-            videoId: true,
-            url: true,
-            titleEn: true,
-            titleAr: true,
-            sortOrder: true,
-          },
-        },
-        reactions: { select: { type: true } },
-        _count: {
-          select: { comments: { where: { isDeleted: false } } },
-        },
+        canonicalUrl: true,
+        twitterCard: true,
+        publishedAt: true,
+        slugEn: true,
+        slugAr: true,
+        author: { select: { fullName: true } },
+        images: { where: { isPrimary: true }, take: 1, select: { url: true } },
       },
     })
-
-    if (!post) return { success: false, error: 'Post not found' }
-
-    // Merge resolved locale fields on top of the raw record
-    const reactionCounts = { LIKE: 0, DISLIKE: 0 }
-    for (const r of post.reactions) reactionCounts[r.type]++
-
-    const resolvedPost = {
-      ...post,
-      // Resolved display slug for this locale
-      slug: locale === 'ar' ? (post.slugAr ?? post.slugEn) : post.slugEn,
-      title: resolveLocaleField(post.titleEn, post.titleAr, locale),
-      excerpt: resolveLocaleField(post.excerptEn ?? null, post.excerptAr ?? null, locale),
-      content: resolveLocaleField(post.contentEn, post.contentAr, locale),
-      metaTitle: resolveLocaleField(post.metaTitleEn ?? null, post.metaTitleAr ?? null, locale),
-      metaDescription: resolveLocaleField(
-        post.metaDescriptionEn ?? null,
-        post.metaDescriptionAr ?? null,
-        locale
-      ),
-      ogImageAlt: resolveLocaleField(
-        post.ogImageAltEn ?? null,
-        post.ogImageAltAr ?? null,
-        locale
-      ),
-      category: post.category
-        ? {
-            ...post.category,
-            name: resolveLocaleField(post.category.nameEn, post.category.nameAr, locale),
-          }
-        : null,
-      tags: post.tags.map((t) => ({
-        ...t.tag,
-        name: resolveLocaleField(t.tag.nameEn, t.tag.nameAr, locale),
-      })),
-      images: post.images.map((img) => ({
-        ...img,
-        resolvedUrl: img.file?.url ?? img.url ?? null,
-        alt: resolveLocaleField(img.altEn ?? null, img.altAr ?? null, locale),
-        caption: resolveLocaleField(img.captionEn ?? null, img.captionAr ?? null, locale),
-      })),
-      videos: post.videos.map((v) => ({
-        ...v,
-        title: resolveLocaleField(v.titleEn ?? null, v.titleAr ?? null, locale),
-      })),
-      reactionCounts,
-      commentCount: post._count.comments,
-    }
-
-    return { success: true, data: resolvedPost }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to get post' }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMMENTS — READ
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function listComments(input: {
-  postId: string
-  page?: number
-  pageSize?: number
-}): Promise<
-  ActionResult<{
-    comments: any[]
-    total: number
-    page: number
-    pageSize: number
-    totalPages: number
-  }>
-> {
-  try {
-    const { postId, page = 1, pageSize = 20 } = input
-    const skip = (page - 1) * pageSize
-
-    const where = { postId, parentId: null, isDeleted: false }
-
-    const [comments, total] = await Promise.all([
-      prisma.comment.findMany({
-        where,
-        skip,
-        take: pageSize,
-        orderBy: { createdAt: 'asc' },
-        include: {
-          author: { select: { id: true, fullName: true, avatarUrl: true } },
-          replies: {
-            where: { isDeleted: false },
-            orderBy: { createdAt: 'asc' },
-            include: {
-              author: { select: { id: true, fullName: true, avatarUrl: true } },
-              _count: { select: { reactions: true } },
-            },
-          },
-          _count: { select: { reactions: true, replies: { where: { isDeleted: false } } } },
-        },
-      }),
-      prisma.comment.count({ where }),
-    ])
+    if (!post) return { success: false, error: "Post not found." }
 
     return {
       success: true,
-      data: { comments, total, page, pageSize, totalPages: Math.ceil(total / pageSize) },
-    }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to load comments' }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMMENTS — WRITE (write-once; no editing allowed)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function addComment(input: {
-  postId: string
-  content: string
-  parentId?: string
-  locale: Locale
-}): Promise<ActionResult<{ id: string }>> {
-  try {
-    const user = await requireAuthenticatedUser()
-    const { postId, content, parentId, locale } = input
-
-    if (!content.trim()) return { success: false, error: 'Comment cannot be empty' }
-
-    // Verify the post exists and is published
-    const post = await prisma.post.findFirst({
-      where: { id: postId, isDeleted: false, status: 'PUBLISHED' },
-      select: { id: true, slugEn: true, slugAr: true },
-    })
-    if (!post) return { success: false, error: 'Post not found' }
-
-    // If replying, verify the parent comment belongs to the same post and is not deleted
-    if (parentId) {
-      const parent = await prisma.comment.findFirst({
-        where: { id: parentId, postId, isDeleted: false, parentId: null }, // only one level deep
-      })
-      if (!parent) return { success: false, error: 'Parent comment not found' }
-    }
-
-    const comment = await prisma.comment.create({
       data: {
-        postId,
-        authorId: user.id,
-        content: content.trim(),
-        parentId: parentId ?? null,
+        title: l(post.metaTitleEn ?? post.titleEn, post.metaTitleAr ?? post.titleAr, locale),
+        description: l(post.metaDescriptionEn, post.metaDescriptionAr, locale),
+        ogImageUrl: post.ogImageUrl ?? post.images[0]?.url ?? null,
+        ogImageAlt: l(post.ogImageAltEn, post.ogImageAltAr, locale),
+        canonicalUrl: post.canonicalUrl,
+        twitterCard: post.twitterCard,
+        publishedAt: toISO(post.publishedAt),
+        author: post.author.fullName ?? null,
+        slugEn: post.slugEn,
+        slugAr: post.slugAr ?? null,
       },
-      select: { id: true },
-    })
-
-    const slugPath = locale === 'ar' ? (post.slugAr ?? post.slugEn) : post.slugEn
-    revalidatePath(`/${locale}/blogs/${slugPath}`)
-
-    return { success: true, data: comment }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to add comment' }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMMENTS — SOFT DELETE (own comment only)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function softDeleteComment(input: {
-  commentId: string
-  locale: Locale
-}): Promise<ActionResult<undefined>> {
-  try {
-    const user = await requireAuthenticatedUser()
-    const { commentId, locale } = input
-
-    const comment = await prisma.comment.findUnique({
-      where: { id: commentId },
-      select: {
-        authorId: true,
-        isDeleted: true,
-        post: { select: { slugEn: true, slugAr: true } },
-      },
-    })
-
-    if (!comment) return { success: false, error: 'Comment not found' }
-    if (comment.isDeleted) return { success: false, error: 'Already deleted' }
-
-    // Clients can only delete their own comments; admins can delete any
-    if (user.role !== 'ADMIN' && comment.authorId !== user.id) {
-      return { success: false, error: 'Forbidden' }
     }
-
-    await prisma.comment.update({
-      where: { id: commentId },
-      data: { isDeleted: true, deletedAt: new Date() },
-    })
-
-    if (comment.post) {
-      const slugPath =
-        locale === 'ar'
-          ? (comment.post.slugAr ?? comment.post.slugEn)
-          : comment.post.slugEn
-      revalidatePath(`/${locale}/blogs/${slugPath}`)
-    }
-
-    return { success: true, data: undefined }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to delete comment' }
+  } catch (err) {
+    console.error("[getPostMeta]", err)
+    return { success: false, error: "Failed to load post metadata." }
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REACTIONS — POST
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function togglePostReaction(input: {
-  postId: string
-  type: ReactionType
-  locale: Locale
-}): Promise<ActionResult<{ reactionCounts: { LIKE: number; DISLIKE: number }; userReaction: ReactionType | null }>> {
-  try {
-    const user = await requireAuthenticatedUser()
-    const { postId, type, locale } = input
-
-    const post = await prisma.post.findFirst({
-      where: { id: postId, isDeleted: false, status: 'PUBLISHED' },
-      select: { id: true, slugEn: true, slugAr: true },
-    })
-    if (!post) return { success: false, error: 'Post not found' }
-
-    const existing = await prisma.postReaction.findUnique({
-      where: { postId_userId: { postId, userId: user.id } },
-    })
-
-    let userReaction: ReactionType | null = null
-
-    if (existing) {
-      if (existing.type === type) {
-        // Toggle off: remove the reaction
-        await prisma.postReaction.delete({
-          where: { postId_userId: { postId, userId: user.id } },
-        })
-        userReaction = null
-      } else {
-        // Switch reaction type
-        await prisma.postReaction.update({
-          where: { postId_userId: { postId, userId: user.id } },
-          data: { type },
-        })
-        userReaction = type
-      }
-    } else {
-      await prisma.postReaction.create({
-        data: { postId, userId: user.id, type },
-      })
-      userReaction = type
-    }
-
-    const reactions = await prisma.postReaction.groupBy({
-      by: ['type'],
-      where: { postId },
-      _count: { type: true },
-    })
-
-    const reactionCounts = { LIKE: 0, DISLIKE: 0 }
-    for (const r of reactions) reactionCounts[r.type] = r._count.type
-
-    const slugPath = locale === 'ar' ? (post.slugAr ?? post.slugEn) : post.slugEn
-    revalidatePath(`/${locale}/blogs/${slugPath}`)
-
-    return { success: true, data: { reactionCounts, userReaction } }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to toggle reaction' }
-  }
-}
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION B: CATEGORIES & TAGS – PUBLIC READ ───────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REACTIONS — COMMENT
+// B1. GET ALL CATEGORIES (with published post counts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function toggleCommentReaction(input: {
-  commentId: string
-  type: ReactionType
-  locale: Locale
-}): Promise<ActionResult<{ reactionCounts: { LIKE: number; DISLIKE: number }; userReaction: ReactionType | null }>> {
-  try {
-    const user = await requireAuthenticatedUser()
-    const { commentId, type, locale } = input
-
-    const comment = await prisma.comment.findFirst({
-      where: { id: commentId, isDeleted: false },
-      select: {
-        id: true,
-        post: { select: { slugEn: true, slugAr: true, status: true, isDeleted: true } },
-      },
-    })
-    if (!comment || comment.post.isDeleted || comment.post.status !== 'PUBLISHED') {
-      return { success: false, error: 'Comment not found' }
-    }
-
-    const existing = await prisma.commentReaction.findUnique({
-      where: { commentId_userId: { commentId, userId: user.id } },
-    })
-
-    let userReaction: ReactionType | null = null
-
-    if (existing) {
-      if (existing.type === type) {
-        await prisma.commentReaction.delete({
-          where: { commentId_userId: { commentId, userId: user.id } },
-        })
-        userReaction = null
-      } else {
-        await prisma.commentReaction.update({
-          where: { commentId_userId: { commentId, userId: user.id } },
-          data: { type },
-        })
-        userReaction = type
-      }
-    } else {
-      await prisma.commentReaction.create({
-        data: { commentId, userId: user.id, type },
-      })
-      userReaction = type
-    }
-
-    const reactions = await prisma.commentReaction.groupBy({
-      by: ['type'],
-      where: { commentId },
-      _count: { type: true },
-    })
-
-    const reactionCounts = { LIKE: 0, DISLIKE: 0 }
-    for (const r of reactions) reactionCounts[r.type] = r._count.type
-
-    const slugPath =
-      locale === 'ar'
-        ? (comment.post.slugAr ?? comment.post.slugEn)
-        : comment.post.slugEn
-    revalidatePath(`/${locale}/blogs/${slugPath}`)
-
-    return { success: true, data: { reactionCounts, userReaction } }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to toggle comment reaction' }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET USER'S OWN REACTION (for hydrating UI state)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function getUserPostReaction(
-  postId: string
-): Promise<ActionResult<ReactionType | null>> {
-  try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) return { success: true, data: null }
-
-    const user = await prisma.user.findUnique({
-      where: { clerkId },
-      select: { id: true },
-    })
-    if (!user) return { success: true, data: null }
-
-    const reaction = await prisma.postReaction.findUnique({
-      where: { postId_userId: { postId, userId: user.id } },
-      select: { type: true },
-    })
-
-    return { success: true, data: reaction?.type ?? null }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to get reaction' }
-  }
-}
-
-export async function getUserCommentReaction(
-  commentId: string
-): Promise<ActionResult<ReactionType | null>> {
-  try {
-    const { userId: clerkId } = await auth()
-    if (!clerkId) return { success: true, data: null }
-
-    const user = await prisma.user.findUnique({
-      where: { clerkId },
-      select: { id: true },
-    })
-    if (!user) return { success: true, data: null }
-
-    const reaction = await prisma.commentReaction.findUnique({
-      where: { commentId_userId: { commentId, userId: user.id } },
-      select: { type: true },
-    })
-
-    return { success: true, data: reaction?.type ?? null }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to get reaction' }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PUBLIC CATEGORIES & TAGS
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function listCategories(
-  locale: Locale
-): Promise<ActionResult<any[]>> {
+export async function getPublicCategories(
+  locale: Locale = "en",
+): Promise<ActionResult<PublicCategory[]>> {
   try {
     const categories = await prisma.postCategory.findMany({
-      orderBy: { nameEn: 'asc' },
       include: {
+        _count: {
+          select: {
+            posts: {
+              where: publicPostBase,
+            },
+          },
+        },
         children: {
           select: {
             id: true,
             slug: true,
             nameEn: true,
             nameAr: true,
-          },
-        },
-        _count: {
-          select: {
-            posts: {
-              where: { isDeleted: false, status: 'PUBLISHED' },
-            },
-          },
-        },
-      },
-      where: { parentId: null }, // top-level only; children nested
-    })
-
-    return {
-      success: true,
-      data: categories.map((c) => ({
-        ...c,
-        name: resolveLocaleField(c.nameEn, c.nameAr, locale),
-        desc: resolveLocaleField(c.descEn ?? null, c.descAr ?? null, locale),
-        children: c.children.map((ch) => ({
-          ...ch,
-          name: resolveLocaleField(ch.nameEn, ch.nameAr, locale),
-        })),
-        postCount: c._count.posts,
-      })),
-    }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to list categories' }
-  }
-}
-
-export async function listTags(locale: Locale): Promise<ActionResult<any[]>> {
-  try {
-    const tags = await prisma.postTag.findMany({
-      orderBy: { nameEn: 'asc' },
-      include: {
-        _count: {
-          select: {
-            posts: {
-              where: {
-                post: { isDeleted: false, status: 'PUBLISHED' },
+            _count: {
+              select: {
+                posts: { where: publicPostBase },
               },
             },
           },
         },
+        parent: {
+          select: { id: true, slug: true, nameEn: true, nameAr: true },
+        },
       },
+      orderBy: { nameEn: "asc" },
+      where: { parentId: null }, // top-level first; children are nested
+    })
+
+    const serialize = (cat: any): PublicCategory => ({
+      id: cat.id,
+      slug: cat.slug,
+      name: l(cat.nameEn, cat.nameAr, locale),
+      description: l(cat.descEn ?? null, cat.descAr ?? null, locale),
+      postCount: cat._count.posts,
+      parent: cat.parent
+        ? { id: cat.parent.id, slug: cat.parent.slug, name: l(cat.parent.nameEn, cat.parent.nameAr, locale) }
+        : null,
+      children: (cat.children ?? []).map((c: any) => ({
+        id: c.id,
+        slug: c.slug,
+        name: l(c.nameEn, c.nameAr, locale),
+        description: null,
+        postCount: c._count.posts,
+        parent: null,
+        children: [],
+      })),
+    })
+
+    return { success: true, data: categories.map(serialize) }
+  } catch (err) {
+    console.error("[getPublicCategories]", err)
+    return { success: false, error: "Failed to load categories." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B2. GET ALL TAGS (with published post counts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPublicTags(
+  locale: Locale = "en",
+): Promise<ActionResult<PublicTag[]>> {
+  try {
+    const tags = await prisma.postTag.findMany({
+      include: {
+        _count: {
+          select: {
+            posts: {
+              where: { post: publicPostBase },
+            },
+          },
+        },
+      },
+      orderBy: { nameEn: "asc" },
+    })
+
+    const data: PublicTag[] = tags
+      .filter((t) => t._count.posts > 0) // only show tags with live posts
+      .map((t) => ({
+        id: t.id,
+        slug: t.slug,
+        name: l(t.nameEn, t.nameAr, locale),
+        postCount: t._count.posts,
+      }))
+
+    return { success: true, data }
+  } catch (err) {
+    console.error("[getPublicTags]", err)
+    return { success: false, error: "Failed to load tags." }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION C: COMMENTS – PUBLIC READ & WRITE ────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+const getCommentsSchema = z.object({
+  postId: z.string().min(1),
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(50).default(20),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+})
+
+export type GetCommentsInput = z.infer<typeof getCommentsSchema>
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C1. GET THREADED COMMENTS FOR A POST
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPostComments(
+  raw: GetCommentsInput,
+): Promise<
+  ActionResult<{
+    comments: PublicComment[]
+    total: number
+    page: number
+    pages: number
+    hasNext: boolean
+  }>
+> {
+  try {
+    const { postId, page, limit, sortOrder } = getCommentsSchema.parse(raw)
+    const { dbUserId } = await getOptionalAuth()
+
+    // Verify the post is public
+    const post = await prisma.post.findUnique({
+      where: { id: postId, ...publicPostBase },
+      select: { id: true },
+    })
+    if (!post) return { success: false, error: "Post not found." }
+
+    const where: Prisma.CommentWhereInput = {
+      postId,
+      parentId: null, // top-level only; replies fetched recursively below
+      isDeleted: false,
+    }
+
+    const [comments, total] = await Promise.all([
+      prisma.comment.findMany({
+        where,
+        include: {
+          author: { select: { id: true, fullName: true, avatarUrl: true } },
+          reactions: dbUserId
+            ? { where: { userId: dbUserId }, select: { type: true } }
+            : false,
+          _count: {
+            select: {
+              replies: { where: { isDeleted: false } },
+              reactions: true,
+            },
+          },
+          replies: {
+            where: { isDeleted: false },
+            include: {
+              author: { select: { id: true, fullName: true, avatarUrl: true } },
+              reactions: dbUserId
+                ? { where: { userId: dbUserId }, select: { type: true } }
+                : false,
+              _count: { select: { reactions: true } },
+              replies: {
+                // One more level deep (grandchildren) for typical 3-level threading
+                where: { isDeleted: false },
+                include: {
+                  author: { select: { id: true, fullName: true, avatarUrl: true } },
+                  reactions: dbUserId
+                    ? { where: { userId: dbUserId }, select: { type: true } }
+                    : false,
+                  _count: { select: { reactions: true } },
+                },
+                orderBy: { createdAt: "asc" },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+        orderBy: { createdAt: sortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.comment.count({ where }),
+    ])
+
+    const serializeComment = (c: any): PublicComment => ({
+      id: c.id,
+      content: c.content,
+      createdAt: toISO(c.createdAt)!,
+      updatedAt: toISO(c.updatedAt),
+      author: {
+        id: c.author.id,
+        fullName: c.author.fullName ?? "Anonymous",
+        avatarUrl: c.author.avatarUrl ?? null,
+      },
+      reactionCount: c._count?.reactions ?? 0,
+      replyCount: c._count?.replies ?? 0,
+      myReaction: (c.reactions?.[0]?.type ?? null) as ReactionType | null,
+      replies: (c.replies ?? []).map(serializeComment),
     })
 
     return {
       success: true,
-      data: tags.map((t) => ({
-        ...t,
-        name: resolveLocaleField(t.nameEn, t.nameAr, locale),
-        postCount: t._count.posts,
-      })),
+      data: {
+        comments: comments.map(serializeComment),
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+      },
     }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to list tags' }
+  } catch (err) {
+    console.error("[getPostComments]", err)
+    return { success: false, error: "Failed to load comments." }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GOOGLE ADS — PUBLIC FETCH (returns null when placement inactive)
+// C2. CREATE COMMENT (auth required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const createCommentSchema = z.object({
+  postId: z.string().min(1),
+  content: z
+    .string()
+    .min(1, "Comment cannot be empty.")
+    .max(2000, "Comment is too long (max 2 000 characters)."),
+  parentId: z.string().optional(),
+  locale: z.enum(["en", "ar"]).default("en"),
+})
+
+export type CreateCommentInput = z.infer<typeof createCommentSchema>
+
+export async function createComment(
+  raw: CreateCommentInput,
+): Promise<ActionResult<PublicComment>> {
+  try {
+    const dbUserId = await requireAuthUser()
+    const { postId, content, parentId, locale } = createCommentSchema.parse(raw)
+
+    // Verify the post exists and is public
+    const post = await prisma.post.findFirst({
+      where: { id: postId, ...publicPostBase },
+      select: { id: true, slugEn: true, slugAr: true },
+    })
+    if (!post) return { success: false, error: "Post not found or not available." }
+
+    // If replying, verify the parent comment belongs to this post
+    if (parentId) {
+      const parent = await prisma.comment.findUnique({
+        where: { id: parentId, postId, isDeleted: false },
+        select: { id: true, parentId: true },
+      })
+      if (!parent) return { success: false, error: "Parent comment not found." }
+      // Prevent replying to a reply (enforce max 2-level threading on write)
+      if (parent.parentId) {
+        return {
+          success: false,
+          error: "Replies to replies are not supported. Reply to the top-level comment instead.",
+        }
+      }
+    }
+
+    // Basic rate-limit: max 10 comments per user per post per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+    const recentCount = await prisma.comment.count({
+      where: { postId, authorId: dbUserId, createdAt: { gte: oneHourAgo } },
+    })
+    if (recentCount >= 10) {
+      return { success: false, error: "You're commenting too fast. Please wait a moment." }
+    }
+
+    const comment = await prisma.comment.create({
+      data: {
+        postId,
+        authorId: dbUserId,
+        content: content.trim(),
+        parentId: parentId ?? null,
+      },
+      include: {
+        author: { select: { id: true, fullName: true, avatarUrl: true } },
+        _count: { select: { reactions: true, replies: true } },
+      },
+    })
+
+    revalidateBlogPost(post.slugEn, post.slugAr)
+
+    return {
+      success: true,
+      data: {
+        id: comment.id,
+        content: comment.content,
+        createdAt: toISO(comment.createdAt)!,
+        updatedAt: toISO(comment.updatedAt),
+        author: {
+          id: comment.author.id,
+          fullName: comment.author.fullName ?? "Anonymous",
+          avatarUrl: comment.author.avatarUrl ?? null,
+        },
+        reactionCount: 0,
+        replyCount: 0,
+        myReaction: null,
+        replies: [],
+      },
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      // Surface user-facing messages from requireAuthUser / schema parsing
+      return { success: false, error: err.message }
+    }
+    console.error("[createComment]", err)
+    return { success: false, error: "Failed to post comment." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C3. UPDATE OWN COMMENT (auth required, only the author may edit)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateComment(
+  commentId: string,
+  content: string,
+): Promise<ActionResult<{ id: string; content: string; updatedAt: string }>> {
+  try {
+    const dbUserId = await requireAuthUser()
+
+    const parsed = z
+      .string()
+      .min(1, "Comment cannot be empty.")
+      .max(2000, "Too long.")
+      .parse(content)
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true, authorId: true, isDeleted: true, post: { select: { slugEn: true, slugAr: true } } },
+    })
+    if (!comment) return { success: false, error: "Comment not found." }
+    if (comment.isDeleted) return { success: false, error: "Cannot edit a deleted comment." }
+    if (comment.authorId !== dbUserId) return { success: false, error: "You can only edit your own comments." }
+
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { content: parsed.trim() },
+      select: { id: true, content: true, updatedAt: true },
+    })
+
+    revalidateBlogPost(comment.post.slugEn, comment.post.slugAr)
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        content: updated.content,
+        updatedAt: toISO(updated.updatedAt)!,
+      },
+    }
+  } catch (err) {
+    if (err instanceof Error) return { success: false, error: err.message }
+    console.error("[updateComment]", err)
+    return { success: false, error: "Failed to update comment." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C4. SOFT-DELETE OWN COMMENT (auth required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function deleteOwnComment(
+  commentId: string,
+): Promise<ActionResult<{ ok: boolean }>> {
+  try {
+    const dbUserId = await requireAuthUser()
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true, authorId: true, isDeleted: true, post: { select: { slugEn: true, slugAr: true } } },
+    })
+    if (!comment) return { success: false, error: "Comment not found." }
+    if (comment.isDeleted) return { success: false, error: "Comment is already deleted." }
+    if (comment.authorId !== dbUserId) return { success: false, error: "You can only delete your own comments." }
+
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        content: "[Deleted by author]",
+      },
+    })
+
+    revalidateBlogPost(comment.post.slugEn, comment.post.slugAr)
+    return { success: true, data: { ok: true } }
+  } catch (err) {
+    if (err instanceof Error) return { success: false, error: err.message }
+    console.error("[deleteOwnComment]", err)
+    return { success: false, error: "Failed to delete comment." }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION D: REACTIONS – POST & COMMENT ────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D1. TOGGLE POST REACTION  (LIKE / DISLIKE — one reaction per user per post)
+//     • First call with a type  → creates the reaction
+//     • Second call with same   → removes it (toggle off)
+//     • Call with different     → switches type
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function togglePostReaction(
+  postId: string,
+  type: ReactionType,
+): Promise<
+  ActionResult<{
+    likes: number
+    dislikes: number
+    myReaction: ReactionType | null
+  }>
+> {
+  try {
+    const dbUserId = await requireAuthUser()
+
+    const post = await prisma.post.findFirst({
+      where: { id: postId, ...publicPostBase },
+      select: { id: true, slugEn: true, slugAr: true },
+    })
+    if (!post) return { success: false, error: "Post not found." }
+
+    const existing = await prisma.postReaction.findUnique({
+      where: { postId_userId: { postId, userId: dbUserId } },
+    })
+
+    if (!existing) {
+      // No prior reaction → create
+      await prisma.postReaction.create({ data: { postId, userId: dbUserId, type } })
+    } else if (existing.type === type) {
+      // Same reaction → remove (toggle off)
+      await prisma.postReaction.delete({ where: { id: existing.id } })
+    } else {
+      // Different reaction → switch
+      await prisma.postReaction.update({ where: { id: existing.id }, data: { type } })
+    }
+
+    // Return fresh counts
+    const [likes, dislikes] = await Promise.all([
+      prisma.postReaction.count({ where: { postId, type: "LIKE" } }),
+      prisma.postReaction.count({ where: { postId, type: "DISLIKE" } }),
+    ])
+
+    const current = await prisma.postReaction.findUnique({
+      where: { postId_userId: { postId, userId: dbUserId } },
+      select: { type: true },
+    })
+
+    revalidateBlogPost(post.slugEn, post.slugAr)
+    return {
+      success: true,
+      data: { likes, dislikes, myReaction: current?.type ?? null },
+    }
+  } catch (err) {
+    if (err instanceof Error) return { success: false, error: err.message }
+    console.error("[togglePostReaction]", err)
+    return { success: false, error: "Failed to update reaction." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D2. TOGGLE COMMENT REACTION  (same toggle semantics as post reaction)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function toggleCommentReaction(
+  commentId: string,
+  type: ReactionType,
+): Promise<
+  ActionResult<{
+    total: number
+    myReaction: ReactionType | null
+  }>
+> {
+  try {
+    const dbUserId = await requireAuthUser()
+
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId, isDeleted: false },
+      select: { id: true },
+    })
+    if (!comment) return { success: false, error: "Comment not found." }
+
+    const existing = await prisma.commentReaction.findUnique({
+      where: { commentId_userId: { commentId, userId: dbUserId } },
+    })
+
+    if (!existing) {
+      await prisma.commentReaction.create({ data: { commentId, userId: dbUserId, type } })
+    } else if (existing.type === type) {
+      await prisma.commentReaction.delete({ where: { id: existing.id } })
+    } else {
+      await prisma.commentReaction.update({ where: { id: existing.id }, data: { type } })
+    }
+
+    const total = await prisma.commentReaction.count({ where: { commentId } })
+    const current = await prisma.commentReaction.findUnique({
+      where: { commentId_userId: { commentId, userId: dbUserId } },
+      select: { type: true },
+    })
+
+    return { success: true, data: { total, myReaction: current?.type ?? null } }
+  } catch (err) {
+    if (err instanceof Error) return { success: false, error: err.message }
+    console.error("[toggleCommentReaction]", err)
+    return { success: false, error: "Failed to update reaction." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D3. GET REACTION COUNTS (for optimistic UI hydration on page load)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPostReactionCounts(
+  postId: string,
+): Promise<ActionResult<{ likes: number; dislikes: number; myReaction: ReactionType | null }>> {
+  try {
+    const { dbUserId } = await getOptionalAuth()
+
+    const [likes, dislikes, myReaction] = await Promise.all([
+      prisma.postReaction.count({ where: { postId, type: "LIKE" } }),
+      prisma.postReaction.count({ where: { postId, type: "DISLIKE" } }),
+      dbUserId
+        ? prisma.postReaction.findUnique({
+          where: { postId_userId: { postId, userId: dbUserId } },
+          select: { type: true },
+        })
+        : Promise.resolve(null),
+    ])
+
+    return { success: true, data: { likes, dislikes, myReaction: myReaction?.type ?? null } }
+  } catch (err) {
+    console.error("[getPostReactionCounts]", err)
+    return { success: false, error: "Failed to fetch reactions." }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION E: ADS ───────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E1. GET AD BY PLACEMENT (locale-aware — returns the correct code)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getAdByPlacement(
   placement: string,
-  locale: Locale
-): Promise<ActionResult<{ adCode: string; adType: string | null } | null>> {
+  locale: Locale = "en",
+): Promise<ActionResult<{ id: string; adCode: string | null; adType: string | null } | null>> {
   try {
     const ad = await prisma.googleAd.findUnique({
-      where: { placement },
-      select: {
-        isActive: true,
-        adCodeEn: true,
-        adCodeAr: true,
-        adType: true,
-      },
+      where: { placement, isActive: true },
+      select: { id: true, adCodeEn: true, adCodeAr: true, adType: true },
     })
 
-    // Return null when placement missing or explicitly disabled
-    if (!ad || !ad.isActive) return { success: true, data: null }
+    if (!ad) return { success: true, data: null }
 
-    const adCode = resolveLocaleField(ad.adCodeEn ?? null, ad.adCodeAr ?? null, locale)
-
-    // If there is no code for this locale (and no English fallback), return null
-    if (!adCode) return { success: true, data: null }
-
-    return { success: true, data: { adCode, adType: ad.adType ?? null } }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to get ad' }
+    return {
+      success: true,
+      data: {
+        id: ad.id,
+        adCode: locale === "ar" ? (ad.adCodeAr ?? ad.adCodeEn) : ad.adCodeEn,
+        adType: ad.adType,
+      },
+    }
+  } catch (err) {
+    console.error("[getAdByPlacement]", err)
+    return { success: false, error: "Failed to load ad." }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RELATED POSTS (same category, excluding current)
+// E2. GET MULTIPLE ADS BY PLACEMENTS (batch fetch for layout components)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getRelatedPosts(input: {
-  postId: string
-  categoryId?: string
-  locale: Locale
-  limit?: number
-}): Promise<ActionResult<PublicPostSummary[]>> {
+export async function getAdsByPlacements(
+  placements: string[],
+  locale: Locale = "en",
+): Promise<ActionResult<Record<string, { id: string; adCode: string | null; adType: string | null }>>> {
   try {
-    const { postId, categoryId, locale, limit = 4 } = input
+    if (!placements.length) return { success: true, data: {} }
 
+    const ads = await prisma.googleAd.findMany({
+      where: { placement: { in: placements }, isActive: true },
+      select: { id: true, placement: true, adCodeEn: true, adCodeAr: true, adType: true },
+    })
+
+    const map: Record<string, { id: string; adCode: string | null; adType: string | null }> = {}
+    for (const ad of ads) {
+      map[ad.placement] = {
+        id: ad.id,
+        adCode: locale === "ar" ? (ad.adCodeAr ?? ad.adCodeEn) : ad.adCodeEn,
+        adType: ad.adType,
+      }
+    }
+
+    return { success: true, data: map }
+  } catch (err) {
+    console.error("[getAdsByPlacements]", err)
+    return { success: false, error: "Failed to load ads." }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION F: SITEMAP & RSS HELPERS ─────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F1. GET ALL POST SLUGS (used for generateStaticParams / sitemap.xml)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getAllPublicSlugs(): Promise<
+  ActionResult<{ slugEn: string; slugAr: string | null; updatedAt: string }[]>
+> {
+  try {
     const posts = await prisma.post.findMany({
-      where: {
-        id: { not: postId },
-        isDeleted: false,
-        status: 'PUBLISHED',
-        ...(categoryId ? { categoryId } : {}),
-      },
-      take: limit,
-      orderBy: { publishedAt: 'desc' },
+      where: publicPostBase,
+      select: { slugEn: true, slugAr: true, updatedAt: true },
+      orderBy: { publishedAt: "desc" },
+    })
+
+    return {
+      success: true,
+      data: posts.map((p) => ({
+        slugEn: p.slugEn,
+        slugAr: p.slugAr ?? null,
+        updatedAt: toISO(p.updatedAt)!,
+      })),
+    }
+  } catch (err) {
+    console.error("[getAllPublicSlugs]", err)
+    return { success: false, error: "Failed to load slugs." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F2. GET RSS FEED DATA
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getRssFeedData(
+  locale: Locale = "en",
+  limit = 20,
+): Promise<
+  ActionResult<
+    {
+      title: string
+      slug: string
+      excerpt: string | null
+      publishedAt: string | null
+      author: string | null
+      imageUrl: string | null
+    }[]
+  >
+> {
+  try {
+    const posts = await prisma.post.findMany({
+      where: publicPostBase,
       select: {
-        id: true,
-        slugEn: true,
-        slugAr: true,
         titleEn: true,
         titleAr: true,
+        slugEn: true,
+        slugAr: true,
         excerptEn: true,
         excerptAr: true,
         publishedAt: true,
-        createdAt: true,
-        ogImageUrl: true,
-        author: { select: { fullName: true, avatarUrl: true } },
-        category: { select: { slug: true, nameEn: true, nameAr: true } },
-        tags: { select: { tag: { select: { slug: true, nameEn: true, nameAr: true } } } },
-        reactions: { select: { type: true } },
-        _count: { select: { comments: { where: { isDeleted: false } } } },
+        author: { select: { fullName: true } },
+        images: { where: { isPrimary: true }, take: 1, select: { url: true } },
       },
+      orderBy: { publishedAt: "desc" },
+      take: limit,
     })
 
-    const result: PublicPostSummary[] = posts.map((p) => {
-      const reactionCounts = { LIKE: 0, DISLIKE: 0 }
-      for (const r of p.reactions) reactionCounts[r.type]++
+    return {
+      success: true,
+      data: posts.map((p) => ({
+        title: l(p.titleEn, p.titleAr, locale),
+        slug: l(p.slugEn, p.slugAr, locale),
+        excerpt: l(p.excerptEn ?? null, p.excerptAr ?? null, locale),
+        publishedAt: toISO(p.publishedAt),
+        author: p.author.fullName ?? null,
+        imageUrl: p.images[0]?.url ?? null,
+      })),
+    }
+  } catch (err) {
+    console.error("[getRssFeedData]", err)
+    return { success: false, error: "Failed to generate RSS data." }
+  }
+}
 
-      return {
-        id: p.id,
-        slug: locale === 'ar' ? (p.slugAr ?? p.slugEn) : p.slugEn,
-        title: resolveLocaleField(p.titleEn, p.titleAr, locale),
-        excerpt: resolveLocaleField(p.excerptEn ?? null, p.excerptAr ?? null, locale),
-        publishedAt: p.publishedAt,
-        createdAt: p.createdAt,
-        ogImageUrl: p.ogImageUrl,
-        author: p.author,
-        category: p.category
-          ? {
-              slug: p.category.slug,
-              name: resolveLocaleField(p.category.nameEn, p.category.nameAr, locale),
-            }
-          : null,
-        tags: p.tags.map((t) => ({
-          slug: t.tag.slug,
-          name: resolveLocaleField(t.tag.nameEn, t.tag.nameAr, locale),
-        })),
-        reactionCounts,
-        commentCount: p._count.comments,
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION G: SEARCH ────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+const searchPostsSchema = z.object({
+  query: z.string().min(1).max(200),
+  locale: z.enum(["en", "ar"]).default("en"),
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(30).default(10),
+  categorySlug: z.string().optional(),
+})
+
+export type SearchPostsInput = z.infer<typeof searchPostsSchema>
+
+export async function searchPosts(
+  raw: SearchPostsInput,
+): Promise<ActionResult<{ posts: PublicPostCard[]; total: number; hasMore: boolean }>> {
+  try {
+    const { query, locale, page, limit, categorySlug } = searchPostsSchema.parse(raw)
+
+    const where: Prisma.PostWhereInput = {
+      ...publicPostBase,
+      OR: [
+        { titleEn: { contains: query, mode: "insensitive" } },
+        { titleAr: { contains: query, mode: "insensitive" } },
+        { excerptEn: { contains: query, mode: "insensitive" } },
+        { excerptAr: { contains: query, mode: "insensitive" } },
+        { contentEn: { contains: query, mode: "insensitive" } },
+        { contentAr: { contains: query, mode: "insensitive" } },
+        { tags: { some: { tag: { OR: [{ nameEn: { contains: query, mode: "insensitive" } }, { nameAr: { contains: query, mode: "insensitive" } }] } } } },
+      ],
+    }
+    if (categorySlug) where.category = { slug: categorySlug }
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        include: publicPostListInclude,
+        orderBy: { publishedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.post.count({ where }),
+    ])
+
+    return {
+      success: true,
+      data: {
+        posts: posts.map((p) => serializePostCard(p, locale)),
+        total,
+        hasMore: page * limit < total,
+      },
+    }
+  } catch (err) {
+    console.error("[searchPosts]", err)
+    return { success: false, error: "Search failed." }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── SECTION H: USER READING HISTORY (auth-optional) ──────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// H1. GET POSTS COMMENTED ON BY THE CURRENT USER  (profile / activity page)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getMyCommentedPosts(
+  locale: Locale = "en",
+  page = 1,
+  limit = 10,
+): Promise<ActionResult<{ posts: PublicPostCard[]; total: number }>> {
+  try {
+    const dbUserId = await requireAuthUser()
+
+    const commentedPostIds = await prisma.comment.findMany({
+      where: { authorId: dbUserId, isDeleted: false },
+      select: { postId: true },
+      distinct: ["postId"],
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    })
+
+    const ids = commentedPostIds.map((c) => c.postId)
+    if (!ids.length) return { success: true, data: { posts: [], total: 0 } }
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: { id: { in: ids }, ...publicPostBase },
+        include: publicPostListInclude,
+      }),
+      prisma.comment.groupBy({
+        by: ["postId"],
+        where: { authorId: dbUserId, isDeleted: false },
+        _count: true,
+      }).then((r) => r.length),
+    ])
+
+    return {
+      success: true,
+      data: { posts: posts.map((p) => serializePostCard(p, locale)), total },
+    }
+  } catch (err) {
+    if (err instanceof Error) return { success: false, error: err.message }
+    console.error("[getMyCommentedPosts]", err)
+    return { success: false, error: "Failed to load activity." }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// H2. GET POSTS LIKED BY THE CURRENT USER
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getMyLikedPosts(
+  locale: Locale = "en",
+  page = 1,
+  limit = 10,
+): Promise<ActionResult<{ posts: PublicPostCard[]; total: number }>> {
+  try {
+    const dbUserId = await requireAuthUser()
+
+    const [reactions, total] = await Promise.all([
+      prisma.postReaction.findMany({
+        where: { userId: dbUserId, type: "LIKE" },
+        select: { postId: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.postReaction.count({ where: { userId: dbUserId, type: "LIKE" } }),
+    ])
+
+    const ids = reactions.map((r) => r.postId)
+    if (!ids.length) return { success: true, data: { posts: [], total: 0 } }
+
+    const posts = await prisma.post.findMany({
+      where: { id: { in: ids }, ...publicPostBase },
+      include: publicPostListInclude,
+    })
+
+    return {
+      success: true,
+      data: { posts: posts.map((p) => serializePostCard(p, locale)), total },
+    }
+  } catch (err) {
+    if (err instanceof Error) return { success: false, error: err.message }
+    console.error("[getMyLikedPosts]", err)
+    return { success: false, error: "Failed to load liked posts." }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ── OUTPUT TYPES & SERIALISERS ────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─── Public "card" shape (used in lists) ─────────────────────────────────────
+
+export type PublicPostCard = {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  publishedAt: string | null
+  viewCount: number
+  commentCount: number
+  reactionCount: number
+  primaryImage: { url: string; altText: string | null } | null
+  author: { id: string; fullName: string; avatarUrl: string | null }
+  category: { id: string; slug: string; name: string } | null
+  tags: { id: string; slug: string; name: string }[]
+}
+
+// ─── Public "detail" shape (used on post page) ───────────────────────────────
+
+export type PublicPostDetail = PublicPostCard & {
+  contentEn: string
+  contentAr: string | null
+  content: string  // resolved to locale
+  images: { id: string; url: string; altText: string | null; isPrimary: boolean; sortOrder: number }[]
+  videos: { id: string; url: string; sortOrder: number }[]
+  seo: {
+    metaTitle: string | null
+    metaDescription: string | null
+    ogImageUrl: string | null
+    ogImageAlt: string | null
+    canonicalUrl: string | null
+    twitterCard: string | null
+  }
+  slugEn: string
+  slugAr: string | null
+  myReaction: ReactionType | null
+}
+
+// ─── Category & Tag shapes ────────────────────────────────────────────────────
+
+export type PublicCategory = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  postCount: number
+  parent: { id: string; slug: string; name: string } | null
+  children: PublicCategory[]
+}
+
+export type PublicTag = {
+  id: string
+  slug: string
+  name: string
+  postCount: number
+}
+
+// ─── Comment shape ────────────────────────────────────────────────────────────
+
+export type PublicComment = {
+  id: string
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  author: { id: string; fullName: string; avatarUrl: string | null }
+  reactionCount: number
+  replyCount: number
+  myReaction: ReactionType | null
+  replies: PublicComment[]
+}
+
+// ─── Serialisers ─────────────────────────────────────────────────────────────
+
+function serializePostCard(post: any, locale: Locale): PublicPostCard {
+  return {
+    id: post.id,
+    title: l(post.titleEn, post.titleAr, locale),
+    slug: l(post.slugEn, post.slugAr ?? post.slugEn, locale),
+    excerpt: l(post.excerptEn ?? null, post.excerptAr ?? null, locale),
+    publishedAt: toISO(post.publishedAt),
+    viewCount: post.viewCount ?? 0,
+    commentCount: post._count?.comments ?? 0,
+    reactionCount: post._count?.reactions ?? 0,
+    primaryImage: post.images?.[0]
+      ? { url: post.images[0].url, altText: post.images[0].altText ?? null }
+      : null,
+    author: {
+      id: post.author.id,
+      fullName: post.author.fullName ?? "Anonymous",
+      avatarUrl: post.author.avatarUrl ?? null,
+    },
+    category: post.category
+      ? {
+        id: post.category.id,
+        slug: post.category.slug,
+        name: l(post.category.nameEn, post.category.nameAr, locale),
       }
-    })
+      : null,
+    tags: (post.tags ?? []).map((t: any) => ({
+      id: t.tag.id,
+      slug: t.tag.slug,
+      name: l(t.tag.nameEn, t.tag.nameAr, locale),
+    })),
+  }
+}
 
-    return { success: true, data: result }
-  } catch (err: any) {
-    return { success: false, error: err.message ?? 'Failed to get related posts' }
+function serializePostDetail(
+  post: any,
+  locale: Locale,
+  myReaction: ReactionType | null,
+): PublicPostDetail {
+  const card = serializePostCard(post, locale)
+  return {
+    ...card,
+    contentEn: post.contentEn,
+    contentAr: post.contentAr ?? null,
+    content: l(post.contentEn, post.contentAr, locale),
+    images: (post.images ?? []).map((img: any) => ({
+      id: img.id,
+      url: img.url,
+      altText: img.altText ?? null,
+      isPrimary: img.isPrimary,
+      sortOrder: img.sortOrder,
+    })),
+    videos: (post.videos ?? []).map((v: any) => ({
+      id: v.id,
+      url: v.url,
+      sortOrder: v.sortOrder,
+    })),
+    seo: {
+      metaTitle: l(post.metaTitleEn ?? null, post.metaTitleAr ?? null, locale),
+      metaDescription: l(post.metaDescriptionEn ?? null, post.metaDescriptionAr ?? null, locale),
+      ogImageUrl: post.ogImageUrl ?? post.images?.[0]?.url ?? null,
+      ogImageAlt: l(post.ogImageAltEn ?? null, post.ogImageAltAr ?? null, locale),
+      canonicalUrl: post.canonicalUrl ?? null,
+      twitterCard: post.twitterCard ?? null,
+    },
+    slugEn: post.slugEn,
+    slugAr: post.slugAr ?? null,
+    myReaction,
   }
 }

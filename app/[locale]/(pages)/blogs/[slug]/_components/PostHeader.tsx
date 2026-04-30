@@ -1,17 +1,19 @@
+// app/[locale]/(pages)/blogs/[slug]/_components/PostHeader.tsx
+
 import { CalendarDays, Clock, Tag } from "lucide-react";
 import { format } from "date-fns";
 import { ar, enUS } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import type { PublicPostDetail } from "../../actions";
 
 interface PostHeaderProps {
-  post: any;
+  post: PublicPostDetail;
   isAr: boolean;
 }
 
 export function PostHeader({ post, isAr }: PostHeaderProps) {
-  const formattedDate = format(post.publishedAt || post.createdAt, "PPP", {
-    locale: isAr ? ar : enUS,
-  });
+  const formattedDate = post.publishedAt
+    ? format(new Date(post.publishedAt), "PPP", { locale: isAr ? ar : enUS })
+    : null;
   const readingTime = Math.ceil((post.content?.length || 500) / 1500);
 
   return (
@@ -27,9 +29,11 @@ export function PostHeader({ post, isAr }: PostHeaderProps) {
         {post.title}
       </h1>
       <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <CalendarDays className="w-4 h-4" /> {formattedDate}
-        </span>
+        {formattedDate && (
+          <span className="flex items-center gap-1">
+            <CalendarDays className="w-4 h-4" /> {formattedDate}
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <Clock className="w-4 h-4" /> {readingTime} min read
         </span>
@@ -37,7 +41,7 @@ export function PostHeader({ post, isAr }: PostHeaderProps) {
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4" />
             <div className="flex gap-1">
-              {post.tags.slice(0, 3).map((tag: any) => (
+              {post.tags.slice(0, 3).map((tag) => (
                 <span key={tag.slug} className="text-xs bg-muted/50 px-2 py-0.5 rounded-full">
                   {tag.name}
                 </span>

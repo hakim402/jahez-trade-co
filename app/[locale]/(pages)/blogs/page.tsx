@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/page.tsx
+
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Header } from "../../_components/Header/Header";
@@ -5,7 +7,7 @@ import { FooterSection } from "../../_components/Footer/FooterSection";
 import { BlogHero } from "./_components/BlogHero";
 import { BlogListClient } from "./_components/BlogListClient";
 import { BlogListSkeleton } from "./_components/BlogListSkeleton";
-import { listPostsPublic, listCategories, listTags } from "./actions";
+import { getPublishedPosts, getPublicCategories, getPublicTags } from "./actions";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -52,20 +54,21 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
   const sp = await searchParams;
   const isAr = locale === "ar";
 
-  const category = sp.category || undefined;
-  const tag = sp.tag || undefined;
+  const categorySlug = sp.category || undefined;
+  const tagSlug = sp.tag || undefined;
   const search = sp.search || undefined;
   const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const limit = 12;
 
   const [categoriesResult, tagsResult, initialPostsResult] = await Promise.all([
-    listCategories(locale as "en" | "ar"),
-    listTags(locale as "en" | "ar"),
-    listPostsPublic({
+    getPublicCategories(locale as "en" | "ar"),
+    getPublicTags(locale as "en" | "ar"),
+    getPublishedPosts({
       locale: locale as "en" | "ar",
       page,
-      pageSize: 12,
-      categorySlug: category,
-      tagSlug: tag,
+      limit,
+      categorySlug,
+      tagSlug,
       search,
     }),
   ]);
@@ -74,9 +77,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
   const tags = tagsResult.success ? tagsResult.data : [];
   const posts = initialPostsResult.success ? initialPostsResult.data.posts : [];
   const total = initialPostsResult.success ? initialPostsResult.data.total : 0;
-  const totalPages = initialPostsResult.success
-    ? initialPostsResult.data.totalPages
-    : 0;
+  const totalPages = initialPostsResult.success ? initialPostsResult.data.pages : 0;
 
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
@@ -97,7 +98,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             initialPage={page}
             categories={categories}
             tags={tags}
-            initialFilters={{ category, tag, search }}
+            initialFilters={{ category: categorySlug, tag: tagSlug, search }}
           />
         </Suspense>
       </section>

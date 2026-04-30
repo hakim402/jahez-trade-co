@@ -1,5 +1,7 @@
 "use client";
 
+// app/[locale]/(pages)/blogs/_components/BlogHero.tsx
+
 import { motion } from "motion/react";
 import { BookOpen, TrendingUp, Tag, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";

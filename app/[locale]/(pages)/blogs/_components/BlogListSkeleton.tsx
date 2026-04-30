@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/_components/BlogListSkeleton.tsx
+
 export function BlogListSkeleton({ isAr = false }: { isAr?: boolean }) {
   return (
     <div

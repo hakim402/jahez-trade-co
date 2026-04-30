@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/[slug]/_components/CommentForm.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -9,19 +11,21 @@ interface CommentFormProps {
   isAr: boolean;
   submitLabel?: string;
   placeholder?: string;
+  submitting?: boolean;
 }
 
-export function CommentForm({ onSubmit, isAr, submitLabel, placeholder }: CommentFormProps) {
+export function CommentForm({ onSubmit, isAr, submitLabel, placeholder, submitting: externalSubmitting }: CommentFormProps) {
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [internalSubmitting, setInternalSubmitting] = useState(false);
+  const isSubmitting = externalSubmitting ?? internalSubmitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
-    setLoading(true);
+    if (!content.trim() || isSubmitting) return;
+    setInternalSubmitting(true);
     await onSubmit(content);
     setContent("");
-    setLoading(false);
+    setInternalSubmitting(false);
   };
 
   return (
@@ -33,7 +37,7 @@ export function CommentForm({ onSubmit, isAr, submitLabel, placeholder }: Commen
         rows={3}
         className="resize-none"
       />
-      <Button type="submit" disabled={loading || !content.trim()} className="bg-color hover:bg-color/90">
+      <Button type="submit" disabled={isSubmitting || !content.trim()} className="bg-color hover:bg-color/90">
         {submitLabel || (isAr ? "إرسال التعليق" : "Post comment")}
       </Button>
     </form>

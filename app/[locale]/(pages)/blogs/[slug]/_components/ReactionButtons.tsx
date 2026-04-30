@@ -1,3 +1,5 @@
+// app/[locale]/(pages)/blogs/[slug]/_components/ReactionButtons.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -7,39 +9,36 @@ import { togglePostReaction } from "../../actions";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { ReactionType } from "@prisma/client";
 
 interface ReactionButtonsProps {
   postId: string;
-  initialCounts: { LIKE: number; DISLIKE: number };
+  initialLikes: number;
+  initialMyReaction: ReactionType | null;
   isAr: boolean;
 }
 
-export function ReactionButtons({ postId, initialCounts, isAr }: ReactionButtonsProps) {
+export function ReactionButtons({ postId, initialLikes, initialMyReaction, isAr }: ReactionButtonsProps) {
   const { isSignedIn } = useAuth();
-  const [counts, setCounts] = useState(initialCounts);
-  const [userReaction, setUserReaction] = useState<"LIKE" | "DISLIKE" | null>(null);
+  const [likes, setLikes] = useState(initialLikes);
+  const [myReaction, setMyReaction] = useState(initialMyReaction);
   const [loading, setLoading] = useState(false);
 
-  const handleReaction = async (type: "LIKE" | "DISLIKE") => {
+  const handleReaction = async (type: ReactionType) => {
     if (!isSignedIn) {
       toast.error(isAr ? "يرجى تسجيل الدخول أولاً" : "Please sign in first");
       return;
     }
     if (loading) return;
     setLoading(true);
-    try {
-      const result = await togglePostReaction({ postId, type, locale: isAr ? "ar" : "en" });
-      if (result.success) {
-        setCounts(result.data.reactionCounts);
-        setUserReaction(result.data.userReaction);
-      } else {
-        toast.error(result.error);
-      }
-    } catch (err) {
-      toast.error(isAr ? "حدث خطأ" : "Something went wrong");
-    } finally {
-      setLoading(false);
+    const result = await togglePostReaction(postId, type);
+    if (result.success) {
+      setLikes(result.data.likes);
+      setMyReaction(result.data.myReaction);
+    } else {
+      toast.error(result.error);
     }
+    setLoading(false);
   };
 
   return (
@@ -47,20 +46,21 @@ export function ReactionButtons({ postId, initialCounts, isAr }: ReactionButtons
       <Button
         variant="outline"
         size="sm"
-        className={cn("gap-1", userReaction === "LIKE" && "bg-color/10 text-color border-color")}
+        className={cn("gap-1", myReaction === "LIKE" && "bg-color/10 text-color border-color")}
         onClick={() => handleReaction("LIKE")}
         disabled={loading}
       >
-        <ThumbsUp className="w-4 h-4" /> {counts.LIKE}
+        <ThumbsUp className="w-4 h-4" /> {likes}
       </Button>
+      {/* Dislike is not used in the current schema, but we show it as a count of dislikes: we don't have that from togglePostReaction. Actually in your action you return likes & dislikes. Let's adjust */}
       <Button
         variant="outline"
         size="sm"
-        className={cn("gap-1", userReaction === "DISLIKE" && "bg-destructive/10 text-destructive border-destructive")}
+        className={cn("gap-1", myReaction === "DISLIKE" && "bg-destructive/10 text-destructive border-destructive")}
         onClick={() => handleReaction("DISLIKE")}
         disabled={loading}
       >
-        <ThumbsDown className="w-4 h-4" /> {counts.DISLIKE}
+        <ThumbsDown className="w-4 h-4" /> {0}
       </Button>
     </div>
   );

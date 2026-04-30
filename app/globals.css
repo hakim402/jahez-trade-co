@@ -164,3 +164,129 @@ body {
   color: #7b57fc !important;
 }
 
+
+/* BLOG POST PAGE STYLES */
+@layer components {
+  .prose {
+    @apply max-w-none text-foreground leading-relaxed;
+  }
+
+  /* Headings – balanced hierarchy */
+  .prose h1 {
+    @apply text-4xl md:text-5xl font-bold mt-12 mb-6 text-foreground tracking-tight;
+  }
+  .prose h2 {
+    @apply text-2xl md:text-3xl font-bold mt-10 mb-4 text-foreground tracking-tight border-b border-border/30 pb-2;
+  }
+  .prose h3 {
+    @apply text-xl md:text-2xl font-semibold mt-8 mb-3 text-foreground;
+  }
+  .prose h4 {
+    @apply text-lg font-semibold mt-6 mb-2 text-foreground;
+  }
+  .prose h5, .prose h6 {
+    @apply text-base font-semibold mt-5 mb-2 text-foreground;
+  }
+
+  /* Paragraphs */
+  .prose p {
+    @apply mb-5 leading-relaxed text-base md:text-lg;
+  }
+
+  /* Links */
+  .prose a {
+    @apply text-primary no-underline hover:underline transition-colors duration-200;
+  }
+
+  /* Images */
+  .prose img {
+    @apply rounded-xl my-8 shadow-md border border-border/20;
+  }
+
+  /* Image captions (if you wrap images with <figure><figcaption>) */
+  .prose figure {
+    @apply my-8;
+  }
+  .prose figcaption {
+    @apply text-sm text-muted-foreground text-center mt-2 italic;
+  }
+
+  /* Lists */
+  .prose ul {
+    @apply my-5 pl-6 list-disc;
+  }
+  .prose ol {
+    @apply my-5 pl-6 list-decimal;
+  }
+  .prose li {
+    @apply mb-1 leading-relaxed;
+  }
+  .prose li > ul, .prose li > ol {
+    @apply my-2;
+  }
+
+  /* Blockquotes */
+  .prose blockquote {
+    @apply border-l-4 border-primary pl-5 italic my-6 text-muted-foreground;
+  }
+  .prose blockquote p:last-child {
+    @apply mb-0;
+  }
+  .prose blockquote cite {
+    @apply text-sm not-italic text-muted-foreground/70 block mt-2;
+  }
+
+  /* Code */
+  .prose code {
+    @apply bg-muted px-1.5 py-0.5 rounded-md text-sm font-mono;
+  }
+  .prose pre {
+    @apply bg-muted p-4 rounded-xl overflow-x-auto text-sm font-mono my-6;
+  }
+  .prose pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+
+  /* Horizontal rule */
+  .prose hr {
+    @apply my-12 border-t border-border/50;
+  }
+
+  /* Tables */
+  .prose table {
+    @apply w-full my-6 border-collapse text-sm;
+  }
+  .prose thead {
+    @apply bg-muted/50;
+  }
+  .prose th {
+    @apply border border-border/60 px-4 py-2 text-left font-semibold;
+  }
+  .prose td {
+    @apply border border-border/60 px-4 py-2;
+  }
+
+  /* Footnotes (if you use <sup> or custom footnotes) */
+  .prose .footnote {
+    @apply text-xs text-muted-foreground align-super;
+  }
+  .prose .footnotes {
+    @apply mt-12 pt-4 text-sm border-t border-border/30;
+  }
+
+  /* RTL specific overrides */
+  .prose-rtl {
+    direction: rtl;
+    text-align: right;
+  }
+  .prose-rtl blockquote {
+    border-left: none;
+    border-right: 4px solid var(--primary);
+    padding-left: 0;
+    padding-right: 1rem;
+  }
+  .prose-rtl ul, .prose-rtl ol {
+    padding-left: 0;
+    padding-right: 1.5rem;
+  }
+}
