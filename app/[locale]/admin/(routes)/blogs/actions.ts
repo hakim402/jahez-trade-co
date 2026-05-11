@@ -95,6 +95,50 @@ const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "i
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024 // 10 MB
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helper Functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Safely parse a date value, returning null if invalid
+ */
+function parseDateSafe(value: Date | string | null | undefined): Date | null {
+    if (!value) return null
+    const date = new Date(value)
+    return isNaN(date.getTime()) ? null : date
+}
+
+/**
+ * Generate a unique slug with retry logic
+ */
+async function generateUniqueSlugSafe(
+    base: string,
+    locale: Locale,
+    excludeId?: string,
+    maxAttempts = 100
+): Promise<string> {
+    let slug = base
+    let attempt = 0
+
+    while (attempt < maxAttempts) {
+        const candidate = attempt === 0 ? slug : `${base}-${attempt}`
+        const where: Prisma.PostWhereInput = {
+            AND: [
+                locale === "ar" ? { slugAr: candidate } : { slugEn: candidate },
+                { isDeleted: false },
+                ...(excludeId ? [{ id: { not: excludeId } }] : [])
+            ]
+        }
+
+        const exists = await prisma.post.count({ where })
+        if (exists === 0) return candidate
+        
+        attempt++
+    }
+    // Fallback with timestamp if all attempts fail
+    return `${base}-${Date.now()}`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Revalidation helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -251,7 +295,7 @@ const listPostsSchema = z.object({
     page: z.number().int().min(1).default(1),
     limit: z.number().int().min(1).max(100).default(20),
     search: z.string().default(""),
-    status: z.enum(["all", "DRAFT", "PUBLISHED", "ARCHIVED", "deleted"]).default("all"),
+    status: z.enum(["all", "DRAFT", "PUBLISHED", "ARCHIVED", "DELETED"]).default("all"),
     categoryId: z.string().optional(),
     tagId: z.string().optional(),
     authorId: z.string().optional(),
@@ -281,7 +325,7 @@ export async function getAllPosts(raw: z.infer<typeof listPostsSchema> = {} as a
         const where: Prisma.PostWhereInput = {}
 
         // Status / visibility filter
-        if (status === "deleted") {
+        if (status === "DELETED") {
             where.isDeleted = true
         } else {
             where.isDeleted = false
@@ -533,11 +577,12 @@ export async function checkSlugAvailability(
     try {
         await requireAdmin()
 
-        const where: Prisma.PostWhereInput =
-            locale === "ar" ? { slugAr: slug } : { slugEn: slug }
-
-        if (excludeId) {
-            (where as any).id = { not: excludeId }
+        const where: Prisma.PostWhereInput = {
+            AND: [
+                locale === "ar" ? { slugAr: slug } : { slugEn: slug },
+                { isDeleted: false },
+                ...(excludeId ? [{ id: { not: excludeId } }] : [])
+            ]
         }
 
         const count = await prisma.post.count({ where })
@@ -565,24 +610,30 @@ export async function createPost(input: CreatePostInput): Promise<ActionResult<a
         if (!input.slugEn?.trim()) return { success: false, error: "English slug is required" }
         if (!input.contentEn?.trim()) return { success: false, error: "English content is required" }
 
-        // Slug uniqueness check
-        const slugConflict = await prisma.post.count({ where: { slugEn: input.slugEn.trim() } })
+        // Slug uniqueness check (exclude soft-deleted posts)
+        const slugConflict = await prisma.post.count({ 
+            where: { 
+                slugEn: input.slugEn.trim(),
+                isDeleted: false 
+            } 
+        })
         if (slugConflict > 0) return { success: false, error: "English slug already exists" }
 
         if (input.slugAr) {
-            const arConflict = await prisma.post.count({ where: { slugAr: input.slugAr.trim() } })
+            const arConflict = await prisma.post.count({ 
+                where: { 
+                    slugAr: input.slugAr.trim(),
+                    isDeleted: false 
+                } 
+            })
             if (arConflict > 0) return { success: false, error: "Arabic slug already exists" }
         }
 
-        // Resolve publish time
+        // Resolve publish time with safe parsing
         const isPublishing = input.status === "PUBLISHED"
         const publishedAt = isPublishing
-            ? input.publishedAt
-                ? new Date(input.publishedAt)
-                : new Date()
-            : input.publishedAt
-                ? new Date(input.publishedAt)
-                : null
+            ? parseDateSafe(input.publishedAt) ?? new Date()
+            : parseDateSafe(input.publishedAt)
 
         const created = await prisma.post.create({
             data: {
@@ -673,27 +724,35 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Ac
         if (!existing) return { success: false, error: "Post not found" }
         if (existing.isDeleted) return { success: false, error: "Cannot update a deleted post" }
 
-        // Slug uniqueness checks (skip if unchanged)
+        // Slug uniqueness checks (skip if unchanged, exclude soft-deleted)
         if (input.slugEn && input.slugEn.trim() !== existing.slugEn) {
             const conflict = await prisma.post.count({
-                where: { slugEn: input.slugEn.trim(), id: { not: id } },
+                where: { 
+                    slugEn: input.slugEn.trim(), 
+                    id: { not: id },
+                    isDeleted: false 
+                },
             })
             if (conflict > 0) return { success: false, error: "English slug already in use" }
         }
 
         if (input.slugAr && input.slugAr.trim() !== existing.slugAr) {
             const conflict = await prisma.post.count({
-                where: { slugAr: input.slugAr.trim(), id: { not: id } },
+                where: { 
+                    slugAr: input.slugAr.trim(), 
+                    id: { not: id },
+                    isDeleted: false 
+                },
             })
             if (conflict > 0) return { success: false, error: "Arabic slug already in use" }
         }
 
-        // Auto-set publishedAt when transitioning to PUBLISHED
+        // Auto-set publishedAt when transitioning to PUBLISHED (with safe parsing)
         let publishedAt: Date | null | undefined = undefined
         if (input.status === "PUBLISHED" && existing.status !== "PUBLISHED") {
-            publishedAt = input.publishedAt ? new Date(input.publishedAt) : new Date()
+            publishedAt = parseDateSafe(input.publishedAt) ?? new Date()
         } else if (input.publishedAt !== undefined) {
-            publishedAt = input.publishedAt ? new Date(input.publishedAt) : null
+            publishedAt = parseDateSafe(input.publishedAt)
         }
 
         const updated = await prisma.post.update({
@@ -719,6 +778,8 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Ac
                 ...(input.ogImageAltAr !== undefined && { ogImageAltAr: input.ogImageAltAr?.trim() ?? null }),
                 ...(input.twitterCard !== undefined && { twitterCard: input.twitterCard ?? null }),
                 ...(input.canonicalUrl !== undefined && { canonicalUrl: input.canonicalUrl?.trim() ?? null }),
+                // FIX: Handle isDeleted field
+                ...(input.isDeleted !== undefined && { isDeleted: input.isDeleted }),
                 // Tags: full replace when provided
                 ...(input.tagIds !== undefined && {
                     tags: {
@@ -760,7 +821,7 @@ export async function publishPost(
         if (!post) return { success: false, error: "Post not found" }
         if (post.isDeleted) return { success: false, error: "Cannot publish a deleted post" }
 
-        const publishedAt = scheduledAt ? new Date(scheduledAt) : new Date()
+        const publishedAt = parseDateSafe(scheduledAt) ?? new Date()
 
         const updated = await prisma.post.update({
             where: { id },
@@ -895,15 +956,17 @@ export async function hardDeletePost(id: string): Promise<ActionResult<{ ok: boo
         })
         if (!post) return { success: false, error: "Post not found" }
 
-        // Remove locally-uploaded images from disk
+        // FIX: Delete from DB first, then clean up disk
+        await prisma.post.delete({ where: { id } })
+        
+        // Remove locally-uploaded images from disk (best effort)
         for (const img of post.images) {
             if (img.url.startsWith("/uploads/")) {
                 const diskPath = path.join(process.cwd(), "public", img.url)
-                try { await unlink(diskPath) } catch { /* already gone */ }
+                try { await unlink(diskPath) } catch { /* already gone or error, log if needed */ }
             }
         }
 
-        await prisma.post.delete({ where: { id } })
         await logAdminAction({ action: "HARD_DELETE_POST", entity: "Post", entityId: id, changes: { title: post.titleEn } })
         revalidatePosts()
         return { success: true, data: { ok: true } }
@@ -972,7 +1035,16 @@ export async function duplicatePost(id: string): Promise<ActionResult<any>> {
         })
         if (!original) return { success: false, error: "Post not found" }
 
-        const suffix = `-copy-${Date.now()}`
+        const baseSuffix = `-copy-${Date.now()}`
+        const slugEn = await generateUniqueSlugSafe(
+            `${original.slugEn}${baseSuffix}`, 
+            "en", 
+            undefined
+        )
+        const slugAr = original.slugAr 
+            ? await generateUniqueSlugSafe(`${original.slugAr}${baseSuffix}`, "ar", undefined)
+            : null
+
         const { id: _id, createdAt: _c, updatedAt: _u, publishedAt: _p, ...rest } = original
 
         const created = await prisma.post.create({
@@ -980,8 +1052,8 @@ export async function duplicatePost(id: string): Promise<ActionResult<any>> {
                 ...rest,
                 titleEn: `${original.titleEn} (Copy)`,
                 titleAr: original.titleAr ? `${original.titleAr} (نسخة)` : null,
-                slugEn: `${original.slugEn}${suffix}`,
-                slugAr: original.slugAr ? `${original.slugAr}${suffix}` : null,
+                slugEn,
+                slugAr,
                 status: "DRAFT",
                 publishedAt: null,
                 authorId: adminId,
@@ -1042,34 +1114,43 @@ export async function uploadPostImage(
         const ext = file.name.split(".").pop() ?? "jpg"
         const filename = `${postId}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
         const fullPath = path.join(IMAGE_UPLOAD_DIR, filename)
+        
+        // Write file to disk first
         await writeFile(fullPath, Buffer.from(await file.arrayBuffer()))
-
+        
         const url = `/uploads/blog/${filename}`
-        const existingCount = await prisma.postImage.count({ where: { postId } })
-        const isPrimary = existingCount === 0
+        
+        try {
+            const existingCount = await prisma.postImage.count({ where: { postId } })
+            const isPrimary = existingCount === 0
 
-        if (isPrimary) {
-            await prisma.postImage.updateMany({ where: { postId }, data: { isPrimary: false } })
+            if (isPrimary) {
+                await prisma.postImage.updateMany({ where: { postId }, data: { isPrimary: false } })
+            }
+
+            const image = await prisma.postImage.create({
+                data: {
+                    postId,
+                    url,
+                    altText: (formData.get("altText") as string) || null,
+                    isPrimary,
+                    sortOrder: existingCount,
+                },
+            })
+
+            await logAdminAction({
+                action: "UPLOAD_POST_IMAGE",
+                entity: "Post",
+                entityId: postId,
+                changes: { imageId: image.id, url },
+            })
+            revalidatePosts()
+            return { success: true, data: { id: image.id, url, isPrimary } }
+        } catch (dbError) {
+            // FIX: Clean up file if DB operation fails
+            try { await unlink(fullPath) } catch { /* ignore cleanup errors */ }
+            throw dbError
         }
-
-        const image = await prisma.postImage.create({
-            data: {
-                postId,
-                url,
-                altText: (formData.get("altText") as string) || null,
-                isPrimary,
-                sortOrder: existingCount,
-            },
-        })
-
-        await logAdminAction({
-            action: "UPLOAD_POST_IMAGE",
-            entity: "Post",
-            entityId: postId,
-            changes: { imageId: image.id, url },
-        })
-        revalidatePosts()
-        return { success: true, data: { id: image.id, url, isPrimary } }
     } catch (err) {
         console.error("[uploadPostImage]", err)
         return { success: false, error: "Failed to upload image" }
@@ -1211,13 +1292,14 @@ export async function deletePostImage(
         })
         if (!image) return { success: false, error: "Image not found on this post" }
 
-        // Remove from disk if local
+        // FIX: Delete from DB first, then clean up disk
+        await prisma.postImage.delete({ where: { id: imageId } })
+
+        // Remove from disk if local (best effort)
         if (image.url.startsWith("/uploads/")) {
             const diskPath = path.join(process.cwd(), "public", image.url)
             try { await unlink(diskPath) } catch { /* already gone */ }
         }
-
-        await prisma.postImage.delete({ where: { id: imageId } })
 
         // Promote next image to primary
         if (image.isPrimary) {
@@ -1634,50 +1716,62 @@ export async function mergeTags(
         await requireAdmin()
         if (sourceId === targetId) return { success: false, error: "Cannot merge a tag with itself" }
 
-        const [source, target] = await Promise.all([
-            prisma.postTag.findUnique({ where: { id: sourceId } }),
-            prisma.postTag.findUnique({ where: { id: targetId } }),
-        ])
-        if (!source) return { success: false, error: "Source tag not found" }
-        if (!target) return { success: false, error: "Target tag not found" }
+        // FIX: Move all queries inside transaction to prevent race conditions
+        const result = await prisma.$transaction(async (tx) => {
+            const [source, target] = await Promise.all([
+                tx.postTag.findUnique({ where: { id: sourceId } }),
+                tx.postTag.findUnique({ where: { id: targetId } }),
+            ])
+            if (!source) throw new Error("Source tag not found")
+            if (!target) throw new Error("Target tag not found")
 
-        // Find posts that have source tag but NOT target tag (to avoid unique constraint violation)
-        const sourcePivots = await prisma.postTagOnPost.findMany({
-            where: { tagId: sourceId },
-            select: { postId: true },
-        })
-
-        const existingTargetPostIds = new Set(
-            (await prisma.postTagOnPost.findMany({
-                where: { tagId: targetId },
+            // Find posts that have source tag but NOT target tag
+            const sourcePivots = await tx.postTagOnPost.findMany({
+                where: { tagId: sourceId },
                 select: { postId: true },
-            })).map((p) => p.postId),
-        )
+            })
 
-        const toCreate = sourcePivots.filter((p) => !existingTargetPostIds.has(p.postId))
+            const existingTargetPostIds = new Set(
+                (await tx.postTagOnPost.findMany({
+                    where: { tagId: targetId },
+                    select: { postId: true },
+                })).map((p) => p.postId),
+            )
 
-        await prisma.$transaction([
-            // Create new pivots for posts that don't already have the target tag
-            prisma.postTagOnPost.createMany({
-                data: toCreate.map((p) => ({ postId: p.postId, tagId: targetId })),
-                skipDuplicates: true,
-            }),
-            // Delete all source pivots
-            prisma.postTagOnPost.deleteMany({ where: { tagId: sourceId } }),
-            // Delete the source tag
-            prisma.postTag.delete({ where: { id: sourceId } }),
-        ])
+            const toCreate = sourcePivots.filter((p) => !existingTargetPostIds.has(p.postId))
+
+            await Promise.all([
+                // Create new pivots for posts that don't already have the target tag
+                toCreate.length > 0 
+                    ? tx.postTagOnPost.createMany({
+                        data: toCreate.map((p) => ({ postId: p.postId, tagId: targetId })),
+                        skipDuplicates: true,
+                    })
+                    : Promise.resolve(),
+                // Delete all source pivots
+                tx.postTagOnPost.deleteMany({ where: { tagId: sourceId } }),
+                // Delete the source tag
+                tx.postTag.delete({ where: { id: sourceId } }),
+            ])
+
+            return { source, target, movedCount: toCreate.length }
+        })
 
         await logAdminAction({
             action: "MERGE_TAGS",
             entity: "PostTag",
             entityId: targetId,
-            changes: { sourceId, sourceSlug: source.slug, targetSlug: target.slug, movedCount: toCreate.length },
+            changes: { 
+                sourceId, 
+                sourceSlug: result.source.slug, 
+                targetSlug: result.target.slug, 
+                movedCount: result.movedCount 
+            },
         })
 
         revalidateTags()
         revalidatePosts()
-        return { success: true, data: { movedCount: toCreate.length } }
+        return { success: true, data: { movedCount: result.movedCount } }
     } catch (err) {
         console.error("[mergeTags]", err)
         return { success: false, error: "Failed to merge tags" }
@@ -1894,6 +1988,17 @@ export async function adminPostComment(opts: {
         const post = await prisma.post.findUnique({ where: { id: opts.postId }, select: { id: true, isDeleted: true } })
         if (!post) return { success: false, error: "Post not found" }
         if (post.isDeleted) return { success: false, error: "Post is deleted" }
+
+        // FIX: Validate parentId belongs to same post
+        if (opts.parentId) {
+            const parent = await prisma.comment.findUnique({
+                where: { id: opts.parentId },
+                select: { postId: true }
+            })
+            if (!parent || parent.postId !== opts.postId) {
+                return { success: false, error: "Invalid parent comment" }
+            }
+        }
 
         const comment = await prisma.comment.create({
             data: {
@@ -2172,27 +2277,7 @@ export async function generateUniqueSlug(
             .replace(/^-|-$/g, "")
             .slice(0, 80)
 
-        let slug = base
-        let attempt = 0
-
-        // Ensure uniqueness
-        while (true) {
-            const candidate = attempt === 0 ? slug : `${base}-${attempt}`
-            const where: Prisma.PostWhereInput =
-                locale === "ar" ? { slugAr: candidate } : { slugEn: candidate }
-            if (excludeId) (where as any).id = { not: excludeId }
-
-            const exists = await prisma.post.count({ where })
-            if (exists === 0) {
-                slug = candidate
-                break
-            }
-            attempt++
-            if (attempt > 99) {
-                slug = `${base}-${Date.now()}`
-                break
-            }
-        }
+        const slug = await generateUniqueSlugSafe(base, locale, excludeId)
 
         return { success: true, data: { slug } }
     } catch (err) {

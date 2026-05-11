@@ -9,7 +9,7 @@ import { AdminHeader } from "../../_components/AdminHeader";
 
 export const metadata: Metadata = { title: "Blog Management | Admin" };
 
-type StatusFilter = "all" | "DRAFT" | "PUBLISHED" | "ARCHIVED" | "deleted";
+type StatusFilter = "all" | "DRAFT" | "PUBLISHED" | "ARCHIVED" | "DELETED";
 type SortByFilter = "createdAt" | "updatedAt" | "publishedAt" | "titleEn";
 
 interface PageProps {

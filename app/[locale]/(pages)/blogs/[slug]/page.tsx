@@ -80,7 +80,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
       <Header />
-      <article className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <article className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-24">
         <Suspense fallback={<PostSkeleton isAr={isAr} />}>
           <PostHeader post={post} isAr={isAr} />
           <PostMedia post={post} isAr={isAr} />

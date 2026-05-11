@@ -20,7 +20,6 @@ export function SocialShare({ url, title, isAr }: SocialShareProps) {
     linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedTitle}`,
     whatsapp: `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`,
     telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
-    email: `mailto:?subject=${encodedTitle}&body=${encodedUrl}`,
   };
 
   const copyLink = () => {
@@ -81,12 +80,6 @@ export function SocialShare({ url, title, isAr }: SocialShareProps) {
       <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" asChild>
         <a href={shareLinks.telegram} target="_blank" rel="noopener noreferrer" aria-label="Telegram">
           <Send className="w-4 h-4" />
-        </a>
-      </Button>
-
-      <Button variant="outline" size="icon" className="h-8 w-8 rounded-full" asChild>
-        <a href={shareLinks.email} target="_blank" rel="noopener noreferrer" aria-label="Email">
-          <Mail className="w-4 h-4" />
         </a>
       </Button>
 
