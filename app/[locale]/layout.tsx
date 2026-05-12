@@ -96,6 +96,12 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <>
       <SetHtmlLangDir locale={locale} />
+      <script
+        id="schema-website"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+
       <ClerkProvider
         localization={localizationMap[locale as "en" | "ar"]}
         appearance={{
