@@ -93,7 +93,7 @@ export function Sidebar() {
           >
             <div className="w-12 h-12 flex items-center justify-center">
               <Image
-                src="/logo/icon.png"
+                src="/logo/icons.png"
                 alt="mewan logo"
                 width={60}
                 height={60}

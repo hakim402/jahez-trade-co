@@ -7,7 +7,6 @@ import { ReactNode } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { enUS, arSA } from "@clerk/localizations";
 import { SetHtmlLangDir } from "./_components/SetHTML/set-html-lang";
-import Script from "next/script";
 import { Metadata } from "next";
 
 type Props = {
@@ -19,7 +18,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
 
   const baseUrl = "https://jahez.online";
-  const path = ""; // In layout we only handle the root path; pages will override
 
   const alternates = {
     canonical: `${baseUrl}/${locale}`,
@@ -82,7 +80,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     ar: arSA,
   };
 
-  // JSON‑LD WebSite schema
+  // JSON-LD WebSite schema
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -100,8 +98,14 @@ export default async function LocaleLayout({ children, params }: Props) {
       {/* Set HTML lang + dir safely */}
       <SetHtmlLangDir locale={locale} />
 
-      {/* JSON‑LD structured data */}
-      <Script
+      {/*
+        JSON-LD structured data.
+        Use a plain <script> tag — NOT next/script's <Script>.
+        React 19 (used by Next.js 15+) automatically hoists plain <script> tags
+        with type="application/ld+json" to <head> on the server, so they are
+        never executed on the client and never trigger the React warning.
+      */}
+      <script
         id="schema-website"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
