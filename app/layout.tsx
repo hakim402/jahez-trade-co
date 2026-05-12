@@ -39,32 +39,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    /*
-     * suppressHydrationWarning on <html> is required by next-themes so the
-     * server-rendered class/data-theme attribute doesn't cause a hydration
-     * mismatch when the client theme is resolved.
-     */
     <html
       suppressHydrationWarning
       className={`${inter.variable} ${cairo.variable}`}
     >
       <body>
-        {/*
-         * ThemeProvider from next-themes injects a tiny inline <script> to
-         * detect the user's theme before first paint (FOUC prevention).
-         *
-         * React 19 warns when it encounters a <script> inside a component
-         * tree during client rendering. next-themes ≥ 0.4.0 resolves this by
-         * using React 19's new script-hoisting API.
-         *
-         * ACTION REQUIRED if you still see the warning:
-         *   npm install next-themes@latest
-         *   (or: pnpm add next-themes@latest / yarn add next-themes@latest)
-         *
-         * After upgrading, make sure your ThemeProvider wrapper
-         * (app/providers/theme-provider.tsx) passes:
-         *   <NextThemesProvider attribute="class" defaultTheme="system" enableSystem>
-         */}
         <ThemeProvider>
           {children}
           <Toaster />

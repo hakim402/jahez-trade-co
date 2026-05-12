@@ -95,16 +95,7 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <>
-      {/* Set HTML lang + dir safely */}
       <SetHtmlLangDir locale={locale} />
-
-      {/*
-        JSON-LD structured data.
-        Use a plain <script> tag — NOT next/script's <Script>.
-        React 19 (used by Next.js 15+) automatically hoists plain <script> tags
-        with type="application/ld+json" to <head> on the server, so they are
-        never executed on the client and never trigger the React warning.
-      */}
       <script
         id="schema-website"
         type="application/ld+json"

@@ -115,14 +115,8 @@ const publicPostListInclude = {
   category: {
     select: { id: true, slug: true, nameEn: true, nameAr: true },
   },
-  // ✅ FIX: removed `where: { isPrimary: true }`.
-  // Order by isPrimary DESC so primary image is still preferred,
-  // but any image is returned as a fallback when none is marked primary.
   images: {
-    orderBy: [
-      { isPrimary: "desc" as Prisma.SortOrder },
-      { sortOrder: "asc"  as Prisma.SortOrder },
-    ],
+    where: { isPrimary: true },
     take: 1,
     select: { url: true, altText: true },
   },
@@ -131,12 +125,7 @@ const publicPostListInclude = {
       tag: { select: { id: true, slug: true, nameEn: true, nameAr: true } },
     },
   },
-  _count: {
-    select: {
-      comments: { where: { isDeleted: false } },
-      reactions: true,
-    },
-  },
+  _count: { select: { comments: { where: { isDeleted: false } }, reactions: true } },
 } satisfies Prisma.PostInclude
 
 

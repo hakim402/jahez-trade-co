@@ -9,11 +9,7 @@ const nextConfig: NextConfig = {
     qualities: [25, 50, 75, 100],
 
     localPatterns: [
-      // ✅ Catch-all for ALL local public folder images
-      // (covers /logo/, /icons/, /images/, etc.)
       { pathname: "/**", search: "" },
-
-      // ✅ Kept for explicitness, but the wildcard above already covers these
       { pathname: "/uploads/blog/**", search: "" },
       { pathname: "/uploads/client-requests/**", search: "" },
       { pathname: "/uploads/consulting-services/**", search: "" },
