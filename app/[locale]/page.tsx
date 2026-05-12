@@ -79,10 +79,10 @@ export default async function Home() {
     <div>
       <Header />
       <HomeHero />
-      <HomeBlogShowCase />
       <TrendingProductsSection />
       <FeatureSections />
       <HowWeOperate isAr={isAr} locale={locale} />
+      <HomeBlogShowCase />
       <VideoBookingSections />
       <MissionValues isAr={isAr} />
       <HowItWorks />
