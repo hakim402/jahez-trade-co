@@ -107,7 +107,6 @@ function revalidateBlogPost(slugEn: string, slugAr?: string | null) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Prisma include shapes (shared across read actions)
 // ─────────────────────────────────────────────────────────────────────────────
-
 const publicPostListInclude = {
   author: {
     select: { id: true, fullName: true, avatarUrl: true },
