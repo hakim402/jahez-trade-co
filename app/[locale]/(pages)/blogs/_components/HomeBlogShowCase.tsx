@@ -104,7 +104,7 @@ function CategoryPill({
         ${
           inverted
             ? "bg-white/20 text-white backdrop-blur-sm border border-white/30"
-            : "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/20"
+            : "bg-(--brand)/10 text-(--brand) border border-(--brand)/20"
         }
       `}
     >
@@ -143,13 +143,13 @@ function ReadingTime({ minutes, label }: { minutes: number; label: string }) {
 }
 
 // ─────────────────────────────────────────────
-// ✅ HELPER: Image error handler for blog uploads
+// HELPER: Image error handler for blog uploads
 // ─────────────────────────────────────────────
 function useBlogImageErrorHandler() {
   const [errorUrls, setErrorUrls] = useState<Set<string>>(new Set());
 
   const handleError = (url: string) => {
-    console.warn(`🖼️ Blog image failed to load: ${url}`);
+    console.warn(`Blog image failed to load: ${url}`);
     setErrorUrls((prev) => new Set(prev).add(url));
   };
 
@@ -175,7 +175,7 @@ function FeaturedCard({
   const authorName = post.author.fullName ?? "Anonymous";
   const readingTime = estimateReadingTime(post.excerpt || post.title);
 
-  // ✅ Track image errors for this card
+  // Track image errors for this card
   const { handleError, hasError } = useBlogImageErrorHandler();
   const imageUrl = post.primaryImage?.url;
   const imageHasError = imageUrl ? hasError(imageUrl) : false;
@@ -198,9 +198,9 @@ function FeaturedCard({
               priority
               className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
               sizes="(max-width: 768px) 100vw, 80vw"
-              // ✅ FIX: Skip Next.js optimizer for user uploads
+              // Skip Next.js optimizer for user uploads
               unoptimized={true}
-              // ✅ FIX: Handle load errors gracefully
+              // Handle load errors gracefully
               onError={() => handleError(post.primaryImage!.url)}
             />
           ) : (
@@ -209,7 +209,7 @@ function FeaturedCard({
               <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-white/5 rounded-full blur-3xl" />
               <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-400/10 rounded-full blur-2xl" />
 
-              {/* ✅ Fallback text if image fails */}
+              {/* Fallback text if image fails */}
               {post.primaryImage?.url && imageHasError && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-white/60 text-sm">
@@ -232,7 +232,7 @@ function FeaturedCard({
             <div
               className={`flex gap-2 mb-4 flex-wrap ${isRtl ? "flex-row-reverse" : ""}`}
             >
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--brand)] text-white">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-(--brand) text-white">
                 {t.featured}
               </span>
               {post.category && (
@@ -280,7 +280,7 @@ function FeaturedCard({
         {/* Read more bar */}
         <div
           className={`
-            absolute bottom-0 inset-x-0 h-0.5 bg-linear-to-r from-[var(--brand)] to-indigo-400
+            absolute bottom-0 inset-x-0 h-0.5 bg-linear-to-r from-(--brand) to-indigo-400
             scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out
             ${isRtl ? "origin-right" : "origin-left"}
           `}
@@ -311,7 +311,7 @@ function PostCard({
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
-  // ✅ Track image errors for this card
+  // Track image errors for this card
   const { handleError, hasError } = useBlogImageErrorHandler();
   const imageUrl = post.primaryImage?.url;
   const imageHasError = imageUrl ? hasError(imageUrl) : false;
@@ -330,10 +330,10 @@ function PostCard({
     >
       <Link
         href={postUrl}
-        className="flex flex-col h-full rounded-2xl overflow-hidden border border-border/40 bg-card hover:border-[var(--brand)]/40 hover:shadow-[0_8px_32px_rgba(123,87,252,0.12)] transition-all duration-400"
+        className="flex flex-col h-full rounded-2xl overflow-hidden border border-border/40 bg-card hover:border-(--brand)/40 hover:shadow-[0_8px_32px_rgba(123,87,252,0.12)] transition-all duration-400"
       >
         {/* Image */}
-        <div className="relative h-48 overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-50 dark:from-indigo-950 dark:to-purple-900/50 flex-shrink-0">
+        <div className="relative h-48 overflow-hidden bg-linear-to-br from-indigo-100 to-purple-50 dark:from-indigo-950 dark:to-purple-900/50 shrink-0">
           {post.primaryImage?.url && !imageHasError ? (
             <Image
               src={post.primaryImage.url}
@@ -341,14 +341,14 @@ function PostCard({
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              // ✅ FIX: Skip Next.js optimizer for user uploads
+              // Skip Next.js optimizer for user uploads
               unoptimized={true}
-              // ✅ FIX: Handle load errors gracefully
+              // Handle load errors gracefully
               onError={() => handleError(post.primaryImage!.url)}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-12 h-12 rounded-2xl bg-[var(--brand)]/20 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-(--brand)/20 flex items-center justify-center">
                 <svg
                   width="24"
                   height="24"
@@ -363,7 +363,7 @@ function PostCard({
                   <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                 </svg>
               </div>
-              {/* ✅ Fallback text if image fails */}
+              {/* Fallback text if image fails */}
               {post.primaryImage?.url && imageHasError && (
                 <span className="absolute bottom-2 text-[10px] text-muted-foreground">
                   Image unavailable
@@ -373,7 +373,7 @@ function PostCard({
           )}
 
           {/* Hover overlay */}
-          <div className="absolute inset-0 bg-[var(--brand)]/0 group-hover:bg-[var(--brand)]/8 transition-colors duration-400" />
+          <div className="absolute inset-0 bg-(--brand)/0 group-hover:bg-(--brand)/8 transition-colors duration-400" />
 
           {/* Category */}
           {post.category && (
@@ -385,22 +385,22 @@ function PostCard({
 
         {/* Body */}
         <div
-          className={`flex flex-col flex-grow p-5 gap-3 ${isRtl ? "text-right items-end" : "text-left items-start"}`}
+          className={`flex flex-col grow p-5 gap-3 ${isRtl ? "text-right items-end" : "text-left items-start"}`}
         >
           {/* Title */}
-          <h3 className="font-bold text-base leading-snug text-foreground line-clamp-2 group-hover:text-[var(--brand)] transition-colors duration-200">
+          <h3 className="font-bold text-base leading-snug text-foreground line-clamp-2 group-hover:text-(--brand) transition-colors duration-200">
             {post.title}
           </h3>
 
           {/* Excerpt */}
           {post.excerpt && (
-            <p className="text-muted-foreground text-sm line-clamp-2 flex-grow">
+            <p className="text-muted-foreground text-sm line-clamp-2 grow">
               {post.excerpt}
             </p>
           )}
 
           {/* Spacer */}
-          <div className="flex-grow" />
+          <div className="grow" />
 
           {/* Footer */}
           <div
@@ -409,7 +409,7 @@ function PostCard({
             <div
               className={`flex items-center gap-1.5 min-w-0 ${isRtl ? "flex-row-reverse" : ""}`}
             >
-              <Avatar className="h-5 w-5 flex-shrink-0">
+              <Avatar className="h-5 w-5 shrink-0">
                 {post.author.avatarUrl && (
                   <AvatarImage src={post.author.avatarUrl} alt={authorName} />
                 )}
@@ -427,7 +427,7 @@ function PostCard({
 
         {/* Animated bottom bar */}
         <div
-          className={`h-0.5 bg-gradient-to-r from-[var(--brand)] to-indigo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ${isRtl ? "origin-right" : "origin-left"}`}
+          className={`h-0.5 bg-linear-to-r from-(--brand) to-indigo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ${isRtl ? "origin-right" : "origin-left"}`}
         />
       </Link>
     </motion.div>
@@ -459,7 +459,7 @@ function SectionHeader({
       <div
         className={`flex items-center gap-4 ${isRtl ? "flex-row-reverse" : ""}`}
       >
-        <div className="h-8 w-1 rounded-full bg-linear-to-b from-[var(--brand)] to-indigo-400" />
+        <div className="h-8 w-1 rounded-full bg-linear-to-b from-(--brand) to-indigo-400" />
         <h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
           {title}
         </h2>
@@ -467,7 +467,7 @@ function SectionHeader({
       {cta && ctaHref && (
         <Link
           href={ctaHref}
-          className="text-sm font-medium text-[var(--brand)] hover:opacity-75 transition-opacity flex items-center gap-1.5"
+          className="text-sm font-medium text-(--brand) hover:opacity-75 transition-opacity flex items-center gap-1.5"
         >
           <span>{cta}</span>
           <span className="text-lg leading-none">{isRtl ? "←" : "→"}</span>
@@ -584,7 +584,7 @@ export default function HomeBlogShowCase() {
           >
             <Link
               href={`/${locale}/blogs`}
-              className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full border border-[var(--brand)]/30 bg-[var(--brand)]/5 hover:bg-[var(--brand)]/10 text-[var(--brand)] font-semibold text-sm transition-all duration-300 hover:border-[var(--brand)]/60"
+              className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full border border-(--brand)/30 bg-(--brand)/5 hover:bg-(--brand)/10 text-(--brand) font-semibold text-sm transition-all duration-300 hover:border-(--brand)/60"
             >
               <span>{t.cta}</span>
               <span
