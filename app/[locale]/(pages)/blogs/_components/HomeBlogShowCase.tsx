@@ -69,7 +69,7 @@ function getT(locale: Locale) {
 // ─────────────────────────────────────────────
 function SkeletonFeatured() {
   return (
-    <div className="relative rounded-3xl overflow-hidden bg-muted animate-pulse aspect- md:aspect-2/1" />
+    <div className="relative rounded-3xl overflow-hidden bg-muted animate-pulse aspect-video md:aspect-2/1" />
   );
 }
 
@@ -104,7 +104,7 @@ function CategoryPill({
         ${
           inverted
             ? "bg-white/20 text-white backdrop-blur-sm border border-white/30"
-            : "bg-(--brand)/10 text-(--brand) border border-(--brand)/20"
+            : "bg-[var(--brand)]/10 text-[var(--brand)] border border-[var(--brand)]/20"
         }
       `}
     >
@@ -143,6 +143,22 @@ function ReadingTime({ minutes, label }: { minutes: number; label: string }) {
 }
 
 // ─────────────────────────────────────────────
+// ✅ HELPER: Image error handler for blog uploads
+// ─────────────────────────────────────────────
+function useBlogImageErrorHandler() {
+  const [errorUrls, setErrorUrls] = useState<Set<string>>(new Set());
+
+  const handleError = (url: string) => {
+    console.warn(`🖼️ Blog image failed to load: ${url}`);
+    setErrorUrls((prev) => new Set(prev).add(url));
+  };
+
+  const hasError = (url: string) => errorUrls.has(url);
+
+  return { handleError, hasError };
+}
+
+// ─────────────────────────────────────────────
 // FEATURED CARD (hero – first post)
 // ─────────────────────────────────────────────
 function FeaturedCard({
@@ -159,6 +175,11 @@ function FeaturedCard({
   const authorName = post.author.fullName ?? "Anonymous";
   const readingTime = estimateReadingTime(post.excerpt || post.title);
 
+  // ✅ Track image errors for this card
+  const { handleError, hasError } = useBlogImageErrorHandler();
+  const imageUrl = post.primaryImage?.url;
+  const imageHasError = imageUrl ? hasError(imageUrl) : false;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
@@ -169,7 +190,7 @@ function FeaturedCard({
       <Link href={postUrl} className="block">
         {/* Image layer */}
         <div className="relative w-full aspect-video md:aspect-2/1 overflow-hidden bg-linear-to-br from-purple-900 via-indigo-900 to-blue-900">
-          {post.primaryImage?.url ? (
+          {post.primaryImage?.url && !imageHasError ? (
             <Image
               src={post.primaryImage.url}
               alt={post.primaryImage.altText ?? post.title}
@@ -177,12 +198,25 @@ function FeaturedCard({
               priority
               className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
               sizes="(max-width: 768px) 100vw, 80vw"
+              // ✅ FIX: Skip Next.js optimizer for user uploads
+              unoptimized={true}
+              // ✅ FIX: Handle load errors gracefully
+              onError={() => handleError(post.primaryImage!.url)}
             />
           ) : (
             <div className="absolute inset-0 bg-linear-to-br from-[#7b57fc]/80 via-indigo-700/70 to-blue-800/60">
               {/* Decorative blobs */}
               <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-white/5 rounded-full blur-3xl" />
               <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-400/10 rounded-full blur-2xl" />
+
+              {/* ✅ Fallback text if image fails */}
+              {post.primaryImage?.url && imageHasError && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-white/60 text-sm">
+                    Image unavailable
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -198,7 +232,7 @@ function FeaturedCard({
             <div
               className={`flex gap-2 mb-4 flex-wrap ${isRtl ? "flex-row-reverse" : ""}`}
             >
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-color text-white">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--brand)] text-white">
                 {t.featured}
               </span>
               {post.category && (
@@ -246,7 +280,7 @@ function FeaturedCard({
         {/* Read more bar */}
         <div
           className={`
-            absolute bottom-0 inset-x-0 h-0.5 bg-linear-to-r from-(--brand) to-indigo-400
+            absolute bottom-0 inset-x-0 h-0.5 bg-linear-to-r from-[var(--brand)] to-indigo-400
             scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out
             ${isRtl ? "origin-right" : "origin-left"}
           `}
@@ -277,6 +311,11 @@ function PostCard({
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
 
+  // ✅ Track image errors for this card
+  const { handleError, hasError } = useBlogImageErrorHandler();
+  const imageUrl = post.primaryImage?.url;
+  const imageHasError = imageUrl ? hasError(imageUrl) : false;
+
   return (
     <motion.div
       ref={ref}
@@ -295,13 +334,17 @@ function PostCard({
       >
         {/* Image */}
         <div className="relative h-48 overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-50 dark:from-indigo-950 dark:to-purple-900/50 flex-shrink-0">
-          {post.primaryImage?.url ? (
+          {post.primaryImage?.url && !imageHasError ? (
             <Image
               src={post.primaryImage.url}
               alt={post.primaryImage.altText ?? post.title}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              // ✅ FIX: Skip Next.js optimizer for user uploads
+              unoptimized={true}
+              // ✅ FIX: Handle load errors gracefully
+              onError={() => handleError(post.primaryImage!.url)}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -320,6 +363,12 @@ function PostCard({
                   <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                 </svg>
               </div>
+              {/* ✅ Fallback text if image fails */}
+              {post.primaryImage?.url && imageHasError && (
+                <span className="absolute bottom-2 text-[10px] text-muted-foreground">
+                  Image unavailable
+                </span>
+              )}
             </div>
           )}
 
@@ -410,7 +459,7 @@ function SectionHeader({
       <div
         className={`flex items-center gap-4 ${isRtl ? "flex-row-reverse" : ""}`}
       >
-        <div className="h-8 w-1 rounded-full bg-linear-to-b from-(--brand) to-indigo-400" />
+        <div className="h-8 w-1 rounded-full bg-linear-to-b from-[var(--brand)] to-indigo-400" />
         <h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
           {title}
         </h2>
@@ -418,7 +467,7 @@ function SectionHeader({
       {cta && ctaHref && (
         <Link
           href={ctaHref}
-          className="text-sm font-medium text-color hover:opacity-75 transition-opacity flex items-center gap-1.5"
+          className="text-sm font-medium text-[var(--brand)] hover:opacity-75 transition-opacity flex items-center gap-1.5"
         >
           <span>{cta}</span>
           <span className="text-lg leading-none">{isRtl ? "←" : "→"}</span>
@@ -436,7 +485,6 @@ export default function HomeBlogShowCase() {
   const [posts, setPosts] = useState<PublicPostCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
 
   const isRtl = locale === "ar";
   const t = getT(locale);
@@ -467,7 +515,7 @@ export default function HomeBlogShowCase() {
   if (error) {
     return (
       <section className="w-full py-20 text-center" dir={isRtl ? "rtl" : "ltr"}>
-        <p className="text-destructive mb-4"> {error}</p>
+        <p className="text-destructive mb-4">{error}</p>
         <Button onClick={() => window.location.reload()} variant="outline">
           {t.retry}
         </Button>
@@ -477,7 +525,6 @@ export default function HomeBlogShowCase() {
 
   return (
     <section className="w-full" dir={isRtl ? "rtl" : "ltr"}>
-
       {/* ── Content ── */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 space-y-16">
         {/* ── Featured Post ── */}
@@ -537,7 +584,7 @@ export default function HomeBlogShowCase() {
           >
             <Link
               href={`/${locale}/blogs`}
-              className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full border border-(--brand)/30 bg-(--brand)/5 hover:bg-(--brand)/10 text-(--brand) font-semibold text-sm transition-all duration-300 hover:border-(--brand)/60"
+              className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full border border-[var(--brand)]/30 bg-[var(--brand)]/5 hover:bg-[var(--brand)]/10 text-[var(--brand)] font-semibold text-sm transition-all duration-300 hover:border-[var(--brand)]/60"
             >
               <span>{t.cta}</span>
               <span
