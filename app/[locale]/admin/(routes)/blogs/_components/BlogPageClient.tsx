@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/admin/(routes)/blogs/_components/BlogPageClient.tsx
-// Production-ready: all actions integrated, bugs fixed, polished design
 
 import {
   useState,
@@ -1216,7 +1215,7 @@ function ImageManager({
                   <Star className="w-2 h-2 fill-white" /> Primary
                 </div>
               )}
-              <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent pt-6 pb-1.5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-end gap-1">
+              <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent pt-6 pb-1.5 px-1.5 flex items-end gap-1">
                 {!img.isPrimary && (
                   <button
                     onClick={() => handleSetPrimary(img)}
@@ -2604,7 +2603,7 @@ function CommentManager({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         aria-label={`${commentCount} comments`}
       >
         <MessageSquare className="w-3 h-3" /> {commentCount}
@@ -3856,7 +3855,7 @@ function PostCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-lg -mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-7 w-7 rounded-lg -mt-0.5 shrink-0 cursor-pointer"
                 aria-label={`Actions for: ${post.titleEn}`}
               >
                 <MoreHorizontal className="w-3.5 h-3.5" />
