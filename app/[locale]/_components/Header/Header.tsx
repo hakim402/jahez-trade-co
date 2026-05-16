@@ -57,7 +57,7 @@ export const Header = () => {
         className={cn(
           "fixed top-4 z-50 w-full transition-all duration-300",
           scrolled
-            ? "border-border/40 backdrop-blur-lg border-b shadow-sm"
+            ? "border-border/40 backdrop-blur-lg border-b shadow-sm top-0 p-4"
             : "bg-transparent"
         )}
       >
