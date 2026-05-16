@@ -2,8 +2,8 @@
 
 // app/[locale]/_components/FooterHero.tsx
 
-import { useState, useEffect, useRef } from "react";
-import { motion, useInView, animate } from "motion/react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { motion, useInView, animate, useAnimationFrame } from "motion/react";
 import { useLocale } from "next-intl";
 import {
   Package,
@@ -85,7 +85,7 @@ function StatusBadge({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating request card mockup (fully translated)
+// Floating request card mockup
 // ─────────────────────────────────────────────────────────────────────────────
 function RequestMockup() {
   const locale = useLocale();
@@ -131,7 +131,7 @@ function RequestMockup() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating booking card mockup (fully translated)
+// Floating booking card mockup
 // ─────────────────────────────────────────────────────────────────────────────
 function BookingMockup() {
   const locale = useLocale();
@@ -171,7 +171,7 @@ function BookingMockup() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Floating quote card (fully translated)
+// Floating quote card
 // ─────────────────────────────────────────────────────────────────────────────
 function QuoteMockup() {
   const locale = useLocale();
@@ -213,107 +213,414 @@ function QuoteMockup() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Central orbit graphic — abstract globe showing routes (wider, bilingual)
+// Data packet — animated dot traveling along an SVG path
+// ─────────────────────────────────────────────────────────────────────────────
+function DataPacket({
+  pathId,
+  delay,
+  duration,
+  color,
+  reverse,
+}: {
+  pathId: string;
+  delay: number;
+  duration: number;
+  color: string;
+  reverse?: boolean;
+}) {
+  return (
+    <circle r="3" fill={color} filter="url(#glow)">
+      <animateMotion
+        dur={`${duration}s`}
+        repeatCount="indefinite"
+        begin={`${delay}s`}
+        keyPoints={reverse ? "1;0" : "0;1"}
+        keyTimes="0;1"
+        calcMode="linear"
+      >
+        <mpath href={`#${pathId}`} />
+      </animateMotion>
+    </circle>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Advanced OrbitGraphic — SVG arcs, glows, data packets, multi-ring depth
 // ─────────────────────────────────────────────────────────────────────────────
 function OrbitGraphic({ isAr }: { isAr: boolean }) {
-  // Define the country flags and labels with their SVG components
-  const countries = isAr
-    ? [
-        { flag: CN, label: "الصين", angle: 315, dist: 90 },
-        { flag: US, label: "الولايات المتحدة", angle: 45, dist: 90 },
-        { flag: SA, label: "السعودية", angle: 180, dist: 82 },
-        { flag: AE, label: "الإمارات", angle: 135, dist: 90 },
-        { flag: YE, label: "اليمن", angle: 225, dist: 82 },
-      ]
-    : [
-        { flag: CN, label: "China", angle: 315, dist: 90 },
-        { flag: US, label: "USA", angle: 45, dist: 90 },
-        { flag: SA, label: "Saudi Arabia", angle: 180, dist: 82 },
-        { flag: AE, label: "UAE", angle: 135, dist: 90 },
-        { flag: YE, label: "Yemen", angle: 225, dist: 82 },
-      ];
+  const SIZE = 340;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2;
+
+  // Country definitions with precise orbit placement
+  const countries = useMemo(
+    () => [
+      {
+        FlagComponent: CN,
+        label: isAr ? "الصين" : "China",
+        angle: -45, // top-right
+        orbitR: 118,
+        color: "#ef4444",
+        packetColor: "#fca5a5",
+      },
+      {
+        FlagComponent: US,
+        label: isAr ? "الولايات المتحدة" : "USA",
+        angle: 45, // bottom-right
+        orbitR: 118,
+        color: "#3b82f6",
+        packetColor: "#93c5fd",
+      },
+      {
+        FlagComponent: SA,
+        label: isAr ? "السعودية" : "Saudi Arabia",
+        angle: 180, // left
+        orbitR: 118,
+        color: "#10b981",
+        packetColor: "#6ee7b7",
+      },
+      {
+        FlagComponent: AE,
+        label: isAr ? "الإمارات" : "UAE",
+        angle: 130, // bottom-left
+        orbitR: 118,
+        color: "#f59e0b",
+        packetColor: "#fde68a",
+      },
+      {
+        FlagComponent: YE,
+        label: isAr ? "اليمن" : "Yemen",
+        angle: 230, // further bottom-left
+        orbitR: 118,
+        color: "#8b5cf6",
+        packetColor: "#c4b5fd",
+      },
+    ],
+    [isAr],
+  );
+
+  // Node positions
+  const nodes = countries.map(({ angle, orbitR, ...rest }) => {
+    const rad = (angle * Math.PI) / 180;
+    return {
+      ...rest,
+      angle,
+      orbitR,
+      nx: CX + Math.cos(rad) * orbitR,
+      ny: CY + Math.sin(rad) * orbitR,
+    };
+  });
+
+  // Build a curved SVG arc path from center to each node
+  // Uses a quadratic bezier with a control point offset perpendicular to midpoint
+  function arcPath(nx: number, ny: number, idx: number) {
+    const mx = (CX + nx) / 2;
+    const my = (CY + ny) / 2;
+    // Perpendicular offset based on index for variety
+    const offsets = [22, -20, 18, -18, 24];
+    const off = offsets[idx % offsets.length];
+    const dx = ny - CY;
+    const dy = CX - nx;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const cpx = mx + (dx / len) * off;
+    const cpy = my + (dy / len) * off;
+    return `M ${CX} ${CY} Q ${cpx} ${cpy} ${nx} ${ny}`;
+  }
 
   return (
-    <div className="relative w-80 h-80 mx-auto">
-      {/* Outer dashed ring */}
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-        className="absolute inset-0 rounded-full border border-dashed border-indigo-500"
-      />
-      {/* Inner ring */}
-      <motion.div
-        animate={{ rotate: -360 }}
-        transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-        className="absolute inset-6 rounded-full border border-indigo-200"
-      />
-      {/* Center logo / platform icon */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <motion.div
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.5, type: "spring" }}
-          className="group relative w-20 h-20 rounded-2xl bg-background shadow-xl shadow-indigo-500/30 flex items-center justify-center overflow-hidden"
-        >
-          {/* Glow effect */}
-          <div className="absolute inset-0 bg-indigo-500/20 blur-xl opacity-60 group-hover:opacity-80 transition" />
-          {/* Logo */}
-          <div className="relative w-30 h-30">
-            <Image
-              src="/logo/icons.png"
-              alt="Platform logo"
-              fill
-              className="object-contain"
-              sizes="30px"
-              priority
-            />
-          </div>
-          {/* Optional subtle ring */}
-          <div className="absolute inset-0 rounded-2xl ring-1 ring-white/10" />
-        </motion.div>
-      </div>
-      {/* Country nodes on orbit */}
-      {countries.map(({ flag: FlagComponent, label, angle, dist }, i) => {
-        const rad = (angle * Math.PI) / 180;
-        const x = Math.cos(rad) * dist;
-        const y = Math.sin(rad) * dist;
+    <div className="relative" style={{ width: SIZE, height: SIZE }}>
+      {/* ── SVG Layer ── */}
+      <svg
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        className="absolute inset-0"
+        style={{ overflow: "visible" }}
+      >
+        <defs>
+          {/* Glow filter for data packets */}
+          <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
 
-        return (
-          <motion.div
-            key={label}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
+          {/* Soft glow for rings */}
+          <filter id="ringGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          {/* Radial glow behind center */}
+          <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#7b57fc" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="#7b57fc" stopOpacity="0" />
+          </radialGradient>
+
+          {/* Per-node arc gradients */}
+          {nodes.map(({ color }, i) => (
+            <linearGradient
+              key={`arcGrad-${i}`}
+              id={`arcGrad-${i}`}
+              gradientUnits="userSpaceOnUse"
+              x1={CX}
+              y1={CY}
+              x2={nodes[i].nx}
+              y2={nodes[i].ny}
+            >
+              <stop offset="0%" stopColor="#7b57fc" stopOpacity="0.6" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.85" />
+            </linearGradient>
+          ))}
+
+          {/* Arc path defs for animateMotion */}
+          {nodes.map((n, i) => (
+            <path
+              key={`arcDef-${i}`}
+              id={`arcPath-${i}`}
+              d={arcPath(n.nx, n.ny, i)}
+              fill="none"
+            />
+          ))}
+        </defs>
+
+        {/* ── Ambient center glow radial ── */}
+        <circle cx={CX} cy={CY} r={70} fill="url(#centerGlow)" />
+
+        {/* ── Outer dashed orbital ring ── */}
+        <motion.circle
+          cx={CX}
+          cy={CY}
+          r={118}
+          fill="none"
+          stroke="url(#arcGrad-0)"
+          strokeOpacity="0.18"
+          strokeWidth="1"
+          strokeDasharray="4 6"
+          style={{ rotate: 0 }}
+          animate={{ rotate: 360 } as never}
+          transition={{
+            duration: 50,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+          // @ts-ignore — SVG rotate via style
+        />
+
+        {/* ── Second ring (inner, counter-rotate) ── */}
+        <motion.circle
+          cx={CX}
+          cy={CY}
+          r={72}
+          fill="none"
+          stroke="#7b57fc"
+          strokeOpacity="0.15"
+          strokeWidth="1"
+          strokeDasharray="3 9"
+          // @ts-ignore
+          animate={{ rotate: -360 } as never}
+          transition={{
+            duration: 28,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+        />
+
+        {/* ── Innermost glowing ring ── */}
+        <circle
+          cx={CX}
+          cy={CY}
+          r={42}
+          fill="none"
+          stroke="#7b57fc"
+          strokeOpacity="0.22"
+          strokeWidth="1.5"
+          filter="url(#ringGlow)"
+        />
+
+        {/* ── Pulse rings ── */}
+        {[0, 0.6, 1.2].map((delay, i) => (
+          <motion.circle
+            key={`pulse-${i}`}
+            cx={CX}
+            cy={CY}
+            r={44}
+            fill="none"
+            stroke="#7b57fc"
+            strokeWidth="1.5"
+            initial={{ r: 44, opacity: 0.5 } as never}
+            animate={{ r: 115, opacity: 0 } as never}
             transition={{
-              delay: 0.5 + i * 0.12,
-              duration: 0.4,
-              type: "spring",
+              duration: 2.8,
+              repeat: Infinity,
+              ease: "easeOut",
+              delay,
             }}
-            className="absolute flex flex-col items-center gap-1"
-            style={{
-              left: `calc(50% + ${x}px)`,
-              top: `calc(50% + ${y}px)`,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            {/* Connection line to center — subtle */}
-            <div
-              className="absolute w-px bg-linear-to-b from-[#7b57fc]/30 to-transparent"
-              style={{
-                height: `${dist - 36}px`,
-                transformOrigin: "top center",
-                transform: `rotate(${angle + 180}deg)`,
-                top: "50%",
+          />
+        ))}
+
+        {/* ── Arc paths (visible, gradient strokes) ── */}
+        {nodes.map((n, i) => (
+          <g key={`arc-${i}`}>
+            {/* Shadow / depth layer */}
+            <path
+              d={arcPath(n.nx, n.ny, i)}
+              fill="none"
+              stroke={n.color}
+              strokeWidth="3"
+              strokeOpacity="0.06"
+            />
+            {/* Main arc */}
+            <motion.path
+              d={arcPath(n.nx, n.ny, i)}
+              fill="none"
+              stroke={`url(#arcGrad-${i})`}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={{
+                pathLength: {
+                  delay: 0.6 + i * 0.15,
+                  duration: 0.9,
+                  ease: "easeOut",
+                },
+                opacity: { delay: 0.6 + i * 0.15, duration: 0.4 },
               }}
             />
-            <div className="w-10 h-10 rounded-xl bg-white dark:bg-card shadow-md shadow-black/10 border border-border/50 flex items-center justify-center z-10">
-              <FlagComponent className="w-6 h-6" />
-            </div>
-            <span className="text-[8px] font-medium text-muted-foreground whitespace-nowrap z-10">
-              {label}
-            </span>
-          </motion.div>
-        );
-      })}
+          </g>
+        ))}
+
+        {/* ── Animated data packets along each arc ── */}
+        {nodes.map((n, i) => (
+          <g key={`packets-${i}`}>
+            <DataPacket
+              pathId={`arcPath-${i}`}
+              delay={1.5 + i * 0.4}
+              duration={2.6 + i * 0.3}
+              color={n.packetColor}
+            />
+            {/* Second packet going reverse */}
+            <DataPacket
+              pathId={`arcPath-${i}`}
+              delay={2.8 + i * 0.35}
+              duration={3.0 + i * 0.25}
+              color={n.color}
+              reverse
+            />
+          </g>
+        ))}
+
+        {/* ── Node halos (behind the DOM node divs) ── */}
+        {nodes.map((n, i) => (
+          <motion.circle
+            key={`halo-${i}`}
+            cx={n.nx}
+            cy={n.ny}
+            r={22}
+            fill={n.color}
+            fillOpacity={0}
+            stroke={n.color}
+            strokeWidth="1"
+            strokeOpacity="0"
+            initial={{ r: 22, strokeOpacity: 0 } as never}
+            animate={{ r: [22, 32, 22], strokeOpacity: [0.5, 0, 0.5] } as never}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.5,
+            }}
+          />
+        ))}
+      </svg>
+
+      {/* ── Center logo node ── */}
+      
+
+      {/* ── Country nodes ── */}
+      {nodes.map(({ FlagComponent, label, nx, ny, color }, i) => (
+        <motion.div
+          key={label}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{
+            delay: 0.7 + i * 0.12,
+            duration: 0.5,
+            type: "spring",
+            bounce: 0.45,
+          }}
+          className="absolute flex flex-col items-center gap-1.5 group"
+          style={{
+            left: nx,
+            top: ny,
+            transform: "translate(-50%,-50%)",
+            zIndex: 15,
+          }}
+        >
+          {/* Node card */}
+          <div
+            className="relative w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer
+              bg-white dark:bg-card border border-border/60
+              shadow-lg shadow-black/10
+              transition-all duration-300
+              group-hover:scale-110 group-hover:shadow-xl"
+            style={{
+              boxShadow: `0 0 0 0 ${color}40`,
+            }}
+          >
+            {/* Color accent ring on hover */}
+            <div
+              className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              style={{
+                boxShadow: `0 0 14px 2px ${color}55, inset 0 0 0 1px ${color}40`,
+              }}
+            />
+            <FlagComponent className="w-6 h-4.5 rounded-sm" />
+
+            {/* Active dot */}
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-card"
+              style={{ backgroundColor: color }}
+            />
+          </div>
+
+          {/* Label pill */}
+          <div
+            className="px-2 py-0.5 rounded-full text-[8.5px] font-semibold whitespace-nowrap
+              bg-white/80 dark:bg-card/80 border border-border/40
+              shadow-sm text-foreground/70 backdrop-blur-sm"
+          >
+            {label}
+          </div>
+        </motion.div>
+      ))}
+
+      {/* ── Floating ring decoration (purely cosmetic) ── */}
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+        className="absolute inset-0 pointer-events-none"
+        style={{ zIndex: 1 }}
+      >
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+          <circle
+            cx={CX}
+            cy={CY}
+            r={152}
+            fill="none"
+            stroke="#7b57fc"
+            strokeOpacity="0.07"
+            strokeWidth="1"
+            strokeDasharray="2 14"
+          />
+        </svg>
+      </motion.div>
     </div>
   );
 }
@@ -375,9 +682,9 @@ export function FooterHero() {
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.7 }}
+          transition={{ delay: 0.3, duration: 0.7 }}
           className="relative w-full max-w-2xl mx-auto"
-          style={{ height: 360 }}
+          style={{ height: 380 }}
         >
           {/* Center orbit */}
           <div className="absolute inset-0 flex items-center justify-center">
@@ -393,7 +700,7 @@ export function FooterHero() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 1.2, duration: 0.4 }}
+            transition={{ delay: 1.4, duration: 0.4 }}
             className="absolute top-1/2 -translate-y-1/2 -left-4 hidden md:block"
           >
             <StatusBadge
@@ -406,7 +713,7 @@ export function FooterHero() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 1.35, duration: 0.4 }}
+            transition={{ delay: 1.55, duration: 0.4 }}
             className="absolute top-1/3 -right-4 hidden md:block"
           >
             <StatusBadge
@@ -419,7 +726,7 @@ export function FooterHero() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5, duration: 0.4 }}
+            transition={{ delay: 1.7, duration: 0.4 }}
             className="absolute -bottom-4 left-1/2 -translate-x-1/2 hidden sm:block"
           >
             <StatusBadge

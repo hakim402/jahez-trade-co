@@ -417,8 +417,8 @@ export function FooterSection() {
           {/* Copyright */}
           <p className="text-xs text-muted-foreground/70 text-center sm:text-left">
             {isAr
-              ? `© ${year} منصة جاهز. جميع الحقوق محفوظة.`
-              : `© ${year} JAHEZ Platform. All rights reserved.`}
+              ? `© ${year} منصة JAHEZ TRADE CO. الحقوق محفوظة.`
+              : `© ${year} JAHEZ TRADE CO All rights reserved.`}
           </p>
 
           {/* Bottom links */}

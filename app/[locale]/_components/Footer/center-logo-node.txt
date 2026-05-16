@@ -1,0 +1,43 @@
+<motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.6, type: "spring", bounce: 0.4 }}
+        className="absolute flex items-center justify-center"
+        style={{
+          left: CX,
+          top: CY,
+          transform: "translate(-50%,-50%)",
+          width: 72,
+          height: 72,
+          zIndex: 20,
+        }}
+      >
+        {/* Multi-layer glow rings */}
+        <div className="absolute inset-0 rounded-2xl bg-[#7b57fc]/30 blur-xl scale-150" />
+        <div className="absolute inset-0 rounded-2xl bg-[#7b57fc]/15 blur-2xl scale-200" />
+
+        {/* Card */}
+        <div className="relative w-full h-full rounded-2xl bg-white dark:bg-card shadow-2xl shadow-[#7b57fc]/25 border border-[#7b57fc]/20 flex items-center justify-center overflow-hidden">
+          {/* Shimmer sweep */}
+          <motion.div
+            className="absolute inset-0 bg-linear-to-r from-transparent via-white/30 to-transparent -translate-x-full"
+            animate={{ translateX: ["−100%", "200%"] }}
+            transition={{
+              duration: 2.5,
+              repeat: Infinity,
+              repeatDelay: 4,
+              ease: "easeInOut",
+            }}
+          />
+          <div className="relative w-10 h-10">
+            <Image
+              src="/logo/icons.png"
+              alt="Platform logo"
+              fill
+              className="object-contain"
+              sizes="40px"
+              priority
+            />
+          </div>
+        </div>
+      </motion.div>
