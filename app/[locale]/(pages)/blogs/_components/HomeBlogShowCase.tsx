@@ -12,6 +12,7 @@ import {
   getPublishedPosts,
   type PublicPostCard,
 } from "@/app/[locale]/(pages)/blogs/actions";
+import { Zap } from "lucide-react";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -487,6 +488,7 @@ export default function HomeBlogShowCase() {
   const [error, setError] = useState<string | null>(null);
 
   const isRtl = locale === "ar";
+  const isAr = locale === "ar";
   const t = getT(locale);
 
   useEffect(() => {
@@ -525,6 +527,40 @@ export default function HomeBlogShowCase() {
 
   return (
     <section className="w-full" dir={isRtl ? "rtl" : "ltr"}>
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="mb-8 text-center max-w-2xl mx-auto"
+      >
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#7b57fc]/10 border border-[#7b57fc]/20 mb-4">
+          <Zap className="w-4 h-4 text-[#7b57fc]" />
+          <span className="text-sm font-semibold text-[#7b57fc]">
+            {isAr ? "المدونة والفعاليات" : "Blog & Events"}
+          </span>
+        </div>
+
+        <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight mb-3">
+          {isAr ? (
+            <>
+              أحدث المقالات{" "}
+              <span className="text-gradient">والفعاليات القادمة</span>
+            </>
+          ) : (
+            <>
+              Latest articles{" "}
+              <span className="text-gradient">& upcoming events</span>
+            </>
+          )}
+        </h2>
+
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {isAr
+            ? "اقرأ مقالاتنا، واكتشف النصائح، وانضم إلى فعالياتنا المباشرة."
+            : "Read our articles, discover tips, and join our live events."}
+        </p>
+      </motion.div>
       {/* ── Content ── */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 space-y-16">
         {/* ── Featured Post ── */}

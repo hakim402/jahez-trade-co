@@ -6,19 +6,17 @@ import { motion } from "motion/react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
 import {
-  Package,
-  Video,
   TrendingUp,
-  MessageSquare,
-  Calculator,
   Mail,
-  Phone,
   MapPin,
   ArrowUpRight,
   Shield,
   Zap,
   ChevronRight,
   ExternalLink,
+  Facebook,
+  Instagram,
+  Twitter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -124,33 +122,33 @@ const COLUMNS: FooterColumn[] = [
       {
         labelEn: "Product Requests",
         labelAr: "طلبات المنتجات",
-        href: "/dashboard/requests/new",
+        href: "/dashboard/requests",
         badge: { en: "Popular", ar: "الأكثر طلباً" },
       },
       {
         labelEn: "Video Bookings",
         labelAr: "حجز الجلسات",
-        href: "/dashboard/bookings/new",
+        href: "/dashboard/bookings",
       },
       {
         labelEn: "Market Tours",
         labelAr: "جولات السوق",
-        href: "/dashboard/bookings/new",
+        href: "/dashboard/bookings",
       },
       {
         labelEn: "Factory Visits",
         labelAr: "زيارات المصانع",
-        href: "/dashboard/bookings/new",
+        href: "/dashboard/bookings",
       },
       {
         labelEn: "Business Consulting",
         labelAr: "استشارات تجارية",
-        href: "/consulting",
+        href: "/dashboard/consulting",
       },
       {
         labelEn: "Shipping Calculator",
         labelAr: "حاسبة الشحن",
-        href: "/#shipping-calculator",
+        href: "/dashboard/requests",
       },
     ],
   },
@@ -198,16 +196,16 @@ const COLUMNS: FooterColumn[] = [
         labelAr: "كيف يعمل النظام",
         href: "/#how-it-works",
       },
-      { labelEn: "Pricing", labelAr: "الأسعار والباقات", href: "/pricing" },
+      // { labelEn: "Pricing", labelAr: "الأسعار والباقات", href: "/pricing" },
+      // {
+      //   labelEn: "Privacy Policy",
+      //   labelAr: "سياسة الخصوصية",
+      //   href: "/privacy",
+      // },
       {
-        labelEn: "Privacy Policy",
-        labelAr: "سياسة الخصوصية",
-        href: "/privacy",
-      },
-      {
-        labelEn: "Terms of Service",
-        labelAr: "شروط الاستخدام",
-        href: "/terms",
+        labelEn: "Service",
+        labelAr: "الاستخدام",
+        href: "/services",
       },
     ],
   },
@@ -438,12 +436,35 @@ export function FooterSection() {
             ))}
           </div>
 
-          {/* Built with tag */}
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50">
-            <Shield className="w-3 h-3" />
-            <span>
-              {isAr ? "مدعوم بالذكاء الاصطناعي" : "AI-powered platform"}
-            </span>
+          {/* Social Media Icons */}
+          <div className="flex items-center gap-3">
+            <a
+              href="https://www.facebook.com/share/17cE3NkE5k/?mibextid=wwXIfr"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={isAr ? "فيسبوك" : "Facebook"}
+              className="text-muted-foreground/60 hover:text-[#1877f2] transition-colors"
+            >
+              <Facebook className="w-4 h-4" />
+            </a>
+            <a
+              href="https://www.instagram.com/jahez.t.co?igsh=MXdzZnRmYmQ4YzFncA%3D%3D&utm_source=qr"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={isAr ? "إنستغرام" : "Instagram"}
+              className="text-muted-foreground/60 hover:text-[#e4405f] transition-colors"
+            >
+              <Instagram className="w-4 h-4" />
+            </a>
+            <a
+              href="#" // ← placeholder – update when X link is ready
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={isAr ? "إكس" : "X"}
+              className="text-muted-foreground/60 hover:text-foreground transition-colors"
+            >
+              <Twitter className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </div>

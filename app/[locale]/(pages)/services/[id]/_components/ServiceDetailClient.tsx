@@ -21,7 +21,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   MessageSquare,
   Calendar,
   Zap,
@@ -38,6 +37,7 @@ import type {
   PublicConsultingService,
   PublicConsultingServiceCard,
 } from "../../actions";
+import { Header } from "@/app/[locale]/_components/Header/Header";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Strings
@@ -319,16 +319,9 @@ export function ServiceDetailClient({
 
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
-      {/* ── Breadcrumb ───────────────────────────────────────────────── */}
-      <div className="border-b border-border/30 bg-muted/5">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
-          <Link
-            href="/services"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Back className="w-4 h-4" /> {t.back}
-          </Link>
-        </div>
+      <div className="mb-20">
+
+      <Header />
       </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 lg:py-16">

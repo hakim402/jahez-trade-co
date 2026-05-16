@@ -6,6 +6,7 @@ import { Cairo, Roboto } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import "flag-icons/css/flag-icons.min.css";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
 
 const inter = Roboto({
   subsets: ["latin"],
@@ -47,6 +48,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <Toaster />
+          <WhatsAppButton />
         </ThemeProvider>
 
         {/* Google Analytics 4 – loads after page is interactive via next/script */}

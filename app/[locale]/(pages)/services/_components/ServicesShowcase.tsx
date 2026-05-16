@@ -1,27 +1,24 @@
-// app/[locale]/_components/ServicesShowcase.tsx
-//
-// Lightweight server component — safe to drop into any page.
-// Fetches featured services at build/request time (no client JS needed).
-// Pass isAr={locale === "ar"} from the parent server component.
-//
-// Usage:
-//   import { ServicesShowcase } from "@/app/[locale]/_components/ServicesShowcase"
-//   <ServicesShowcase isAr={isAr} limit={6} />
+"use client";
 
+// app/[locale]/_components/ServicesShowcase.tsx
+// Client component with motion animations — matches HomeBlogShowCase styling.
+
+import { useState, useEffect, useRef } from "react";
+import { useInView, motion } from "motion/react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
+  Clock,
+  Users,
+  Star,
+  Sparkles,
   ShoppingCart,
   Ship,
   Truck,
   Globe,
   Factory,
   Briefcase,
-  Clock,
-  Users,
-  Star,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFeaturedConsultingServices } from "@/app/[locale]/(pages)/services/actions";
@@ -29,7 +26,7 @@ import type { PublicConsultingServiceCard } from "@/app/[locale]/(pages)/service
 import type { ConsultingServiceTopic } from "@prisma/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Config
+// Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TOPIC_ICONS: Record<ConsultingServiceTopic, React.ElementType> = {
@@ -88,18 +85,69 @@ const T = {
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Service card (pure server-rendered, no JS)
+// Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ShowcaseCard({
+function formatPrice(price: number | null, currency: string, isAr: boolean) {
+  if (price === null) return null;
+  return new Intl.NumberFormat(isAr ? "ar-SA" : "en-US", {
+    style: "currency",
+    currency: currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(price);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category Pill (matches blog style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CategoryPill({
+  label,
+  icon: Icon,
+  inverted = false,
+}: {
+  label: string;
+  icon?: React.ElementType;
+  inverted?: boolean;
+}) {
+  return (
+    <span
+      className={`
+        inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase
+        ${
+          inverted
+            ? "bg-white/20 text-white backdrop-blur-sm border border-white/30"
+            : "bg-(--brand)/10 text-(--brand) border border-(--brand)/20"
+        }
+      `}
+    >
+      {Icon && <Icon className="w-3 h-3" />}
+      {label}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Service Card (matches blog card structure)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ServiceCard({
   service,
-  isAr,
+  locale,
+  index,
   t,
 }: {
   service: PublicConsultingServiceCard;
-  isAr: boolean;
+  locale: string;
+  index: number;
   t: typeof T.en;
 }) {
+  const isAr = locale === "ar";
+  const isRtl = isAr;
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+
   const title = (isAr ? service.titleAr : null) ?? service.title;
   const shortDesc = (isAr ? service.shortDescAr : null) ?? service.shortDesc;
   const duration = (isAr ? service.durationAr : null) ?? service.duration;
@@ -107,207 +155,357 @@ function ShowcaseCard({
     service.images.find((i) => i.isPrimary) ?? service.images[0];
   const TopicIcon = TOPIC_ICONS[service.topic];
   const topicLabel = TOPIC_LABELS[isAr ? "ar" : "en"][service.topic];
+  const formattedPrice = formatPrice(
+    service.priceFrom,
+    service.priceCurrency,
+    isAr
+  );
+
+  // Image error handling (like blog)
+  const [imgError, setImgError] = useState(false);
 
   return (
-    <Link
-      href={`/services/${service.id}`}
-      className="group relative rounded-2xl border border-border/40 bg-card overflow-hidden flex flex-col
-                 hover:border-[#7b57fc]/30 hover:shadow-xl hover:shadow-[#7b57fc]/5
-                 transition-all duration-300"
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 32 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{
+        duration: 0.55,
+        delay: index * 0.07,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      className="group flex flex-col h-full"
     >
-      {/* Image */}
-      <div className="relative h-44 overflow-hidden bg-muted/20">
-        {primaryImg ? (
-          <Image
-            src={primaryImg.url}
-            alt={primaryImg.altText ?? title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-700"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-[#7b57fc]/8 to-[#7b57fc]/3">
-            <TopicIcon className="w-12 h-12 text-[#7b57fc]/25" />
-          </div>
-        )}
-
-        {/* Topic badge */}
-        <div className={cn("absolute top-3", isAr ? "right-3" : "left-3")}>
-          <span
-            className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full
-                           bg-background/90 backdrop-blur-sm border border-border/40 text-foreground shadow-sm"
-          >
-            <TopicIcon className="w-3 h-3 text-[#7b57fc]" />
-            {topicLabel}
-          </span>
-        </div>
-
-        {/* Featured badge */}
-        {service.isFeatured && (
-          <div className={cn("absolute top-3", isAr ? "left-3" : "right-3")}>
-            <span
-              className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full
-                             bg-amber-500 text-white shadow-md"
-            >
-              <Star className="w-2.5 h-2.5 fill-white" /> {t.featured}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-5">
-        <h3 className="text-base font-bold text-foreground group-hover:text-[#7b57fc] transition-colors line-clamp-2 leading-snug">
-          {title}
-        </h3>
-        {shortDesc && (
-          <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed flex-1">
-            {shortDesc}
-          </p>
-        )}
-
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t border-border/30">
-          {duration && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock className="w-3 h-3" /> {duration}
-            </span>
-          )}
-          {service.requestCount > 0 && (
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground ml-auto">
-              <Users className="w-3 h-3" /> {t.requests(service.requestCount)}
-            </span>
-          )}
-        </div>
-
-        {/* Price + CTA */}
-        <div className="flex items-center justify-between gap-3 mt-4">
-          {service.priceFrom !== null ? (
-            <div>
-              <p className="text-[10px] text-muted-foreground leading-none">
-                {t.from}
-              </p>
-              <p className="text-lg font-bold text-foreground tabular-nums">
-                {service.priceCurrency} {service.priceFrom.toLocaleString()}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {" "}
-                  {t.perSession}
-                </span>
-              </p>
-            </div>
-          ) : (
-            <div />
-          )}
-
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 text-xs font-semibold text-[#7b57fc]",
-              "group-hover:gap-2.5 transition-all",
-            )}
-          >
-            {t.viewDetail}
-            <ArrowRight
-              className={cn(
-                "w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5",
-                isAr &&
-                  "rotate-180 group-hover:-translate-x-0.0 group-hover:translate-x-5",
-              )}
+      <Link
+        href={`/${locale}/services/${service.id}`}
+        className="flex flex-col h-full rounded-2xl overflow-hidden border border-border/40 bg-card hover:border-(--brand)/40 hover:shadow-[0_8px_32px_rgba(123,87,252,0.12)] transition-all duration-400"
+      >
+        {/* Image area */}
+        <div className="relative h-48 overflow-hidden bg-linear-to-br from-indigo-100 to-purple-50 dark:from-indigo-950 dark:to-purple-900/50 shrink-0">
+          {primaryImg && !imgError ? (
+            <Image
+              src={primaryImg.url}
+              alt={primaryImg.altText ?? title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              onError={() => setImgError(true)}
+              unoptimized // for user uploads
             />
-          </span>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <TopicIcon className="w-12 h-12 text-(--brand)/30" />
+              {primaryImg && imgError && (
+                <span className="absolute bottom-2 text-[10px] text-muted-foreground">
+                  Image unavailable
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-(--brand)/0 group-hover:bg-(--brand)/8 transition-colors duration-400" />
+
+          {/* Topic badge (like category) */}
+          <div className={`absolute top-3 ${isRtl ? "right-3" : "left-3"}`}>
+            <CategoryPill label={topicLabel} icon={TopicIcon} />
+          </div>
+
+          {/* Featured badge (if any) */}
+          {service.isFeatured && (
+            <div className={`absolute top-3 ${isRtl ? "left-3" : "right-3"}`}>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-md">
+                <Star className="w-2.5 h-2.5 fill-white" /> {t.featured}
+              </span>
+            </div>
+          )}
         </div>
-      </div>
-    </Link>
+
+        {/* Content body */}
+        <div
+          className={`flex flex-col grow p-5 gap-3 ${
+            isRtl ? "text-right items-end" : "text-left items-start"
+          }`}
+        >
+          <h3 className="font-bold text-base leading-snug text-foreground line-clamp-2 group-hover:text-(--brand) transition-colors duration-200">
+            {title}
+          </h3>
+
+          {shortDesc && (
+            <p className="text-muted-foreground text-sm line-clamp-2 grow">
+              {shortDesc}
+            </p>
+          )}
+
+          <div className="grow" />
+
+          {/* Meta row: duration + requests */}
+          <div className="w-full pt-3 border-t border-border/30 flex items-center justify-between gap-2 flex-wrap">
+            {duration && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" /> {duration}
+              </span>
+            )}
+            {service.requestCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="w-3.5 h-3.5" /> {t.requests(service.requestCount)}
+              </span>
+            )}
+          </div>
+
+          {/* Price + CTA row (like "read more" from blog) */}
+          <div className="w-full flex items-center justify-between gap-3 mt-2">
+            {formattedPrice && (
+              <div>
+                <p className="text-[10px] text-muted-foreground leading-none">
+                  {t.from}
+                </p>
+                <p className="text-base font-bold text-foreground tabular-nums">
+                  {formattedPrice}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {" "}
+                    {t.perSession}
+                  </span>
+                </p>
+              </div>
+            )}
+            <span
+              className={cn(
+                "text-sm font-semibold text-(--brand) flex items-center gap-1.5",
+                "group-hover:gap-2.5 transition-all"
+              )}
+            >
+              {t.viewDetail}
+              <ArrowRight
+                className={cn(
+                  "w-4 h-4 transition-transform group-hover:translate-x-0.5",
+                  isRtl && "rotate-180 group-hover:-translate-x-0.5"
+                )}
+              />
+            </span>
+          </div>
+        </div>
+
+        {/* Animated bottom bar */}
+        <div
+          className={`h-0.5 bg-linear-to-r from-(--brand) to-indigo-400 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ${
+            isRtl ? "origin-right" : "origin-left"
+          }`}
+        />
+      </Link>
+    </motion.div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main export — server component
+// Section Header (identical to blog showcase)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SectionHeader({
+  title,
+  cta,
+  ctaHref,
+  isRtl,
+}: {
+  title: string;
+  cta?: string;
+  ctaHref?: string;
+  isRtl: boolean;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: isRtl ? 20 : -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={`flex items-center justify-between mb-10 ${
+        isRtl ? "flex-row-reverse" : ""
+      }`}
+    >
+      <div
+        className={`flex items-center gap-4 ${isRtl ? "flex-row-reverse" : ""}`}
+      >
+        <div className="h-8 w-1 rounded-full bg-linear-to-b from-(--brand) to-indigo-400" />
+        <h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
+          {title}
+        </h2>
+      </div>
+      {cta && ctaHref && (
+        <Link
+          href={ctaHref}
+          className="text-sm font-medium text-(--brand) hover:opacity-75 transition-opacity flex items-center gap-1.5"
+        >
+          <span>{cta}</span>
+          <span className="text-lg leading-none">{isRtl ? "←" : "→"}</span>
+        </Link>
+      )}
+    </motion.div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component (client with async data)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ServicesShowcaseProps {
   isAr?: boolean;
   limit?: number;
-  /** Override heading / subheading for different placement contexts */
   heading?: string;
   subheading?: string;
-  /** Hide the header section (e.g. when embedding inside a section with its own header) */
   hideHeader?: boolean;
-  /** Additional wrapper className */
   className?: string;
-  locale?: string;
+  locale?: string; // if not provided, we infer from isAr or default 'en'
 }
 
-export async function ServicesShowcase({
+export function ServicesShowcase({
   isAr = false,
   limit = 6,
   heading,
   subheading,
   hideHeader = false,
   className,
+  locale: propLocale,
 }: ServicesShowcaseProps) {
-  const services = await getFeaturedConsultingServices(limit);
+  const [services, setServices] = useState<PublicConsultingServiceCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const locale = propLocale ?? (isAr ? "ar" : "en");
+  const isRtl = locale === "ar";
   const t = (isAr ? T.ar : T.en) as typeof T.en;
 
-  if (services.length === 0) return null;
+  useEffect(() => {
+    async function fetchServices() {
+      setLoading(true);
+      const data = await getFeaturedConsultingServices(limit);
+      setServices(data);
+      setLoading(false);
+    }
+    fetchServices();
+  }, [limit]);
+
+  if (services.length === 0 && !loading) return null;
+
+  // Skeleton loader (matches blog skeleton)
+  const SkeletonCard = () => (
+    <div className="rounded-2xl overflow-hidden border border-border/40 bg-card">
+      <div className="h-48 bg-muted animate-pulse" />
+      <div className="p-5 space-y-3">
+        <div className="h-5 w-4/5 bg-muted animate-pulse rounded" />
+        <div className="h-3 w-full bg-muted animate-pulse rounded" />
+        <div className="h-3 w-3/4 bg-muted animate-pulse rounded" />
+        <div className="pt-3 border-t border-border/30 flex justify-between">
+          <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <section
-      className={cn(
-        "relative py-16 md:py-24 overflow-hidden bg-background",
-        className,
-      )}
-      dir={isAr ? "rtl" : "ltr"}
+      className={cn("w-full mt-20", className)}
+      dir={isRtl ? "rtl" : "ltr"}
     >
-      <div className="relative max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
-        {/* Header */}
-        {!hideHeader && (
-          <div className="mb-10 max-w-2xl mx-auto text-center">
-            <div className="inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8 text-xs font-semibold text-[#7b57fc] mb-4">
-              <Sparkles className="w-3.5 h-3.5" />
-              {t.badge}
-            </div>
-
-            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight leading-tight">
-              {heading ?? t.heading}
-            </h2>
-
-            <p className="mt-3 text-lg text-muted-foreground leading-relaxed">
-              {subheading ?? t.subheading}
-            </p>
-          </div>
-        )}
-
-        {/* Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {services.map((service) => (
-            <ShowcaseCard
-              key={service.id}
-              service={service}
-              isAr={isAr}
-              t={t}
-            />
-          ))}
-        </div>
-
-        {/* View all CTA */}
-        <div
-          className={cn("flex mt-8", isAr ? "justify-start" : "justify-start")}
+      {/* Header with badge (same as blog) */}
+      {!hideHeader && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-8 text-center max-w-2xl mx-auto"
         >
-          <Link
-            href="/services"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#7b57fc] hover:text-[#6a48eb]
-                     border border-[#7b57fc]/30 hover:border-[#7b57fc]/60 bg-[#7b57fc]/5 hover:bg-[#7b57fc]/10
-                     px-5 py-2.5 rounded-xl transition-all group"
-          >
-            {t.viewAll}
-            <ArrowRight
-              className={cn(
-                "w-4 h-4 group-hover:translate-x-0.5 transition-transform",
-                isAr &&
-                  "rotate-180 group-hover:-translate-x-0.0 group-hover:translate-x-5",
-              )}
-            />
-          </Link>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#7b57fc]/10 border border-[#7b57fc]/20 mb-4">
+            <Sparkles className="w-4 h-4 text-[#7b57fc]" />
+            <span className="text-sm font-semibold text-[#7b57fc]">
+              {t.badge}
+            </span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight mb-3">
+            {heading ? (
+              heading
+            ) : isAr ? (
+              <>
+                {t.heading.split(" ").slice(0, -1).join(" ")}{" "}
+                <span className="text-gradient">
+                  {t.heading.split(" ").slice(-1)}
+                </span>
+              </>
+            ) : (
+              <>
+                {t.heading.split(" ").slice(0, -1).join(" ")}{" "}
+                <span className="text-gradient">
+                  {t.heading.split(" ").slice(-1)}
+                </span>
+              </>
+            )}
+          </h2>
+
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            {subheading ?? t.subheading}
+          </p>
+        </motion.div>
+      )}
+
+      {/* Content container */}
+      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-16 space-y-16">
+        {/* Section header + grid */}
+        <div>
+          <SectionHeader
+            title={t.heading}
+            cta={t.viewAll}
+            ctaHref={`/${locale}/services`}
+            isRtl={isRtl}
+          />
+
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: limit }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
+            </div>
+          ) : services.length === 0 ? (
+            <p className="text-muted-foreground text-center py-12">
+              {isAr ? "لا توجد خدمات حالياً." : "No services found."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {services.map((service, idx) => (
+                <ServiceCard
+                  key={service.id}
+                  service={service}
+                  locale={locale}
+                  index={idx}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* View All CTA button (like blog) */}
+        {!loading && services.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="flex justify-center pt-4"
+          >
+            <Link
+              href={`/${locale}/services`}
+              className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full border border-(--brand)/30 bg-(--brand)/5 hover:bg-(--brand)/10 text-(--brand) font-semibold text-sm transition-all duration-300 hover:border-(--brand)/60"
+            >
+              <span>{t.viewAll}</span>
+              <span
+                className={`transition-transform duration-300 text-lg ${
+                  isRtl ? "group-hover:-translate-x-1" : "group-hover:translate-x-1"
+                }`}
+              >
+                {isRtl ? "←" : "→"}
+              </span>
+            </Link>
+          </motion.div>
+        )}
       </div>
     </section>
   );
