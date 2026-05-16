@@ -534,7 +534,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
     ? [
         {
           icon: Store,
-          image: "/images/market-tour.jpg",
+          image: "/images/market-tour-3.jpg",
           label: "جولة في السوق",
           desc: "تصفح السوق الصيني مباشرةً",
           color:
@@ -542,7 +542,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
         },
         {
           icon: Factory,
-          image: "/images/factory.jpg",
+          image: "/images/factory-2.jpg",
           label: "زيارة المصنع",
           desc: "تفقّد خط الإنتاج بنفسك",
           color:
@@ -550,7 +550,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
         },
         {
           icon: Video,
-          image: "/images/video-call.jpg",
+          image: "/images/video-call-2.jpg",
           label: "استشارة حرة",
           desc: "ناقش طلبك مع أحد خبرائنا",
           color:
@@ -560,7 +560,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
     : [
         {
           icon: Store,
-          image: "/images/market-tour-2.jpg",
+          image: "/images/market-tour-3.jpg",
           label: "Market Tour",
           desc: "Browse Chinese markets live",
           color:
@@ -568,7 +568,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
         },
         {
           icon: Factory,
-          image: "/images/factory.jpg",
+          image: "/images/factory-2.jpg",
           label: "Factory Visit",
           desc: "Inspect the production line",
           color:
@@ -576,7 +576,7 @@ function SessionTypePills({ isAr }: { isAr: boolean }) {
         },
         {
           icon: Video,
-          image: "/images/video-call.jpg",
+          image: "/images/video-call-2.jpg",
           label: "Consultation",
           desc: "Discuss your request with an expert",
           color:

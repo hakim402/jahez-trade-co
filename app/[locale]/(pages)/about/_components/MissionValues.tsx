@@ -30,7 +30,7 @@ const VALUES = [
   },
   {
     icon: Handshake,
-    image: "/images/partnership.jpg",
+    image: "/images/partnership-2.jpg",
     color: "bg-[#7b57fc]/10 text-[#7b57fc]",
     titleEn: "Partnership, not just service",
     titleAr: "شراكة لا مجرد خدمة",
@@ -40,7 +40,7 @@ const VALUES = [
   },
   {
     icon: Zap,
-    image: "/images/percision.jpg",
+    image: "/images/percision-2.jpg",
     color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     titleEn: "Speed with precision",
     titleAr: "السرعة مع الدقة",
@@ -51,7 +51,7 @@ const VALUES = [
   },
   {
     icon: Globe,
-    image: "/images/global-reach.jpg",
+    image: "/images/global-reach-2.jpg",
     color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     titleEn: "Truly global reach",
     titleAr: "وصول عالمي حقيقي",
@@ -62,7 +62,7 @@ const VALUES = [
   },
   {
     icon: Eye,
-    image: "/images/see-and-buy.jpg",
+    image: "/images/see-and-buy-2.jpg",
     color: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
     titleEn: "See before you buy",
     titleAr: "شاهد قبل أن تشتري",
@@ -73,7 +73,7 @@ const VALUES = [
   },
   {
     icon: Heart,
-    image: "/images/community.jpg",
+    image: "/images/community-2.jpg",
     color: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
     titleEn: "Community-driven",
     titleAr: "مجتمع يدفعنا",
