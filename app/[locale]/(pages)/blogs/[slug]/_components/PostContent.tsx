@@ -1,5 +1,7 @@
 "use client";
 
+// app/[locale]/(pages)/blogs/[slug]/_components/PostContent.tsx
+
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 

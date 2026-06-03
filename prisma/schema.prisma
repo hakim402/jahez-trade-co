@@ -148,12 +148,59 @@ model User {
   comments          Comment[]
   postReactions     PostReaction[]
   commentReactions  CommentReaction[]
+  isEmployee Boolean @default(false)
+  employeeProfile EmployeeProfile?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([role])
   @@index([isDeleted])
+}
+
+// ------------------------------------------------
+// EMPLOYEE PROFILE MODEL
+// ------------------------------------------------
+model EmployeeProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // –– Core (bilingual) ––––––––––––––––
+  positionEn    String?                  // "Sourcing Manager"
+  positionAr    String?                  // "مدير التوريد"
+  bioEn         String?  @db.Text
+  bioAr         String?  @db.Text
+  shortBioEn    String?
+  shortBioAr    String?
+
+  // –– Slug for detail pages –––––––––
+  slug          String?  @unique         // e.g. "john-doe"
+
+  // –– Visibility –––––––––––––––––––––
+  status        String   @default("DRAFT") // DRAFT | PUBLISHED
+  displayOrder  Int      @default(0)
+
+  // –– Media ––––––––––––––––––––––––––
+  photoUrl      String?
+  photoAltEn    String?
+  photoAltAr    String?
+
+  // –– Social links (dedicated strings) ––
+  facebookUrl   String?
+  instagramUrl  String?
+  twitterUrl    String?                  // X / Twitter
+  linkedinUrl   String?
+  youtubeUrl    String?
+  tiktokUrl     String?
+  snapchatUrl   String?
+  otherLinks    Json?                    // [{ platform, url }] catch-all
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status, displayOrder])
 }
 
 // ------------------------------------------------
