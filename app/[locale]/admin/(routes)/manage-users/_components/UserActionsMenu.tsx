@@ -1,7 +1,6 @@
 "use client";
 
 // app/[locale]/admin/(routes)/manage-users/_components/UserActionsMenu.tsx
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from "react";
 import {
@@ -30,9 +29,10 @@ import {
   Shield,
   ShieldOff,
   Trash2,
-  LogIn,
   Loader2,
   AlertTriangle,
+  UserCheck,
+  UserMinus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -41,13 +41,11 @@ import {
   unbanUser,
   softDeleteUser,
   impersonateUser,
+  promoteToEmployee,
+  demoteToClient,
 } from "../actions";
 import { SendNotificationDialog } from "./SendNotificationDialog";
 import type { UserListItem } from "../actions";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROPS — identical to original
-// ─────────────────────────────────────────────────────────────────────────────
 
 interface UserActionsMenuProps {
   user: UserListItem;
@@ -55,32 +53,25 @@ interface UserActionsMenuProps {
   onRefresh: () => void;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
-
 export function UserActionsMenu({
   user,
   onViewDetails,
   onRefresh,
 }: UserActionsMenuProps) {
-  // ── STATE — identical to original ────────────────────────────────────────
   const [isLoading, setIsLoading] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [banAlertOpen, setBanAlertOpen] = useState(false);
+  const [promoteAlertOpen, setPromoteAlertOpen] = useState(false);
+  const [demoteAlertOpen, setDemoteAlertOpen] = useState(false);
 
-  // ── HANDLERS — identical to original ─────────────────────────────────────
   const handleBanToggle = async () => {
     setIsLoading(true);
     try {
       const result = user.isActive
         ? await banUser({ id: user.id, reason: "Admin action" })
         : await unbanUser({ id: user.id });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
+      if (!result.success) { toast.error(result.error); return; }
       toast.success(user.isActive ? "User banned" : "User unbanned");
       onRefresh();
     } catch {
@@ -95,10 +86,7 @@ export function UserActionsMenu({
     setIsLoading(true);
     try {
       const result = await softDeleteUser({ id: user.id });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
+      if (!result.success) { toast.error(result.error); return; }
       toast.success("User deleted");
       onRefresh();
     } catch {
@@ -109,15 +97,11 @@ export function UserActionsMenu({
     }
   };
 
-  // ── HANDLERS — Generate a login token for admin to login as a user────────
   const handleImpersonate = async () => {
     setIsLoading(true);
     try {
       const result = await impersonateUser({ id: user.id });
-      if (!result.success) {
-        toast.error(result.error);
-        return;
-      }
+      if (!result.success) { toast.error(result.error); return; }
       const url = `${window.location.origin}/?__clerk_ticket=${result.data.signInToken}`;
       window.open(url, "_blank");
       toast.success("Impersonation token generated", {
@@ -130,15 +114,42 @@ export function UserActionsMenu({
     }
   };
 
-  const displayName = user.fullName || user.email;
+  const handlePromote = async () => {
+    setIsLoading(true);
+    try {
+      const result = await promoteToEmployee({ id: user.id });
+      if (!result.success) { toast.error(result.error); return; }
+      toast.success("User promoted to employee", {
+        description: "You can now fill in their profile from Manage Employees.",
+      });
+      onRefresh();
+    } catch {
+      toast.error("Failed to promote user");
+    } finally {
+      setIsLoading(false);
+      setPromoteAlertOpen(false);
+    }
+  };
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  const handleDemote = async () => {
+    setIsLoading(true);
+    try {
+      const result = await demoteToClient({ id: user.id, reason: "Admin action" });
+      if (!result.success) { toast.error(result.error); return; }
+      toast.success("Employee demoted to client");
+      onRefresh();
+    } catch {
+      toast.error("Failed to demote employee");
+    } finally {
+      setIsLoading(false);
+      setDemoteAlertOpen(false);
+    }
+  };
+
+  const displayName = user.fullName || user.email;
 
   return (
     <>
-      {/* ── Trigger + dropdown ──────────────────────────────────────────── */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -157,7 +168,7 @@ export function UserActionsMenu({
 
         <DropdownMenuContent
           align="end"
-          className="w-44 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm shadow-xl p-1"
+          className="w-48 rounded-xl border border-border/60 bg-card/95 backdrop-blur-sm shadow-xl p-1"
         >
           <DropdownMenuLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
             Actions
@@ -185,14 +196,30 @@ export function UserActionsMenu({
             Send notification
           </DropdownMenuItem>
 
-          {/* Impersonate — kept commented out exactly as original */}
-          {/* <DropdownMenuItem onClick={handleImpersonate}
-            className="flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg cursor-pointer focus:bg-muted/60">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted/60">
-              <LogIn size={12} className="text-muted-foreground" />
-            </div>
-            Impersonate
-          </DropdownMenuItem> */}
+          <DropdownMenuSeparator className="my-1 bg-border/50" />
+
+          {/* Promote / Demote */}
+          {user.isEmployee ? (
+            <DropdownMenuItem
+              onClick={() => setDemoteAlertOpen(true)}
+              className="flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg cursor-pointer focus:bg-orange-500/10 focus:text-orange-600 dark:focus:text-orange-400"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-orange-500/10">
+                <UserMinus size={12} className="text-orange-500" />
+              </div>
+              Demote to client
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onClick={() => setPromoteAlertOpen(true)}
+              className="flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg cursor-pointer focus:bg-blue-500/10 focus:text-blue-600 dark:focus:text-blue-400"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/10">
+                <UserCheck size={12} className="text-blue-500" />
+              </div>
+              Make employee
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator className="my-1 bg-border/50" />
 
@@ -206,12 +233,10 @@ export function UserActionsMenu({
                 : "focus:bg-emerald-500/10 focus:text-emerald-600 dark:focus:text-emerald-400",
             )}
           >
-            <div
-              className={cn(
-                "flex h-6 w-6 items-center justify-center rounded-md",
-                user.isActive ? "bg-amber-500/10" : "bg-emerald-500/10",
-              )}
-            >
+            <div className={cn(
+              "flex h-6 w-6 items-center justify-center rounded-md",
+              user.isActive ? "bg-amber-500/10" : "bg-emerald-500/10",
+            )}>
               {user.isActive ? (
                 <Shield size={12} className="text-amber-500" />
               ) : (
@@ -234,7 +259,6 @@ export function UserActionsMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* ── SendNotificationDialog — unchanged ──────────────────────────── */}
       <SendNotificationDialog
         userId={user.id}
         userName={user.fullName}
@@ -242,22 +266,79 @@ export function UserActionsMenu({
         onOpenChange={setNotifOpen}
       />
 
+      {/* ── Promote confirmation ─────────────────────────────────────────── */}
+      <AlertDialog open={promoteAlertOpen} onOpenChange={setPromoteAlertOpen}>
+        <AlertDialogContent className="rounded-2xl border border-border/60 bg-card p-0 overflow-hidden w-[92vw] sm:max-w-sm shadow-2xl">
+          <div className="flex items-center gap-3 px-5 pt-5 pb-4 bg-blue-500/5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/15">
+              <UserCheck size={18} className="text-blue-500" />
+            </div>
+            <AlertDialogHeader className="space-y-0 text-left p-0">
+              <AlertDialogTitle className="text-base font-semibold text-foreground">
+                Make employee?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs text-muted-foreground mt-0.5">
+                <span className="font-semibold text-foreground">{displayName}</span>
+                {" "}will be promoted. You can complete their profile in Manage Employees.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter className="flex-row justify-end gap-2 px-5 py-4 border-t border-border/40 bg-muted/20">
+            <AlertDialogCancel className="h-8 text-xs rounded-lg border-border/60 bg-background hover:bg-muted/60 m-0">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePromote}
+              className="h-8 text-xs rounded-lg bg-blue-500 hover:bg-blue-600 text-white m-0 cursor-pointer"
+            >
+              Promote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Demote confirmation ──────────────────────────────────────────── */}
+      <AlertDialog open={demoteAlertOpen} onOpenChange={setDemoteAlertOpen}>
+        <AlertDialogContent className="rounded-2xl border border-border/60 bg-card p-0 overflow-hidden w-[92vw] sm:max-w-sm shadow-2xl">
+          <div className="flex items-center gap-3 px-5 pt-5 pb-4 bg-orange-500/5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+              <UserMinus size={18} className="text-orange-500" />
+            </div>
+            <AlertDialogHeader className="space-y-0 text-left p-0">
+              <AlertDialogTitle className="text-base font-semibold text-foreground">
+                Demote to client?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs text-muted-foreground mt-0.5">
+                <span className="font-semibold text-foreground">{displayName}</span>
+                {" "}will lose employee status and their profile will be removed.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter className="flex-row justify-end gap-2 px-5 py-4 border-t border-border/40 bg-muted/20">
+            <AlertDialogCancel className="h-8 text-xs rounded-lg border-border/60 bg-background hover:bg-muted/60 m-0">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDemote}
+              className="h-8 text-xs rounded-lg bg-orange-500 hover:bg-orange-600 text-white m-0 cursor-pointer"
+            >
+              Demote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Ban / Unban confirmation ─────────────────────────────────────── */}
       <AlertDialog open={banAlertOpen} onOpenChange={setBanAlertOpen}>
         <AlertDialogContent className="rounded-2xl border border-border/60 bg-card p-0 overflow-hidden w-[92vw] sm:max-w-sm shadow-2xl">
-          {/* Colored header strip */}
-          <div
-            className={cn(
-              "flex items-center gap-3 px-5 pt-5 pb-4",
-              user.isActive ? "bg-amber-500/5" : "bg-emerald-500/5",
-            )}
-          >
-            <div
-              className={cn(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                user.isActive ? "bg-amber-500/15" : "bg-emerald-500/15",
-              )}
-            >
+          <div className={cn(
+            "flex items-center gap-3 px-5 pt-5 pb-4",
+            user.isActive ? "bg-amber-500/5" : "bg-emerald-500/5",
+          )}>
+            <div className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              user.isActive ? "bg-amber-500/15" : "bg-emerald-500/15",
+            )}>
               {user.isActive ? (
                 <Shield size={18} className="text-amber-500" />
               ) : (
@@ -275,7 +356,6 @@ export function UserActionsMenu({
               </AlertDialogDescription>
             </AlertDialogHeader>
           </div>
-
           <AlertDialogFooter className="flex-row justify-end gap-2 px-5 py-4 border-t border-border/40 bg-muted/20">
             <AlertDialogCancel className="h-8 text-xs rounded-lg border-border/60 bg-background hover:bg-muted/60 m-0">
               Cancel
@@ -298,7 +378,6 @@ export function UserActionsMenu({
       {/* ── Delete confirmation ──────────────────────────────────────────── */}
       <AlertDialog open={deleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
         <AlertDialogContent className="rounded-2xl border border-border/60 bg-card p-0 overflow-hidden w-[92vw] sm:max-w-sm shadow-2xl">
-          {/* Red header strip */}
           <div className="flex items-center gap-3 px-5 pt-5 pb-4 bg-red-500/5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
               <AlertTriangle size={18} className="text-red-500" />
@@ -308,14 +387,11 @@ export function UserActionsMenu({
                 Delete this user?
               </AlertDialogTitle>
               <AlertDialogDescription className="text-xs text-muted-foreground mt-0.5">
-                <span className="font-semibold text-foreground">
-                  {displayName}
-                </span>{" "}
-                will be soft-deleted and banned from Clerk.
+                <span className="font-semibold text-foreground">{displayName}</span>
+                {" "}will be soft-deleted and banned from Clerk.
               </AlertDialogDescription>
             </AlertDialogHeader>
           </div>
-
           <AlertDialogFooter className="flex-row justify-end gap-2 px-5 py-4 border-t border-border/40 bg-muted/20">
             <AlertDialogCancel className="h-8 text-xs rounded-lg border-border/60 bg-background hover:bg-muted/60 m-0">
               Cancel

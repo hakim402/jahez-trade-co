@@ -14,6 +14,8 @@ import { HowWeOperate } from "./(pages)/about/_components/HowWeOperate";
 import { MissionValues } from "./(pages)/about/_components/MissionValues";
 import { ServicesShowcase } from "./(pages)/services/_components/ServicesShowcase";
 import HomeBlogShowCase from "./(pages)/blogs/_components/HomeBlogShowCase";
+import { EmailAddress } from "@clerk/nextjs/server";
+import EmployeeShowcase from "./_components/Employees/EmployeeShowcase";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -91,7 +93,7 @@ export default async function Home() {
         heading={isAr ? 'خدماتنا' : 'Our Services'}
         subheading={isAr ? 'نقدم حلولاً مبتكرة وموثوقة وقابلة للتطوير، مصممة لتلبية احتياجات أعمالك ودفع نمو مستدام.' : 'We deliver innovative, reliable, and scalable solutions tailored to meet your business needs and drive sustainable growth.'}
       />
-      {/* <Pricing /> */}
+      <EmployeeShowcase locale={locale as 'en' | 'ar'} />
       <FooterHero />
       <FooterSection />
     </div>

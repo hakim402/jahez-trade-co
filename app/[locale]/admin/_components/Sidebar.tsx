@@ -41,6 +41,7 @@ export function Sidebar() {
   const mainNavItems: NavItem[] = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
     { icon: Users, label: "Manage Users", href: "/admin/manage-users" },
+    { icon: Users, label: "Manage Employees", href: "/admin/manage-employees" },
     {
       icon: TrendingUp,
       label: "Trending Products",

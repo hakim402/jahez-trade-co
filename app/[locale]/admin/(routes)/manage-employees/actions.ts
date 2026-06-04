@@ -34,8 +34,7 @@ const sharedProfileFields = {
   shortBioEn:   z.string().max(500).optional().nullable(),
   shortBioAr:   z.string().max(500).optional().nullable(),
   slug:         slugSchema.optional().nullable(),
-  status:       z.enum(['DRAFT', 'PUBLISHED']).optional(),
-  displayOrder: z.number().int().min(0).optional(),
+  
   photoUrl:     z.string().url().optional().nullable(),
   photoAltEn:   z.string().max(200).optional().nullable(),
   photoAltAr:   z.string().max(200).optional().nullable(),

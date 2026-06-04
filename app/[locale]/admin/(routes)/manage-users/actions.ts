@@ -59,6 +59,25 @@ const sendNotificationSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+const promoteToEmployeeSchema = z.object({
+  id: z.string().min(1),
+  positionEn: z.string().max(200).optional(),
+  positionAr: z.string().max(200).optional(),
+  bioEn: z.string().optional(),
+  bioAr: z.string().optional(),
+  shortBioEn: z.string().max(500).optional(),
+  shortBioAr: z.string().max(500).optional(),
+  slug: z.string().min(1).max(100).optional(),
+  photoUrl: z.string().url().optional().nullable(),
+  status: z.enum(['DRAFT', 'PUBLISHED']).optional().default('DRAFT'),
+  displayOrder: z.number().int().min(0).optional().default(0),
+});
+
+const demoteToClientSchema = z.object({
+  id: z.string().min(1),
+  reason: z.string().max(500).optional(),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RETURN TYPES
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +94,7 @@ export type UserListItem = {
   avatarUrl: string | null;
   isActive: boolean;
   isDeleted: boolean;
+  isEmployee: boolean;
   createdAt: Date;
   updatedAt: Date;
   _count: {
@@ -108,6 +128,7 @@ export type UserDetail = {
   avatarUrl: string | null;
   isActive: boolean;
   isDeleted: boolean;
+  isEmployee: boolean;
   createdAt: Date;
   updatedAt: Date;
   subscription: {
@@ -187,6 +208,20 @@ export type UserDetail = {
   };
 };
 
+export type PromoteToEmployeeParams = {
+  id: string;
+  positionEn?: string;
+  positionAr?: string;
+  bioEn?: string;
+  bioAr?: string;
+  shortBioEn?: string;
+  shortBioAr?: string;
+  slug?: string;
+  photoUrl?: string | null;
+  status?: 'DRAFT' | 'PUBLISHED';
+  displayOrder?: number;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. LIST USERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,7 +230,7 @@ export async function getUsers(
   rawParams: GetUsersParams
 ): Promise<ActionResult<GetUsersReturn>> {
   try {
-    await requireAdmin(); // just gate — we don't need the id here
+    await requireAdmin();
 
     const params = getUsersSchema.parse(rawParams);
     const { take, cursor, search, role, isActive, sortBy, sortOrder } = params;
@@ -230,6 +265,7 @@ export async function getUsers(
           avatarUrl: true,
           isActive: true,
           isDeleted: true,
+          isEmployee: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -264,12 +300,12 @@ export async function getUsers(
       ...u,
       subscription: u.subscription
         ? {
-          ...u.subscription,
-          items: u.subscription.items.map((item) => ({
-            ...item,
-            plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
-          })),
-        }
+            ...u.subscription,
+            items: u.subscription.items.map((item) => ({
+              ...item,
+              plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
+            })),
+          }
         : null,
     }));
 
@@ -297,6 +333,7 @@ export async function getUserById(
       select: {
         id: true, clerkId: true, email: true, fullName: true, role: true,
         phone: true, avatarUrl: true, isActive: true, isDeleted: true,
+        isEmployee: true,
         createdAt: true, updatedAt: true,
         _count: {
           select: {
@@ -365,16 +402,16 @@ export async function getUserById(
       auditLogs: user.adminAuditLogs,
       subscription: user.subscription
         ? {
-          ...user.subscription,
-          items: user.subscription.items.map((item) => ({
-            ...item,
-            plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
-          })),
-          paymentAttempts: user.subscription.paymentAttempts.map((p) => ({
-            ...p,
-            amount: p.amount !== null ? Number(p.amount) : null,
-          })),
-        }
+            ...user.subscription,
+            items: user.subscription.items.map((item) => ({
+              ...item,
+              plan: item.plan ? { ...item.plan, amount: Number(item.plan.amount) } : null,
+            })),
+            paymentAttempts: user.subscription.paymentAttempts.map((p) => ({
+              ...p,
+              amount: p.amount !== null ? Number(p.amount) : null,
+            })),
+          }
         : null,
     };
 
@@ -393,7 +430,6 @@ export async function updateUser(
   rawParams: z.infer<typeof updateUserSchema>
 ): Promise<ActionResult<{ userId: string }>> {
   try {
-    // FIX: requireAdmin() returns the Prisma user.id directly — use it as adminId
     const adminId = await requireAdmin();
 
     const { id, fullName, phone, avatarUrl, role, isActive } =
@@ -424,7 +460,7 @@ export async function updateUser(
 
     await prisma.auditLog.create({
       data: {
-        adminId,   // ← Prisma UUID directly from requireAdmin()
+        adminId,
         action: 'UPDATE_USER',
         entity: 'User',
         entityId: id,
@@ -448,7 +484,7 @@ export async function softDeleteUser(
   rawParams: { id: string }
 ): Promise<ActionResult<{ userId: string }>> {
   try {
-    const adminId = await requireAdmin(); // FIX: Prisma UUID directly
+    const adminId = await requireAdmin();
 
     const { id } = softDeleteUserSchema.parse(rawParams);
 
@@ -467,7 +503,7 @@ export async function softDeleteUser(
 
     await prisma.auditLog.create({
       data: {
-        adminId,   // ← Prisma UUID directly
+        adminId,
         action: 'DELETE_USER',
         entity: 'User',
         entityId: id,
@@ -490,7 +526,7 @@ export async function banUser(
   rawParams: { id: string; reason?: string }
 ): Promise<ActionResult<{ userId: string }>> {
   try {
-    const adminId = await requireAdmin(); // FIX: Prisma UUID directly
+    const adminId = await requireAdmin();
 
     const { id, reason } = banUserSchema.parse(rawParams);
 
@@ -532,7 +568,7 @@ export async function unbanUser(
   rawParams: { id: string }
 ): Promise<ActionResult<{ userId: string }>> {
   try {
-    const adminId = await requireAdmin(); // FIX: Prisma UUID directly
+    const adminId = await requireAdmin();
 
     const { id } = getUserByIdSchema.parse(rawParams);
 
@@ -574,7 +610,7 @@ export async function impersonateUser(
   rawParams: { id: string }
 ): Promise<ActionResult<{ signInToken: string; expiresAt: number }>> {
   try {
-    const adminId = await requireAdmin(); // FIX: Prisma UUID directly
+    const adminId = await requireAdmin();
 
     const { id } = getUserByIdSchema.parse(rawParams);
 
@@ -618,7 +654,7 @@ export async function sendNotificationToUser(
   rawParams: z.infer<typeof sendNotificationSchema>
 ): Promise<ActionResult<{ notificationId: string }>> {
   try {
-    const adminId = await requireAdmin(); // FIX: Prisma UUID directly
+    const adminId = await requireAdmin();
 
     const { userId, title, message, type, metadata } =
       sendNotificationSchema.parse(rawParams);
@@ -704,5 +740,98 @@ export async function getUserActivitySummary(
   } catch (error) {
     console.error('[getUserActivitySummary]', error);
     return { success: false, error: 'Failed to fetch user activity' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 10. PROMOTE USER TO EMPLOYEE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function promoteToEmployee(
+  rawParams: PromoteToEmployeeParams
+): Promise<ActionResult<{ userId: string; employeeProfileId: string }>> {
+  try {
+    const adminId = await requireAdmin();
+
+    const { id, ...profileData } = promoteToEmployeeSchema.parse(rawParams);
+
+    const target = await prisma.user.findUnique({
+      where: { id, isDeleted: false },
+      select: { id: true, isEmployee: true },
+    });
+    if (!target) return { success: false, error: 'User not found' };
+    if (target.isEmployee) return { success: false, error: 'User is already an employee' };
+
+    const [, employeeProfile] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id },
+        data: { isEmployee: true },
+      }),
+      prisma.employeeProfile.create({
+        data: { userId: id, ...profileData },
+      }),
+    ]);
+
+    await prisma.auditLog.create({
+      data: {
+        adminId,
+        action: 'PROMOTE_TO_EMPLOYEE',
+        entity: 'User',
+        entityId: id,
+        changes: { positionEn: profileData.positionEn ?? null, status: profileData.status } satisfies Prisma.InputJsonValue,
+      },
+    });
+
+    return { success: true, data: { userId: id, employeeProfileId: employeeProfile.id } };
+  } catch (error) {
+    console.error('[promoteToEmployee]', error);
+    if (error instanceof z.ZodError) return { success: false, error: error.issues[0].message };
+    return { success: false, error: 'Failed to promote user to employee' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. DEMOTE EMPLOYEE TO CLIENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function demoteToClient(
+  rawParams: { id: string; reason?: string }
+): Promise<ActionResult<{ userId: string }>> {
+  try {
+    const adminId = await requireAdmin();
+
+    const { id, reason } = demoteToClientSchema.parse(rawParams);
+
+    const target = await prisma.user.findUnique({
+      where: { id, isDeleted: false },
+      select: { id: true, isEmployee: true, employeeProfile: { select: { id: true } } },
+    });
+    if (!target) return { success: false, error: 'User not found' };
+    if (!target.isEmployee) return { success: false, error: 'User is not an employee' };
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id },
+        data: { isEmployee: false },
+      }),
+      ...(target.employeeProfile
+        ? [prisma.employeeProfile.delete({ where: { userId: id } })]
+        : []),
+    ]);
+
+    await prisma.auditLog.create({
+      data: {
+        adminId,
+        action: 'DEMOTE_TO_CLIENT',
+        entity: 'User',
+        entityId: id,
+        changes: { reason: reason ?? 'No reason provided' } satisfies Prisma.InputJsonValue,
+      },
+    });
+
+    return { success: true, data: { userId: id } };
+  } catch (error) {
+    console.error('[demoteToClient]', error);
+    return { success: false, error: 'Failed to demote employee to client' };
   }
 }
