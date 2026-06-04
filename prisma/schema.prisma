@@ -82,7 +82,6 @@ enum PaymentAttemptStatus {
   FAILED
 }
 
-
 enum ConsultingServiceTopic {
   sourcing
   import
@@ -111,6 +110,13 @@ enum ReactionType {
   DISLIKE
 }
 
+enum FreightType {
+  AIR
+  SEA
+  LAND
+  EXPRESS
+}
+
 // ------------------------------------------------
 // USER MODEL
 // ------------------------------------------------
@@ -126,30 +132,31 @@ model User {
   isActive  Boolean @default(true)
   isDeleted Boolean @default(false)
 
-  requests             ProductRequest[]
-  quotesCreated        Quote[]                  @relation("AdminQuotes")
-  clientBookings       VideoBooking[]           @relation("ClientBookings")
-  handledBookings      VideoBooking[]           @relation("AdminBookings")
-  bookingStatusChanges BookingStatusHistory[]
-  requestStatusChanges RequestStatusHistory[]
-  quoteStatusChanges   QuoteStatusHistory[]
-  uploadedFiles        File[]
-  notifications        Notification[]
-  adminAuditLogs       AuditLog[]               @relation("audit_admin")
-  chatSessions         ChatSession[]
-  trendingProductRequests TrendingProductRequest[]
-  addedProducts        TrendingProduct[]        @relation("AdminAddedProducts")
-  consultingRequests   ConsultingRequest[]
-  subscription         Subscription?
-  availabilitySlots    AvailabilitySlot[]
-  addedServices             ConsultingService[]          @relation("AdminAddedServices")
+  requests                  ProductRequest[]
+  quotesCreated             Quote[]                    @relation("AdminQuotes")
+  clientBookings            VideoBooking[]             @relation("ClientBookings")
+  handledBookings           VideoBooking[]             @relation("AdminBookings")
+  bookingStatusChanges      BookingStatusHistory[]
+  requestStatusChanges      RequestStatusHistory[]
+  quoteStatusChanges        QuoteStatusHistory[]
+  uploadedFiles             File[]
+  notifications             Notification[]
+  adminAuditLogs            AuditLog[]                 @relation("audit_admin")
+  chatSessions              ChatSession[]
+  trendingProductRequests   TrendingProductRequest[]
+  addedProducts             TrendingProduct[]          @relation("AdminAddedProducts")
+  consultingRequests        ConsultingRequest[]
+  subscription              Subscription?
+  availabilitySlots         AvailabilitySlot[]
+  addedServices             ConsultingService[]        @relation("AdminAddedServices")
   consultingServiceRequests ConsultingServiceRequest[]
-  blogPosts         Post[]
-  comments          Comment[]
-  postReactions     PostReaction[]
-  commentReactions  CommentReaction[]
-  isEmployee Boolean @default(false)
-  employeeProfile EmployeeProfile?
+  blogPosts                 Post[]
+  comments                  Comment[]
+  postReactions             PostReaction[]
+  commentReactions          CommentReaction[]
+  isEmployee                Boolean                    @default(false)
+  employeeProfile           EmployeeProfile?
+  shippingEstimates         ShippingEstimate[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -162,42 +169,42 @@ model User {
 // EMPLOYEE PROFILE MODEL
 // ------------------------------------------------
 model EmployeeProfile {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // –– Core (bilingual) ––––––––––––––––
-  positionEn    String?                  // "Sourcing Manager"
-  positionAr    String?                  // "مدير التوريد"
-  bioEn         String?  @db.Text
-  bioAr         String?  @db.Text
-  shortBioEn    String?
-  shortBioAr    String?
+  positionEn String? // "Sourcing Manager"
+  positionAr String? // "مدير التوريد"
+  bioEn      String? @db.Text
+  bioAr      String? @db.Text
+  shortBioEn String?
+  shortBioAr String?
 
   // –– Slug for detail pages –––––––––
-  slug          String?  @unique         // e.g. "john-doe"
+  slug String? @unique // e.g. "john-doe"
 
   // –– Visibility –––––––––––––––––––––
-  status        String   @default("DRAFT") // DRAFT | PUBLISHED
-  displayOrder  Int      @default(0)
+  status       String @default("DRAFT") // DRAFT | PUBLISHED
+  displayOrder Int    @default(0)
 
   // –– Media ––––––––––––––––––––––––––
-  photoUrl      String?
-  photoAltEn    String?
-  photoAltAr    String?
+  photoUrl   String?
+  photoAltEn String?
+  photoAltAr String?
 
   // –– Social links (dedicated strings) ––
-  facebookUrl   String?
-  instagramUrl  String?
-  twitterUrl    String?                  // X / Twitter
-  linkedinUrl   String?
-  youtubeUrl    String?
-  tiktokUrl     String?
-  snapchatUrl   String?
-  otherLinks    Json?                    // [{ platform, url }] catch-all
+  facebookUrl  String?
+  instagramUrl String?
+  twitterUrl   String? // X / Twitter
+  linkedinUrl  String?
+  youtubeUrl   String?
+  tiktokUrl    String?
+  snapchatUrl  String?
+  otherLinks   Json? // [{ platform, url }] catch-all
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([status, displayOrder])
@@ -312,8 +319,8 @@ model VideoBooking {
   client   User   @relation("ClientBookings", fields: [clientId], references: [id])
 
   type            BookingType
-  requestNotes    String?     @db.Text
-  durationMinutes Int         @default(30)
+  requestNotes    String?       @db.Text
+  durationMinutes Int           @default(30)
   status          BookingStatus @default(REQUESTED)
 
   handledById String?
@@ -375,8 +382,8 @@ model AvailabilitySlot {
   createdById String
   createdBy   User   @relation(fields: [createdById], references: [id])
 
-  isBooked Boolean      @default(false)
-  isActive Boolean      @default(true)
+  isBooked Boolean       @default(false)
+  isActive Boolean       @default(true)
   booking  VideoBooking?
 
   createdAt DateTime @default(now())
@@ -489,23 +496,6 @@ model QuoteStatusHistory {
   @@index([quoteId])
 }
 
-model ShippingEstimate {
-  id                 String   @id @default(cuid())
-  userId             String?
-  originCountry      String
-  destinationCountry String
-  weightKg           Decimal  @db.Decimal(10, 3)
-  volumeCbm          Decimal? @db.Decimal(10, 4)
-  freightType        String
-  estimatedCost      Decimal  @db.Decimal(10, 2)
-  currency           String   @default("USD")
-  transitDays        Int?
-  createdAt          DateTime @default(now())
-
-  @@index([userId])
-  @@index([freightType])
-}
-
 model File {
   id String @id @default(cuid())
 
@@ -520,7 +510,7 @@ model File {
   quote     Quote?          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   uploadedById String?
-  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
   createdAt    DateTime @default(now())
 
   @@index([requestId])
@@ -533,14 +523,90 @@ model AISuggestion {
   requestId String
   request   ProductRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  estimatedPrice       Decimal @db.Decimal(10, 2)
-  currency             String  @default("USD")
+  estimatedPrice       Decimal  @db.Decimal(10, 2)
+  currency             String   @default("USD")
   confidence           Float?
   suggestedSupplierIds Json?
   createdAt            DateTime @default(now())
 
   @@index([requestId])
 }
+
+// ------------------------------------------------
+// SHIPPING ESTIMATIONS
+// ------------------------------------------------
+model ShippingRate {
+  id                 String   @id @default(cuid())
+
+  originCountry      String
+  destinationCountry String
+  freightType        String
+
+  calculationMode    String   @default("PER_KG")
+  goodsType          String?
+
+  baseFee            Decimal  @default(0) @db.Decimal(10, 2)
+  ratePerKg          Decimal? @db.Decimal(10, 2)
+  ratePerCbm         Decimal? @db.Decimal(10, 2)
+  minCharge          Decimal  @default(0) @db.Decimal(10, 2)
+
+  transitDaysMin     Int?
+  transitDaysMax     Int?
+
+  currency           String   @default("USD")
+  isActive           Boolean  @default(true)
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  @@index([originCountry, destinationCountry])
+  @@index([freightType])
+  @@index([calculationMode])
+  @@index([isActive])
+}
+
+model ShippingEstimate {
+  id                 String   @id @default(cuid())
+
+  userId             String?
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  originCountry      String
+  destinationCountry String
+
+  freightType        String
+  calculationMode    String   @default("PER_KG")
+  goodsType          String?
+
+  weightKg           Decimal? @db.Decimal(10, 3)
+  lengthCm           Decimal? @db.Decimal(10, 2)
+  widthCm            Decimal? @db.Decimal(10, 2)
+  heightCm           Decimal? @db.Decimal(10, 2)
+  quantity           Int      @default(1)
+
+  volumeCbm          Decimal? @db.Decimal(10, 4)
+  chargeableWeightKg Decimal? @db.Decimal(10, 3)
+
+  baseFee            Decimal  @default(0) @db.Decimal(10, 2)
+  ratePerKg          Decimal? @db.Decimal(10, 2)
+  ratePerCbm         Decimal? @db.Decimal(10, 2)
+
+  estimatedCost      Decimal  @db.Decimal(10, 2)
+  currency           String   @default("USD")
+  transitDays        Int?
+
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([freightType])
+  @@index([calculationMode])
+  @@index([originCountry, destinationCountry])
+  @@index([createdAt])
+}
+
+
 
 // ============================================================
 // TRENDING PRODUCTS
@@ -564,15 +630,15 @@ model TrendingProduct {
   category      String?
   categoryAr    String?
   tags          String[]
-  trendScore    Int      @default(0)
-  viewCount     Int      @default(0)
-  inquiryCount  Int      @default(0)
-  isFeatured    Boolean  @default(false)
+  trendScore    Int       @default(0)
+  viewCount     Int       @default(0)
+  inquiryCount  Int       @default(0)
+  isFeatured    Boolean   @default(false)
   featuredUntil DateTime?
 
   images    TrendingProductImage[]
   addedById String?
-  addedBy   User?   @relation("AdminAddedProducts", fields: [addedById], references: [id], onDelete: SetNull)
+  addedBy   User?                  @relation("AdminAddedProducts", fields: [addedById], references: [id], onDelete: SetNull)
 
   isActive  Boolean @default(true)
   isDeleted Boolean @default(false)
@@ -622,21 +688,21 @@ model TrendingProductRequest {
 // CONSULTING MODELS 
 // ============================================================
 model ConsultingRequest {
-  id          String   @id @default(cuid())
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  fullName    String
-  email       String
-  phone       String?
-  company     String?
-  topic       String
-  description String   @db.Text
-  budget      String?
-  status      String   @default("NEW")
-  adminNotes  String?  @db.Text
-  isDeleted   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String                     @id @default(cuid())
+  userId          String?
+  user            User?                      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName        String
+  email           String
+  phone           String?
+  company         String?
+  topic           String
+  description     String                     @db.Text
+  budget          String?
+  status          String                     @default("NEW")
+  adminNotes      String?                    @db.Text
+  isDeleted       Boolean                    @default(false)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
   serviceRequests ConsultingServiceRequest[]
 
   @@index([status])
@@ -647,12 +713,12 @@ model ConsultingService {
   id String @id @default(cuid())
 
   // ── Bilingual content ──────────────────────────
-  title         String           // EN title
-  titleAr       String?          // AR title
+  title         String // EN title
+  titleAr       String? // AR title
   description   String  @db.Text // EN full description
   descriptionAr String? @db.Text // AR full description
-  shortDesc     String?          // EN one-liner shown on card
-  shortDescAr   String?          // AR one-liner shown on card
+  shortDesc     String? // EN one-liner shown on card
+  shortDescAr   String? // AR one-liner shown on card
 
   // ── Topic ──────────────────────────────────────
   topic ConsultingServiceTopic @default(other)
@@ -678,11 +744,11 @@ model ConsultingService {
   includesAr String[] @default([])
 
   // ── Popularity / trend metadata ────────────────
-  viewCount     Int      @default(0) 
-  requestCount  Int      @default(0) 
-  isFeatured    Boolean  @default(false)
+  viewCount     Int       @default(0)
+  requestCount  Int       @default(0)
+  isFeatured    Boolean   @default(false)
   featuredUntil DateTime?
-  sortOrder     Int      @default(0) 
+  sortOrder     Int       @default(0)
 
   // ── Images ─────────────────────────────────────
   images ConsultingServiceImage[]
@@ -716,9 +782,9 @@ model ConsultingServiceImage {
   service   ConsultingService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   url       String
   altText   String?
-  isPrimary Boolean  @default(false)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  isPrimary Boolean           @default(false)
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now())
 
   @@index([serviceId])
 }
@@ -742,54 +808,53 @@ model ConsultingServiceRequest {
   @@index([userId])
 }
 
-
 // ------------------------------------------------
 // BLOGS POST
 // ------------------------------------------------
 model PostCategory {
-  id         String   @id @default(cuid())
-  slug       String   @unique        // language‑neutral (e.g. "web-dev")
-  nameEn     String
-  nameAr     String?
-  descEn     String?  @db.Text
-  descAr     String?  @db.Text
+  id     String  @id @default(cuid())
+  slug   String  @unique // language‑neutral (e.g. "web-dev")
+  nameEn String
+  nameAr String?
+  descEn String? @db.Text
+  descAr String? @db.Text
 
-  parentId   String?
-  parent     PostCategory?  @relation("CatHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children   PostCategory[] @relation("CatHierarchy")
+  parentId String?
+  parent   PostCategory?  @relation("CatHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children PostCategory[] @relation("CatHierarchy")
 
-  posts      Post[]
+  posts Post[]
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([slug])
 }
 
 model PostTag {
-  id     String @id @default(cuid())
-  slug   String @unique
+  id     String  @id @default(cuid())
+  slug   String  @unique
   nameEn String
   nameAr String?
 
-  posts  PostTagOnPost[]
+  posts PostTagOnPost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Post {
-  id          String     @id @default(cuid())
+  id String @id @default(cuid())
 
   // ── Content ─────────────────────────────────────
-  titleEn     String
-  titleAr     String?
-  slugEn      String     @unique
-  slugAr      String?    @unique
-  excerptEn   String?    @db.Text
-  excerptAr   String?    @db.Text
-  contentEn   String     @db.Text   // rich HTML / JSON
-  contentAr   String?    @db.Text
+  titleEn   String
+  titleAr   String?
+  slugEn    String  @unique
+  slugAr    String? @unique
+  excerptEn String? @db.Text
+  excerptAr String? @db.Text
+  contentEn String  @db.Text // rich HTML / JSON
+  contentAr String? @db.Text
 
   // ── Status & visibility ─────────────────────────
   status      PostStatus @default(DRAFT)
@@ -797,19 +862,19 @@ model Post {
   isDeleted   Boolean    @default(false)
 
   // ── Author (must be an ADMIN in your app) ───────
-  authorId    String
-  author      User       @relation(fields: [authorId], references: [id])
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
 
   // ── Category ────────────────────────────────────
-  categoryId  String?
-  category    PostCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId String?
+  category   PostCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   // ── SEO (bilingual) ─────────────────────────────
   metaTitleEn       String?
   metaTitleAr       String?
   metaDescriptionEn String? @db.Text
   metaDescriptionAr String? @db.Text
-  ogImageUrl        String?               // shared or overridable
+  ogImageUrl        String? // shared or overridable
   ogImageAltEn      String?
   ogImageAltAr      String?
   twitterCard       String? @default("summary_large_image")
@@ -823,9 +888,9 @@ model Post {
   tags PostTagOnPost[]
 
   // ── User interactions ───────────────────────────
-  comments   Comment[]
-  reactions  PostReaction[]
-  viewCount     Int      @default(0)
+  comments  Comment[]
+  reactions PostReaction[]
+  viewCount Int            @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -838,12 +903,12 @@ model Post {
 }
 
 model PostImage {
-  id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  url       String                       // required, no fallback to File
-  altText   String?
+  url     String // required, no fallback to File
+  altText String?
 
   isPrimary Boolean  @default(false)
   sortOrder Int      @default(0)
@@ -853,12 +918,12 @@ model PostImage {
 }
 
 model PostVideoEmbed {
-  id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  url       String           
-  sortOrder Int      @default(0)
+  url       String
+  sortOrder Int    @default(0)
 
   createdAt DateTime @default(now())
 
@@ -868,35 +933,35 @@ model PostVideoEmbed {
 model PostTagOnPost {
   postId String
   tagId  String
-  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post   Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
   tag    PostTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([postId, tagId])
 }
 
 model Comment {
-  id         String   @id @default(cuid())
-  postId     String
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  authorId   String
-  author     User     @relation(fields: [authorId], references: [id])
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
 
-  content    String   @db.Text
+  content String @db.Text
 
   // Nested replies
-  parentId   String?
-  parent     Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies    Comment[] @relation("CommentReplies")
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
 
-  isDeleted  Boolean  @default(false)
-  deletedAt  DateTime?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
 
   // Reactions on this comment
-  reactions  CommentReaction[]
+  reactions CommentReaction[]
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([postId, createdAt])
   @@index([authorId])
@@ -904,58 +969,57 @@ model Comment {
 }
 
 model PostReaction {
-  id       String       @id @default(cuid())
-  postId   String
-  post     Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  userId   String
-  user     User         @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  type     ReactionType
+  type ReactionType
 
-  createdAt DateTime     @default(now())
+  createdAt DateTime @default(now())
 
-  @@unique([postId, userId])   // one reaction per user per post
+  @@unique([postId, userId]) // one reaction per user per post
   @@index([postId, type])
 }
 
 model CommentReaction {
-  id        String       @id @default(cuid())
+  id        String  @id @default(cuid())
   commentId String
-  comment   Comment      @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
-  userId    String
-  user      User         @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  type      ReactionType
+  type ReactionType
 
-  createdAt DateTime     @default(now())
+  createdAt DateTime @default(now())
 
-  @@unique([commentId, userId])   // one reaction per user per comment
+  @@unique([commentId, userId]) // one reaction per user per comment
   @@index([commentId, type])
 }
 
 model GoogleAd {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Placement identifier (e.g. "post-sidebar", "in-content-1", "site-header")
-  placement   String   @unique
+  placement String @unique
 
   // Ad unit codes per language (AdSense publisher ID + slot ID)
-  adCodeEn    String?  // English ad code
-  adCodeAr    String?  // Arabic ad code
+  adCodeEn String? // English ad code
+  adCodeAr String? // Arabic ad code
 
   // Optional: ad type (display, in‑article, etc.)
-  adType      String?  @default("display")
+  adType String? @default("display")
 
-  isActive    Boolean  @default(true)
+  isActive Boolean @default(true)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([placement, isActive])
 }
-
 
 // ============================================================
 // WHATSAPP LOGS
@@ -1007,12 +1071,12 @@ model AuditLog {
 model Notification {
   id String @id @default(cuid())
 
-  userId  String
-  user    User   @relation(fields: [userId], references: [id])
-  title   String
-  message String @db.Text
-  isRead  Boolean @default(false)
-  type    String
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+  title    String
+  message  String  @db.Text
+  isRead   Boolean @default(false)
+  type     String
   metadata Json?
 
   bookingId String?
@@ -1034,10 +1098,10 @@ model Notification {
 // CHAT SESSION MODEL
 // ------------------------------------------------
 model ChatSession {
-  id        String    @id @default(cuid())
+  id        String        @id @default(cuid())
   userId    String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  startedAt DateTime  @default(now())
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  startedAt DateTime      @default(now())
   endedAt   DateTime?
   messages  ChatMessage[]
 
@@ -1055,5 +1119,3 @@ model ChatMessage {
 
   @@index([sessionId])
 }
-
-

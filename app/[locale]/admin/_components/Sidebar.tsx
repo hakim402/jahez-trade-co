@@ -19,6 +19,7 @@ import {
   TrendingUp,
   BriefcaseBusiness,
   Megaphone,
+  Ship,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -46,6 +47,11 @@ export function Sidebar() {
       icon: TrendingUp,
       label: "Trending Products",
       href: "/admin/products",
+    },
+    {
+      icon: Ship,
+      label: "Shipping Estimations",
+      href: "/admin/shipping-estimations",
     },
     {
       icon: PackageSearch,

@@ -7,6 +7,7 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import "flag-icons/css/flag-icons.min.css";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { ShippingEstimationButton } from "./[locale]/_components/ShippingEstimation/ShippingEstimationButton";
 
 const inter = Roboto({
   subsets: ["latin"],
@@ -49,6 +50,7 @@ export default function RootLayout({
           {children}
           <Toaster />
           <WhatsAppButton />
+          <ShippingEstimationButton />
         </ThemeProvider>
 
         {/* Google Analytics 4 – loads after page is interactive via next/script */}
