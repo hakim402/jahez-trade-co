@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Calculator,
@@ -9,7 +10,6 @@ import {
   Ship,
   Truck,
   Package,
-  Ruler,
   Weight,
   DollarSign,
 } from "lucide-react";
@@ -43,17 +43,114 @@ import {
   type CalculationMode,
 } from "./actions";
 
+const TRANSLATIONS = {
+  en: {
+    shipping: {
+      estimation: "Shipping Estimation",
+      estimateCalculated: "Shipping estimate calculated",
+      origin: "Origin",
+      destination: "Destination",
+      freightType: "Freight Type",
+      calculationMode: "Calculation Mode",
+      weightKg: "Weight (KG)",
+      quantity: "Quantity",
+      lengthCm: "Length (CM)",
+      widthCm: "Width (CM)",
+      heightCm: "Height (CM)",
+      goodsType: "Goods Type",
+      selectCountry: "Select country",
+      perKg: "Per KG",
+      perCbm: "Per CBM",
+      generalGoods: "General goods",
+      estimatedCost: "Estimated Cost",
+      route: "Route",
+      transit: "Transit",
+      weight: "Weight",
+      volume: "Volume",
+      calculate: "Calculate Shipping",
+      days: "{{count}} days",
+    },
+    countries: {
+      china: "China",
+    },
+    destinations: {
+      unitedStates: "United States",
+      saudiArabia: "Saudi Arabia",
+      yemen: "Yemen",
+      uae: "Dubai / UAE",
+    },
+    freight: {
+      air: "Air Freight",
+      sea: "Sea Freight",
+      land: "Land Freight",
+    },
+  },
+  ar: {
+    shipping: {
+      estimation: "حاسبة الشحن",
+      estimateCalculated: "تم حساب تكلفة الشحن",
+      origin: "بلد المنشأ",
+      destination: "الوجهة",
+      freightType: "نوع الشحن",
+      calculationMode: "طريقة الحساب",
+      weightKg: "الوزن (كجم)",
+      quantity: "الكمية",
+      lengthCm: "الطول (سم)",
+      widthCm: "العرض (سم)",
+      heightCm: "الارتفاع (سم)",
+      goodsType: "نوع البضاعة",
+      selectCountry: "اختر الدولة",
+      perKg: "لكل كجم",
+      perCbm: "لكل متر مكعب",
+      generalGoods: "بضائع عامة",
+      estimatedCost: "التكلفة التقديرية",
+      route: "المسار",
+      transit: "مدة الشحن",
+      weight: "الوزن",
+      volume: "الحجم",
+      calculate: "احسب تكلفة الشحن",
+      days: "{{count}} يوم",
+    },
+    countries: {
+      china: "الصين",
+    },
+    destinations: {
+      unitedStates: "الولايات المتحدة",
+      saudiArabia: "المملكة العربية السعودية",
+      yemen: "اليمن",
+      uae: "دبي / الإمارات",
+    },
+    freight: {
+      air: "الشحن الجوي",
+      sea: "الشحن البحري",
+      land: "الشحن البري",
+    },
+  },
+} as const;
+
+type Locale = keyof typeof TRANSLATIONS;
+
+const getNestedValue = (obj: unknown, path: string): string | undefined => {
+  return path.split(".").reduce<unknown>((acc, key) => {
+    if (acc && typeof acc === "object" && key in acc) {
+      return (acc as Record<string, unknown>)[key];
+    }
+
+    return undefined;
+  }, obj) as string | undefined;
+};
+
 const DESTINATIONS = [
-  { code: "US", label: "United States", Flag: US },
-  { code: "SA", label: "Saudi Arabia", Flag: SA },
-  { code: "YE", label: "Yemen", Flag: YE },
-  { code: "AE", label: "Dubai / UAE", Flag: AE },
+  { code: "US", label: "destinations.unitedStates", Flag: US },
+  { code: "SA", label: "destinations.saudiArabia", Flag: SA },
+  { code: "YE", label: "destinations.yemen", Flag: YE },
+  { code: "AE", label: "destinations.uae", Flag: AE },
 ];
 
 const FREIGHT_TYPES = [
-  { value: "AIR", label: "Air Freight", Icon: Plane },
-  { value: "SEA", label: "Sea Freight", Icon: Ship },
-  { value: "LAND", label: "Land Freight", Icon: Truck },
+  { value: "AIR", label: "freight.air", Icon: Plane },
+  { value: "SEA", label: "freight.sea", Icon: Ship },
+  { value: "LAND", label: "freight.land", Icon: Truck },
 ];
 
 type EstimateResult = {
@@ -76,6 +173,18 @@ type Props = {
 };
 
 export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
+  const params = useParams<{ locale?: string }>();
+  const locale: Locale = params.locale === "ar" ? "ar" : "en";
+
+  const t = (key: string, options?: { count?: number }) => {
+    const value =
+      getNestedValue(TRANSLATIONS[locale], key) ??
+      getNestedValue(TRANSLATIONS.en, key) ??
+      key;
+
+    return value.replace("{{count}}", String(options?.count ?? ""));
+  };
+
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<EstimateResult | null>(null);
 
@@ -119,7 +228,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
       }
 
       setResult(res.data as EstimateResult);
-      toast.success("Shipping estimate calculated");
+      toast.success(t("shipping.estimateCalculated"));
     });
   };
 
@@ -127,20 +236,25 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
     (item) => item.code === form.destinationCountry,
   );
 
+  const SelectedDestinationFlag = selectedDestination?.Flag;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl rounded-2xl border border-border/50 bg-card p-0 overflow-hidden">
+      <DialogContent
+        dir={locale === "ar" ? "rtl" : "ltr"}
+        className="sm:max-w-2xl rounded-2xl border border-border/50 bg-card p-0 overflow-hidden"
+      >
         <DialogHeader className="px-6 py-4 border-b border-border/50 bg-muted/10">
           <DialogTitle className="text-sm font-bold flex items-center gap-2">
             <Calculator className="w-4 h-4 text-[#7b57fc]" />
-            Shipping Estimation
+            {t("shipping.estimation")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="p-6 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className={labelCls}>Origin</Label>
+              <Label className={labelCls}>{t("shipping.origin")}</Label>
               <div
                 className={cn(
                   inputCls,
@@ -148,7 +262,9 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
                 )}
               >
                 <CN className="w-4 h-4 rounded-sm shrink-0" />
-                <span className="text-sm font-medium">China</span>
+                <span className="text-sm font-medium">
+                  {t("countries.china")}
+                </span>
                 <span className="text-[10px] text-muted-foreground font-mono ml-auto">
                   CN
                 </span>
@@ -156,7 +272,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
             </div>
 
             <div className="space-y-1.5">
-              <Label className={labelCls}>Destination</Label>
+              <Label className={labelCls}>{t("shipping.destination")}</Label>
               <Select
                 value={form.destinationCountry}
                 onValueChange={(value) =>
@@ -167,14 +283,14 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
                 }
               >
                 <SelectTrigger className={cn(inputCls, "w-full")}>
-                  <SelectValue placeholder="Select country" />
+                  <SelectValue placeholder={t("shipping.selectCountry")} />
                 </SelectTrigger>
                 <SelectContent>
                   {DESTINATIONS.map(({ code, label, Flag }) => (
                     <SelectItem key={code} value={code}>
                       <span className="inline-flex items-center gap-2">
                         <Flag className="w-4 h-4 rounded-sm shrink-0" />
-                        <span>{label}</span>
+                        <span>{t(label)}</span>
                         <span className="text-[10px] text-muted-foreground font-mono">
                           {code}
                         </span>
@@ -188,7 +304,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className={labelCls}>Freight Type</Label>
+              <Label className={labelCls}>{t("shipping.freightType")}</Label>
               <Select
                 value={form.freightType}
                 onValueChange={(value) =>
@@ -206,7 +322,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
                     <SelectItem key={value} value={value}>
                       <span className="inline-flex items-center gap-2">
                         <Icon className="w-4 h-4 text-muted-foreground" />
-                        {label}
+                        {t(label)}
                       </span>
                     </SelectItem>
                   ))}
@@ -215,7 +331,9 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
             </div>
 
             <div className="space-y-1.5">
-              <Label className={labelCls}>Calculation Mode</Label>
+              <Label className={labelCls}>
+                {t("shipping.calculationMode")}
+              </Label>
               <Select
                 value={form.calculationMode}
                 onValueChange={(value) =>
@@ -233,8 +351,10 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PER_KG">Per KG</SelectItem>
-                  <SelectItem value="PER_CBM">Per CBM</SelectItem>
+                  <SelectItem value="PER_KG">{t("shipping.perKg")}</SelectItem>
+                  <SelectItem value="PER_CBM">
+                    {t("shipping.perCbm")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -243,7 +363,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
           {form.calculationMode === "PER_KG" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className={labelCls}>Weight KG</Label>
+                <Label className={labelCls}>{t("shipping.weightKg")}</Label>
                 <div className="relative">
                   <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input
@@ -265,7 +385,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className={labelCls}>Quantity</Label>
+                <Label className={labelCls}>{t("shipping.quantity")}</Label>
                 <Input
                   type="number"
                   min="1"
@@ -284,7 +404,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1.5">
-                <Label className={labelCls}>Length CM</Label>
+                <Label className={labelCls}>{t("shipping.lengthCm")}</Label>
                 <Input
                   type="number"
                   min="1"
@@ -302,7 +422,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className={labelCls}>Width CM</Label>
+                <Label className={labelCls}>{t("shipping.widthCm")}</Label>
                 <Input
                   type="number"
                   min="1"
@@ -320,7 +440,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className={labelCls}>Height CM</Label>
+                <Label className={labelCls}>{t("shipping.heightCm")}</Label>
                 <Input
                   type="number"
                   min="1"
@@ -338,7 +458,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className={labelCls}>Quantity</Label>
+                <Label className={labelCls}>{t("shipping.quantity")}</Label>
                 <Input
                   type="number"
                   min="1"
@@ -357,7 +477,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
           )}
 
           <div className="space-y-1.5">
-            <Label className={labelCls}>Goods Type</Label>
+            <Label className={labelCls}>{t("shipping.goodsType")}</Label>
             <div className="relative">
               <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
@@ -368,7 +488,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
                     goodsType: e.target.value,
                   }))
                 }
-                placeholder="General goods"
+                placeholder={t("shipping.generalGoods")}
                 className={cn(inputCls, "pl-9")}
               />
             </div>
@@ -379,7 +499,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
-                    Estimated Cost
+                    {t("shipping.estimatedCost")}
                   </p>
                   <p className="text-2xl font-bold text-[#7b57fc]">
                     {result.estimatedCost.toLocaleString()} {result.currency}
@@ -394,29 +514,31 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div className="rounded-xl bg-background/70 border border-border/40 p-2.5">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                    Route
+                    {t("shipping.route")}
                   </p>
                   <p className="text-xs font-semibold flex items-center gap-1.5 mt-1">
                     <CN className="w-4 h-4 rounded-sm" />
                     →
-                    {selectedDestination && (
-                      <selectedDestination.Flag className="w-4 h-4 rounded-sm" />
+                    {SelectedDestinationFlag && (
+                      <SelectedDestinationFlag className="w-4 h-4 rounded-sm" />
                     )}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-background/70 border border-border/40 p-2.5">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                    Transit
+                    {t("shipping.transit")}
                   </p>
                   <p className="text-xs font-semibold mt-1">
-                    {result.transitDays ? `${result.transitDays} days` : "—"}
+                    {result.transitDays
+                      ? t("shipping.days", { count: result.transitDays })
+                      : "—"}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-background/70 border border-border/40 p-2.5">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                    Weight
+                    {t("shipping.weight")}
                   </p>
                   <p className="text-xs font-semibold mt-1">
                     {result.weightKg ? `${result.weightKg} kg` : "—"}
@@ -425,7 +547,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
 
                 <div className="rounded-xl bg-background/70 border border-border/40 p-2.5">
                   <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                    Volume
+                    {t("shipping.volume")}
                   </p>
                   <p className="text-xs font-semibold mt-1">
                     {result.volumeCbm ? `${result.volumeCbm} CBM` : "—"}
@@ -452,7 +574,7 @@ export function ShippingEstimateDialog({ open, onOpenChange }: Props) {
             ) : (
               <Calculator className="w-4 h-4" />
             )}
-            Calculate Shipping
+            {t("shipping.calculate")}
           </Button>
         </div>
       </DialogContent>
