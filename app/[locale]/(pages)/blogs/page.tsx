@@ -35,14 +35,24 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `${baseUrl}/${locale}/blog`,
-      languages: { en: `${baseUrl}/en/blog`, ar: `${baseUrl}/ar/blog` },
+      canonical: `${baseUrl}/${locale}/blogs`,
+      languages: {
+        en: `${baseUrl}/en/blogs`,
+        ar: `${baseUrl}/ar/blogs`,
+      },
     },
     openGraph: {
       title,
       description,
+      url: `${baseUrl}/${locale}/blogs`,
+      siteName: "JAHEZ",
       locale: isAr ? "ar_SA" : "en_US",
       type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
 }
@@ -77,18 +87,22 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
   const tags = tagsResult.success ? tagsResult.data : [];
   const posts = initialPostsResult.success ? initialPostsResult.data.posts : [];
   const total = initialPostsResult.success ? initialPostsResult.data.total : 0;
-  const totalPages = initialPostsResult.success ? initialPostsResult.data.pages : 0;
+  const totalPages = initialPostsResult.success
+    ? initialPostsResult.data.pages
+    : 0;
 
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
       <Header />
+
       <BlogHero
         isAr={isAr}
         totalCount={total}
         categories={categories}
         tags={tags}
       />
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <Suspense fallback={<BlogListSkeleton isAr={isAr} />}>
           <BlogListClient
             isAr={isAr}
@@ -98,10 +112,15 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             initialPage={page}
             categories={categories}
             tags={tags}
-            initialFilters={{ category: categorySlug, tag: tagSlug, search }}
+            initialFilters={{
+              category: categorySlug,
+              tag: tagSlug,
+              search,
+            }}
           />
         </Suspense>
       </section>
+
       <FooterSection />
     </main>
   );

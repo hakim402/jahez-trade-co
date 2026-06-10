@@ -1,4 +1,4 @@
-// proxy.ts (or middleware.ts)
+// proxy.ts or middleware.ts
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import createIntlMiddleware from "next-intl/middleware";
@@ -9,10 +9,13 @@ import { prisma } from "@/lib/prisma";
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/admin(.*)",
+  "/:locale/dashboard(.*)",
+  "/:locale/admin(.*)",
 ]);
 
 const isAdminRoute = createRouteMatcher([
   "/admin(.*)",
+  "/:locale/admin(.*)",
 ]);
 
 const intlMiddleware = createIntlMiddleware(routing);
@@ -21,7 +24,18 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   const pathname = req.nextUrl.pathname;
 
   // =====================================================
-  // BYPASS ALL API ROUTES (CRITICAL FOR WEBHOOKS)
+  // BYPASS SEO FILES
+  // =====================================================
+  if (
+    pathname === "/sitemap.xml" ||
+    pathname === "/robots.txt" ||
+    pathname === "/favicon.ico"
+  ) {
+    return NextResponse.next();
+  }
+
+  // =====================================================
+  // BYPASS API ROUTES
   // =====================================================
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
@@ -30,7 +44,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   // =====================================================
   // FORCE ADMIN TO ENGLISH
   // =====================================================
-  if (pathname.startsWith("/admin") && !pathname.startsWith("/en/admin")) {
+  if (pathname.startsWith("/admin")) {
     const url = new URL(`/en${pathname}`, req.url);
     return NextResponse.redirect(url);
   }
@@ -41,9 +55,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   // Handle Locale Redirect for Authenticated Users
   // =====================================================
   const pathnameHasLocale = routing.locales.some(
-    (locale) =>
-      pathname.startsWith(`/${locale}/`) ||
-      pathname === `/${locale}`
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
   );
 
   if (userId && !pathnameHasLocale) {
@@ -65,11 +77,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   // =====================================================
-  // Admin Role Check (Database)
+  // Admin Role Check
   // =====================================================
   if (isAdminRoute(req)) {
     if (!userId) {
-      return NextResponse.redirect(new URL("/sign-in", req.url));
+      return NextResponse.redirect(new URL("/en/sign-in", req.url));
     }
 
     const user = await prisma.user.findUnique({
@@ -78,7 +90,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     });
 
     if (!user || user.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/en/dashboard", req.url));
     }
   }
 
@@ -88,13 +100,8 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   return intlMiddleware(req);
 });
 
-
-// =====================================================
-// MATCHER CONFIG
-// =====================================================
 export const config = {
   matcher: [
-    
-    "/((?!api|_next|.*\\..*).*)",
+    "/((?!api|_next|_vercel|favicon.ico|sitemap.xml|robots.txt|.*\\..*).*)",
   ],
 };

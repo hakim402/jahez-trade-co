@@ -1,30 +1,35 @@
 // app/sitemap.ts
-import { MetadataRoute } from "next";
+
+export const dynamic = "force-dynamic";
+
+import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
 import { getAllProductIdsForSitemap } from "@/app/[locale]/(pages)/products/actions";
 import { getAllServiceIdsForSitemap } from "@/app/[locale]/(pages)/services/actions";
+import { getAllPublicSlugs } from "@/app/[locale]/(pages)/blogs/actions";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://jahez.online";
 
   const staticPages = [
-    { path: "", priority: 1.0, changeFreq: "daily" as const },
-    { path: "/about", priority: 0.8, changeFreq: "monthly" as const },
-    { path: "/contact", priority: 0.8, changeFreq: "monthly" as const },
-    { path: "/products", priority: 0.9, changeFreq: "weekly" as const },
-    { path: "/services", priority: 0.9, changeFreq: "weekly" as const },
+    { path: "", priority: 1.0, changeFrequency: "daily" as const },
+    { path: "/about", priority: 0.8, changeFrequency: "monthly" as const },
+    { path: "/contact", priority: 0.8, changeFrequency: "monthly" as const },
+    { path: "/products", priority: 0.9, changeFrequency: "weekly" as const },
+    { path: "/services", priority: 0.9, changeFrequency: "weekly" as const },
+    { path: "/blogs", priority: 0.9, changeFrequency: "weekly" as const },
   ];
 
   const entries: MetadataRoute.Sitemap = [];
 
-  // Static pages for each locale
+  // Static pages
   routing.locales.forEach((locale) => {
-    staticPages.forEach(({ path, priority, changeFreq }) => {
+    staticPages.forEach((page) => {
       entries.push({
-        url: `${baseUrl}/${locale}${path}`,
+        url: `${baseUrl}/${locale}${page.path}`,
         lastModified: new Date(),
-        changeFrequency: changeFreq,
-        priority,
+        changeFrequency: page.changeFrequency,
+        priority: page.priority,
       });
     });
   });
@@ -32,11 +37,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic Products
   try {
     const products = await getAllProductIdsForSitemap();
+
     products.forEach((product) => {
       routing.locales.forEach((locale) => {
         entries.push({
           url: `${baseUrl}/${locale}/product/${product.id}`,
-          lastModified: product.updatedAt,
+          lastModified: product.updatedAt ?? new Date(),
           changeFrequency: "weekly",
           priority: 0.7,
         });
@@ -49,11 +55,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic Services
   try {
     const services = await getAllServiceIdsForSitemap();
+
     services.forEach((service) => {
       routing.locales.forEach((locale) => {
         entries.push({
           url: `${baseUrl}/${locale}/services/${service.id}`,
-          lastModified: service.updatedAt,
+          lastModified: service.updatedAt ?? new Date(),
           changeFrequency: "weekly",
           priority: 0.8,
         });
@@ -61,6 +68,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   } catch (error) {
     console.error("Sitemap: Failed to fetch service IDs", error);
+  }
+
+  // Dynamic Blog Posts
+  try {
+    const postsResult = await getAllPublicSlugs();
+
+    if (postsResult.success) {
+      postsResult.data.forEach((post) => {
+        entries.push({
+          url: `${baseUrl}/en/blogs/${post.slugEn}`,
+          lastModified: post.updatedAt ?? new Date(),
+          changeFrequency: "weekly",
+          priority: 0.8,
+        });
+
+        if (post.slugAr) {
+          entries.push({
+            url: `${baseUrl}/ar/blogs/${post.slugAr}`,
+            lastModified: post.updatedAt ?? new Date(),
+            changeFrequency: "weekly",
+            priority: 0.8,
+          });
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Sitemap: Failed to fetch blog slugs", error);
   }
 
   return entries;
