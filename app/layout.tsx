@@ -1,4 +1,5 @@
 // app/layout.tsx
+
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,15 +24,15 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://jahez.online"),
   title: {
     template: "%s | JAHEZ",
-    default: "JAHEZ - Your Personal Products Tracker",
+    default: "JAHEZ China Product Sourcing & Import Services",
   },
   description:
-    "JAHEZ is a cutting-edge web application designed to help you effortlessly track and manage your favorite products.",
+    "JAHEZ helps businesses source products from China, request quotations, book live market video calls, and get product sourcing, inspection, shipping, and business consulting services.",
   verification: {
-    google:
-      "google-site-verification=nZi9ngdAitHA46eBbJIOdPwpAQcfe7a2PRaB1R6LR68",
+    google: "nZi9ngdAitHA46eBbJIOdPwpAQcfe7a2PRaB1R6LR68",
   },
 };
 
@@ -53,7 +54,6 @@ export default function RootLayout({
           <ShippingEstimationButton />
         </ThemeProvider>
 
-        {/* Google Analytics 4 – loads after page is interactive via next/script */}
         <GoogleAnalytics gaId="G-BTTGNXH9T3" />
       </body>
     </html>

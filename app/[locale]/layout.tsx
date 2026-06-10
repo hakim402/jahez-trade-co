@@ -1,4 +1,5 @@
 // app/[locale]/layout.tsx
+
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -7,63 +8,11 @@ import { ReactNode } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { enUS, arSA } from "@clerk/localizations";
 import { SetHtmlLangDir } from "./_components/SetHTML/set-html-lang";
-import { Metadata } from "next";
 
 type Props = {
   children: ReactNode;
   params: Promise<{ locale: string }>;
 };
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await params;
-
-  const baseUrl = "https://jahez.online";
-
-  const alternates = {
-    canonical: `${baseUrl}/${locale}`,
-    languages: {
-      en: `${baseUrl}/en`,
-      ar: `${baseUrl}/ar`,
-    },
-  };
-
-  return {
-    title:
-      locale === "ar"
-        ? "جاهز - متتبع منتجاتك الشخصية"
-        : "JAHEZ - Your Personal Products Tracker",
-    description:
-      locale === "ar"
-        ? "جاهز هو تطبيق ويب متطور يساعدك على تتبع وإدارة منتجاتك المفضلة بسهولة."
-        : "JAHEZ is a cutting-edge web application designed to help you effortlessly track and manage your favorite products.",
-    alternates,
-    openGraph: {
-      title:
-        locale === "ar"
-          ? "جاهز - متتبع منتجاتك الشخصية"
-          : "JAHEZ - Your Personal Products Tracker",
-      description:
-        locale === "ar"
-          ? "تتبع منتجاتك المفضلة بكل سهولة"
-          : "Track your favorite products effortlessly",
-      url: `${baseUrl}/${locale}`,
-      siteName: locale === "ar" ? "جاهز" : "JAHEZ",
-      locale: locale === "ar" ? "ar_SA" : "en_US",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title:
-        locale === "ar"
-          ? "جاهز - متتبع منتجاتك الشخصية"
-          : "JAHEZ - Your Personal Products Tracker",
-      description:
-        locale === "ar"
-          ? "تتبع منتجاتك المفضلة بكل سهولة"
-          : "Track your favorite products effortlessly",
-    },
-  };
-}
 
 export default async function LocaleLayout({ children, params }: Props) {
   const { locale } = await params;
@@ -80,24 +29,25 @@ export default async function LocaleLayout({ children, params }: Props) {
     ar: arSA,
   };
 
-  // JSON-LD WebSite schema
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "WebSite",
+    "@type": "Organization",
     name: locale === "ar" ? "جاهز" : "JAHEZ",
-    url: `https://jahez.online/${locale}`,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `https://jahez.online/${locale}/search?q={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
+    url: "https://jahez.online",
+    logo: "https://jahez.online/logo.png",
+    description:
+      locale === "ar"
+        ? "جاهز تقدم خدمات التوريد من الصين، طلب عروض الأسعار، مكالمات فيديو مباشرة من الأسواق، والاستشارات التجارية."
+        : "JAHEZ provides China product sourcing, quotation requests, live market video calls, product inspection, shipping support, and business consulting services.",
+    sameAs: [],
   };
 
   return (
     <>
       <SetHtmlLangDir locale={locale} />
+
       <script
-        id="schema-website"
+        id="schema-organization"
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
