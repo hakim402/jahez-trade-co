@@ -68,6 +68,7 @@ import {
   ShoppingCart,
   Layers,
   ExternalLink,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -95,6 +96,7 @@ import {
   deleteProductImage,
   updateImageAltText,
   getProductById,
+  checkSlugAvailability,
 } from "../actions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -112,6 +114,8 @@ export type SerializedProduct = {
   id: string;
   name: string;
   nameAr: string | null;
+  slug: string | null;
+  slugAr: string | null;
   description: string | null;
   descriptionAr: string | null;
   shortDesc: string | null;
@@ -137,6 +141,22 @@ export type SerializedProduct = {
   createdAt: string;
   updatedAt: string;
 };
+
+// ─── Client-side slug helper (mirrors the server slugify — used only for
+//     live preview / auto-fill; the server always re-validates & dedupes) ────
+
+function slugifyClient(text: string): string {
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 // ─── Hydration-safe relative time ────────────────────────────────────────────
 
@@ -681,6 +701,8 @@ type FormTab = "basic" | "details" | "content" | "images";
 const EMPTY_FORM = {
   name: "",
   nameAr: "",
+  slug: "",
+  slugAr: "",
   description: "",
   descriptionAr: "",
   shortDesc: "",
@@ -714,6 +736,11 @@ function ProductFormDialog({
   const [tab, setTab] = useState<FormTab>("basic");
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Slug was hand-edited by the user — stop auto-deriving it from the name.
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [slugArTouched, setSlugArTouched] = useState(false);
+  const [slugChecking, setSlugChecking] = useState(false);
+  const [slugHint, setSlugHint] = useState<string | null>(null);
   // For create: after save, keep open to manage images
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [createdImages, setCreatedImages] = useState<ProductImage[]>([]);
@@ -724,10 +751,15 @@ function ProductFormDialog({
     setErrors({});
     setCreatedId(null);
     setCreatedImages([]);
+    setSlugTouched(!!editProduct?.slug);
+    setSlugArTouched(!!editProduct?.slugAr);
+    setSlugHint(null);
     if (editProduct) {
       setForm({
         name: editProduct.name,
         nameAr: editProduct.nameAr ?? "",
+        slug: editProduct.slug ?? "",
+        slugAr: editProduct.slugAr ?? "",
         description: editProduct.description ?? "",
         descriptionAr: editProduct.descriptionAr ?? "",
         shortDesc: editProduct.shortDesc ?? "",
@@ -757,6 +789,43 @@ function ProductFormDialog({
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((p) => ({ ...p, [k]: e.target.value }));
 
+  // Auto-derive the EN slug from the name until the user edits it directly.
+  useEffect(() => {
+    if (slugTouched) return;
+    setForm((p) => ({ ...p, slug: slugifyClient(p.name) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.name, slugTouched]);
+
+  // Auto-derive the AR slug from the Arabic name until the user edits it directly.
+  useEffect(() => {
+    if (slugArTouched) return;
+    setForm((p) => ({ ...p, slugAr: slugifyClient(p.nameAr) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.nameAr, slugArTouched]);
+
+  // Debounced live availability check for the EN slug.
+  useEffect(() => {
+    if (!form.slug.trim()) {
+      setSlugHint(null);
+      return;
+    }
+    setSlugChecking(true);
+    const t = setTimeout(async () => {
+      const r = await checkSlugAvailability(form.slug, "slug", editProduct?.id);
+      setSlugChecking(false);
+      if (r.success && !r.data.available) {
+        setSlugHint(`Taken — try "${r.data.suggested}"`);
+      } else {
+        setSlugHint(null);
+      }
+    }, 450);
+    return () => {
+      clearTimeout(t);
+      setSlugChecking(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.slug, editProduct?.id]);
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Name is required";
@@ -771,6 +840,8 @@ function ProductFormDialog({
   const buildInput = (): CreateProductInput => ({
     name: form.name.trim(),
     nameAr: form.nameAr.trim() || undefined,
+    slug: form.slug.trim() || undefined,
+    slugAr: form.slugAr.trim() || undefined,
     description: form.description.trim() || undefined,
     descriptionAr: form.descriptionAr.trim() || undefined,
     shortDesc: form.shortDesc.trim() || undefined,
@@ -997,6 +1068,96 @@ function ProductFormDialog({
                         />
                       </div>
                     </div>
+
+                    {/* Slugs */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className={labelCls}>Slug (EN)</Label>
+                        <div className="relative">
+                          <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                          <Input
+                            value={form.slug}
+                            onChange={(e) => {
+                              setSlugTouched(true);
+                              setForm((p) => ({
+                                ...p,
+                                slug: slugifyClient(e.target.value),
+                              }));
+                            }}
+                            placeholder="auto-generated-from-name"
+                            dir="ltr"
+                            className={cn(inputCls, "pl-8 pr-8 font-mono")}
+                          />
+                          {slugChecking && (
+                            <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                          )}
+                          {!slugChecking && slugTouched && (
+                            <button
+                              type="button"
+                              title="Reset to auto-generated"
+                              onClick={() => {
+                                setSlugTouched(false);
+                                setForm((p) => ({
+                                  ...p,
+                                  slug: slugifyClient(p.name),
+                                }));
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#7b57fc] transition-colors"
+                            >
+                              <Wand2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        {slugHint ? (
+                          <p className="text-[11px] text-amber-500">
+                            {slugHint}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground/60">
+                            /products/{form.slug || "…"}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className={labelCls}>الرابط المختصر (AR)</Label>
+                        <div className="relative">
+                          <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                          <Input
+                            value={form.slugAr}
+                            onChange={(e) => {
+                              setSlugArTouched(true);
+                              setForm((p) => ({
+                                ...p,
+                                slugAr: slugifyClient(e.target.value),
+                              }));
+                            }}
+                            placeholder="auto-generated-from-name-ar"
+                            dir="ltr"
+                            className={cn(inputCls, "pl-8 pr-8 font-mono")}
+                          />
+                          {slugArTouched && (
+                            <button
+                              type="button"
+                              title="Reset to auto-generated"
+                              onClick={() => {
+                                setSlugArTouched(false);
+                                setForm((p) => ({
+                                  ...p,
+                                  slugAr: slugifyClient(p.nameAr),
+                                }));
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#7b57fc] transition-colors"
+                            >
+                              <Wand2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/60">
+                          Optional — leave blank to skip an Arabic route
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className={labelCls}>
@@ -1262,6 +1423,11 @@ function ProductFormDialog({
                             </span>
                           )}
                         </p>
+                        {form.slug && (
+                          <p className="text-[11px] font-mono text-[#7b57fc]/80">
+                            /products/{form.slug}
+                          </p>
+                        )}
                         {form.shortDesc && (
                           <p className="text-xs text-muted-foreground">
                             {form.shortDesc}
@@ -1318,6 +1484,14 @@ function ProductFormDialog({
                           <p className="text-sm font-bold text-foreground">
                             {form.nameAr}
                           </p>
+                          {form.slugAr && (
+                            <p
+                              className="text-[11px] font-mono text-[#7b57fc]/80"
+                              dir="ltr"
+                            >
+                              /products/{form.slugAr}
+                            </p>
+                          )}
                           {form.shortDescAr && (
                             <p className="text-xs text-muted-foreground">
                               {form.shortDescAr}
@@ -1556,6 +1730,11 @@ function ProductCard({
                 {product.nameAr}
               </p>
             )}
+            {product.slug && (
+              <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5 line-clamp-1 flex items-center gap-1">
+                <Link2 className="w-2.5 h-2.5 shrink-0" />/{product.slug}
+              </p>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1609,6 +1788,17 @@ function ProductCard({
                 )}
                 {product.isActive ? "Deactivate" : "Activate"}
               </DropdownMenuItem>
+              {product.slug && (
+                <DropdownMenuItem asChild className="text-xs gap-2">
+                  <a
+                    href={`/products/${product.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> View public page
+                  </a>
+                </DropdownMenuItem>
+              )}
               {product.sourceUrl && (
                 <DropdownMenuItem asChild className="text-xs gap-2">
                   <a
@@ -1915,7 +2105,7 @@ function FilterBar({
           <Input
             value={val}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search name, supplier, tag…"
+            placeholder="Search name, slug, supplier, tag…"
             className="pl-9 h-9 rounded-xl text-sm border-border/60"
           />
           {val && (

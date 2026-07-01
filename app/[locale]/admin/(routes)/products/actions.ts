@@ -25,6 +25,8 @@ export type BulkAction =
 export type CreateProductInput = {
   name: string
   nameAr?: string
+  slug?: string
+  slugAr?: string
   description?: string
   descriptionAr?: string
   shortDesc?: string
@@ -84,6 +86,7 @@ function revalidateProducts() {
   revalidatePath("/admin/products/[id]", "page")
   revalidatePath("/[locale]", "page")
   revalidatePath("/[locale]/products", "page")
+  revalidatePath("/[locale]/products/[slug]", "page")
 }
 
 function serializeProduct(p: any) {
@@ -126,8 +129,49 @@ async function logAdminAction(opts: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Base includes
+// Slug helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Basic slugify — works for Latin text. For Arabic (or any non-Latin) input,
+// diacritics/punctuation are stripped and whitespace becomes hyphens, but the
+// script itself is preserved so Arabic slugs stay readable/SEO-friendly.
+function slugify(text: string): string {
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "") // strip Latin diacritics
+    .replace(/[^\p{L}\p{N}\s-]/gu, "") // keep letters (any script), numbers, spaces, hyphens
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+// Ensures the generated slug is unique for the given field (slug | slugAr),
+// appending -2, -3, … as needed. `excludeId` lets updates ignore themselves.
+async function generateUniqueSlug(
+  base: string,
+  field: "slug" | "slugAr",
+  excludeId?: string,
+): Promise<string> {
+  const root = slugify(base) || "product"
+  let candidate = root
+  let suffix = 2
+
+  while (true) {
+    const existing = await prisma.trendingProduct.findFirst({
+      where: {
+        [field]: candidate,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      } as Prisma.TrendingProductWhereInput,
+      select: { id: true },
+    })
+    if (!existing) return candidate
+    candidate = `${root}-${suffix}`
+    suffix++
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Base includes
@@ -234,6 +278,7 @@ export async function getAllProducts(raw: z.infer<typeof listProductsSchema> = {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { nameAr: { contains: search, mode: "insensitive" } },
+        { slug: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
         { supplier: { contains: search, mode: "insensitive" } },
         { category: { contains: search, mode: "insensitive" } },
@@ -320,6 +365,44 @@ export async function getProductById(id: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// A2b. GET SINGLE PRODUCT BY SLUG (public — for SEO product pages)
+//      Looks up either the EN or AR slug, and bumps the view counter.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getProductBySlug(slug: string) {
+  try {
+    const product = await prisma.trendingProduct.findFirst({
+      where: {
+        isDeleted: false,
+        isActive: true,
+        OR: [{ slug }, { slugAr: slug }],
+      },
+      include: productDetailInclude,
+    })
+    if (!product) return { success: false, error: "Product not found" }
+
+    // Fire-and-forget view increment — don't block the response on it.
+    prisma.trendingProduct
+      .update({ where: { id: product.id }, data: { viewCount: { increment: 1 } } })
+      .catch(() => {})
+
+    return {
+      success: true,
+      data: {
+        ...serializeProduct(product),
+        relatedRequests: (product.relatedRequests ?? []).map((r: any) => ({
+          ...r,
+          createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+        })),
+      },
+    }
+  } catch (err) {
+    console.error("[getProductBySlug]", err)
+    return { success: false, error: "Failed to fetch product" }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // A3. GET CATEGORIES
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -395,10 +478,10 @@ export async function getProductStats(): Promise<ActionResult<{
         where: { isDeleted: false },
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, name: true, nameAr: true, trendScore: true, viewCount: true, inquiryCount: true, isFeatured: true, isActive: true, createdAt: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } },
+        select: { id: true, name: true, nameAr: true, slug: true, trendScore: true, viewCount: true, inquiryCount: true, isFeatured: true, isActive: true, createdAt: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } },
       }),
-      prisma.trendingProduct.findMany({ where: { isDeleted: false }, select: { id: true, name: true, viewCount: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } }, orderBy: { viewCount: "desc" }, take: 5 }),
-      prisma.trendingProduct.findMany({ where: { isDeleted: false }, select: { id: true, name: true, inquiryCount: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } }, orderBy: { inquiryCount: "desc" }, take: 5 }),
+      prisma.trendingProduct.findMany({ where: { isDeleted: false }, select: { id: true, name: true, slug: true, viewCount: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } }, orderBy: { viewCount: "desc" }, take: 5 }),
+      prisma.trendingProduct.findMany({ where: { isDeleted: false }, select: { id: true, name: true, slug: true, inquiryCount: true, images: { where: { isPrimary: true }, take: 1, select: { url: true } } }, orderBy: { inquiryCount: "desc" }, take: 5 }),
       prisma.trendingProduct.groupBy({ by: ["sourceCountry"], where: { isDeleted: false, sourceCountry: { not: null } }, _count: true, orderBy: { _count: { sourceCountry: "desc" } }, take: 5 }),
       prisma.trendingProduct.groupBy({ by: ["category"], where: { isDeleted: false, category: { not: null } }, _count: true, orderBy: { _count: { category: "desc" } }, take: 10 }),
       prisma.shippingEstimate.groupBy({ by: ["destinationCountry"], _count: true, orderBy: { _count: { destinationCountry: "desc" } }, take: 10 }),
@@ -442,7 +525,7 @@ export async function getTopProducts(
     const products = await prisma.trendingProduct.findMany({
       where: { isActive: true, isDeleted: false },
       select: {
-        id: true, name: true, nameAr: true,
+        id: true, name: true, nameAr: true, slug: true,
         trendScore: true, viewCount: true, inquiryCount: true,
         category: true, isFeatured: true,
         images: { where: { isPrimary: true }, take: 1, select: { url: true } },
@@ -470,10 +553,19 @@ export async function createProduct(input: CreateProductInput) {
     const adminId = await requireAdmin()
     if (!input.name?.trim()) return { success: false, error: "Product name is required" }
 
+    // Slug: use the provided value if given, otherwise derive from the name.
+    // Always resolved through generateUniqueSlug so collisions get a -2, -3… suffix.
+    const slug = await generateUniqueSlug(input.slug?.trim() || input.name, "slug")
+    const slugAr = (input.slugAr?.trim() || input.nameAr?.trim())
+      ? await generateUniqueSlug((input.slugAr?.trim() || input.nameAr!)!, "slugAr")
+      : null
+
     const created = await prisma.trendingProduct.create({
       data: {
         name: input.name.trim(),
         nameAr: input.nameAr?.trim(),
+        slug,
+        slugAr,
         description: input.description?.trim(),
         descriptionAr: input.descriptionAr?.trim(),
         shortDesc: input.shortDesc?.trim(),
@@ -508,7 +600,7 @@ export async function createProduct(input: CreateProductInput) {
       action: "CREATE_TRENDING_PRODUCT",
       entity: "TrendingProduct",
       entityId: created.id,
-      changes: { name: created.name, category: created.category, trendScore: created.trendScore, imageCount: (created as any).images?.length ?? 0 },
+      changes: { name: created.name, slug: created.slug, category: created.category, trendScore: created.trendScore, imageCount: (created as any).images?.length ?? 0 },
     })
 
     revalidateProducts()
@@ -527,15 +619,34 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
   try {
     await requireAdmin()
 
-    const existing = await prisma.trendingProduct.findUnique({ where: { id }, select: { id: true, isDeleted: true } })
+    const existing = await prisma.trendingProduct.findUnique({ where: { id }, select: { id: true, isDeleted: true, slug: true, slugAr: true } })
     if (!existing) return { success: false, error: "Product not found" }
     if (existing.isDeleted) return { success: false, error: "Cannot update a deleted product" }
+
+    // Only touch slug/slugAr if the caller actually sent a value, and only
+    // regenerate when it differs from what's stored (avoids needless -2 suffixes).
+    let nextSlug: string | undefined
+    if (input.slug !== undefined) {
+      const desired = input.slug?.trim()
+      nextSlug = desired
+        ? (slugify(desired) === existing.slug ? existing.slug! : await generateUniqueSlug(desired, "slug", id))
+        : existing.slug ?? undefined
+    }
+    let nextSlugAr: string | null | undefined
+    if (input.slugAr !== undefined) {
+      const desired = input.slugAr?.trim()
+      nextSlugAr = desired
+        ? (slugify(desired) === existing.slugAr ? existing.slugAr : await generateUniqueSlug(desired, "slugAr", id))
+        : null
+    }
 
     const updated = await prisma.trendingProduct.update({
       where: { id },
       data: {
         ...(input.name !== undefined && { name: input.name.trim() }),
         ...(input.nameAr !== undefined && { nameAr: input.nameAr?.trim() }),
+        ...(nextSlug !== undefined && { slug: nextSlug }),
+        ...(nextSlugAr !== undefined && { slugAr: nextSlugAr }),
         ...(input.description !== undefined && { description: input.description?.trim() }),
         ...(input.descriptionAr !== undefined && { descriptionAr: input.descriptionAr?.trim() }),
         ...(input.shortDesc !== undefined && { shortDesc: input.shortDesc?.trim() }),
@@ -562,6 +673,38 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
   } catch (err) {
     console.error("[updateProduct]", err)
     return { success: false, error: "Failed to update product" }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B2b. CHECK SLUG AVAILABILITY (live-check for the admin form)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function checkSlugAvailability(
+  slugInput: string,
+  field: "slug" | "slugAr",
+  excludeId?: string,
+): Promise<ActionResult<{ available: boolean; suggested: string }>> {
+  try {
+    await requireAdmin()
+    const candidate = slugify(slugInput)
+    if (!candidate) return { success: false, error: "Slug is empty" }
+
+    const existing = await prisma.trendingProduct.findFirst({
+      where: {
+        [field]: candidate,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      } as Prisma.TrendingProductWhereInput,
+      select: { id: true },
+    })
+
+    if (!existing) return { success: true, data: { available: true, suggested: candidate } }
+
+    const suggested = await generateUniqueSlug(candidate, field, excludeId)
+    return { success: true, data: { available: false, suggested } }
+  } catch (err) {
+    console.error("[checkSlugAvailability]", err)
+    return { success: false, error: "Failed to check slug" }
   }
 }
 

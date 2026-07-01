@@ -184,7 +184,7 @@ function ProductBanner({
         <img
           src={product.imageUrl}
           alt={name}
-          className="w-12 h-12 rounded-xl object-cover border border-border/50 flex-shrink-0"
+          className="w-12 h-12 rounded-xl object-cover border border-border/50 shrink-0"
         />
       ) : (
         <div className="w-12 h-12 rounded-xl bg-[#7b57fc]/10 flex items-center justify-center shrink-0">

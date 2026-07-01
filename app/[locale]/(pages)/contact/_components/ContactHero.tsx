@@ -38,21 +38,10 @@ export function ContactHero({ isAr, locale }: ContactHeroProps) {
       <div className="absolute -bottom-16 -right-16 w-56 h-56 rounded-full orb-brand pointer-events-none" />
 
       <div
-        className="relative max-w-4xl mx-auto px-4 md:px-6 lg:px-8 flex flex-col items-center gap-8 text-center"
+        className="relative max-w-4xl mt-16 mx-auto px-4 md:px-6 lg:px-8 flex flex-col items-center gap-8 text-center"
         dir={isAr ? "rtl" : "ltr"}
       >
-        {/* Eyebrow */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#7b57fc]" />
-          <span className="text-xs font-semibold text-[#7b57fc]">
-            {isAr ? "نحن هنا للمساعدة" : "We're here to help"}
-          </span>
-        </motion.div>
+       
 
         {/* Headline */}
         <motion.div
@@ -105,11 +94,11 @@ export function ContactHero({ isAr, locale }: ContactHeroProps) {
 
           {/* Email */}
           <a
-            href="mailto:mewansourcing@gmail.com"
+            href="mailto:info@jahez.online"
             className="group flex items-center gap-2 px-6 py-3.5 rounded-full border border-border/60 bg-background/60 backdrop-blur-sm text-sm font-semibold text-foreground hover:border-[#7b57fc]/50 hover:text-[#7b57fc] hover:-translate-y-0.5 transition-all w-full sm:w-auto justify-center"
           >
             <Mail className="w-4 h-4" />
-            mewansourcing@gmail.com
+            info@jahez.online
           </a>
         </motion.div>
 

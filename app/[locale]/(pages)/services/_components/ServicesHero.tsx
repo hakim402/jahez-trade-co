@@ -88,23 +88,9 @@ export function ServicesHero({
       {/* Subtle grid */}
       <div className="absolute inset-0 pointer-events-none opacity-[0.04]" />
 
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-24">
+      <div className="relative max-w-6xl mt-16 mx-auto px-4 md:px-6 lg:px-8 py-24">
         <div className="flex flex-col items-center gap-8">
-          {/* Top badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.4 }}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8"
-          >
-            <Briefcase className="w-3.5 h-3.5 text-[#7b57fc]" />
-            <span className="text-xs font-semibold text-[#7b57fc]">
-              {isAr
-                ? "خدمات استشارية متخصصة من خبراء الصناعة"
-                : "Expert consulting services from industry specialists"}
-            </span>
-            <Sparkles className="w-3.5 h-3.5 text-[#7b57fc]" />
-          </motion.div>
+          
 
           {/* Headline */}
           <motion.div

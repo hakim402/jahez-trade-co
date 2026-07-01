@@ -540,9 +540,6 @@ function OrbitGraphic({ isAr }: { isAr: boolean }) {
         ))}
       </svg>
 
-      {/* ── Center logo node ── */}
-      
-
       {/* ── Country nodes ── */}
       {nodes.map(({ FlagComponent, label, nx, ny, color }, i) => (
         <motion.div
@@ -563,32 +560,41 @@ function OrbitGraphic({ isAr }: { isAr: boolean }) {
             zIndex: 15,
           }}
         >
-          {/* Node card */}
-          <div
-            className="relative w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer
-              bg-white dark:bg-card border border-border/60
-              shadow-lg shadow-black/10
-              transition-all duration-300
-              group-hover:scale-110 group-hover:shadow-xl"
-            style={{
-              boxShadow: `0 0 0 0 ${color}40`,
-            }}
-          >
-            {/* Color accent ring on hover */}
-            <div
-              className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              style={{
-                boxShadow: `0 0 14px 2px ${color}55, inset 0 0 0 1px ${color}40`,
-              }}
-            />
-            <FlagComponent className="w-6 h-4.5 rounded-sm" />
+{/* Node card */}
+<div
+  className="relative w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer
+    bg-white dark:bg-card border border-border/60
+    shadow-lg shadow-black/10
+    transition-all duration-300
+    group-hover:scale-110 group-hover:shadow-xl overflow-hidden"
+  style={{
+    boxShadow: `0 0 0 0 ${color}40`,
+  }}
+>
+  {/* Color accent ring on hover */}
+  <div
+    className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+    style={{
+      boxShadow: `0 0 14px 2px ${color}55, inset 0 0 0 1px ${color}40`,
+    }}
+  />
 
-            {/* Active dot */}
-            <span
-              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-card"
-              style={{ backgroundColor: color }}
-            />
-          </div>
+  {/* Fixed-size flag container — guarantees no overflow regardless of the SVG's own intrinsic dimensions */}
+  <div
+    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-sm overflow-hidden"
+    style={{ width: 24, height: 16 }}
+  >
+    <FlagComponent
+      style={{ width: "100%", height: "100%", display: "block" }}
+      className="object-cover"
+    />
+  </div>
+
+  <span
+    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-white dark:border-card"
+    style={{ backgroundColor: color }}
+  />
+</div>
 
           {/* Label pill */}
           <div

@@ -44,8 +44,8 @@ export function ContactInfo({
       color: "bg-[#7b57fc]/10 text-[#7b57fc]",
       labelEn: "Email",
       labelAr: "البريد الإلكتروني",
-      value: "mewansourcing@gmail.com",
-      href: "mailto:mewansourcing@gmail.com",
+      value: "info@jahez.online",
+      href: "mailto:info@jahez.online",
     },
     {
       icon: WhatsAppIcon,

@@ -210,29 +210,10 @@ export function HomeHero() {
       <div className="absolute inset-0 pointer-events-none opacity-[0.04]" />
 
       <div
-        className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 w-full flex flex-col items-center gap-10 md:gap-14"
+        className="relative max-w-6xl mt-16 mx-auto px-4 md:px-6 lg:px-8 w-full flex flex-col items-center gap-10 md:gap-14"
         dir={isAr ? "rtl" : "ltr"}
       >
-        {/* ── Trust badge with SVG flags ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8"
-        >
-          <div className="flex items-center gap-1">
-            <SA className="w-4 h-4" />
-            <YE className="w-4 h-4" />
-            <AE className="w-4 h-4" />
-            <CN className="w-4 h-4" />
-            <US className="w-4 h-4" />
-          </div>
-
-          <span className="text-xs font-semibold text-[#7b57fc]">
-            {isAr ? "نعمل في ٥ دول حول العالم" : "Operating across 5 countries"}
-          </span>
-          <Zap className="w-3 h-3 text-[#7b57fc]" />
-        </motion.div>
+       
 
         {/* ── Main headline ── */}
         <div className="text-center space-y-5 max-w-3xl">

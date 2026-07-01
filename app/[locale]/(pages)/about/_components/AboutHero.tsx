@@ -138,22 +138,10 @@ export function AboutHero({ isAr, locale }: AboutHeroProps) {
       <div className="absolute bottom-0 -left-24 w-48 h-48 rounded-full orb-brand pointer-events-none" />
 
       <div
-        className="relative max-w-5xl mx-auto px-4 md:px-6 lg:px-8 w-full flex flex-col items-center gap-10"
+        className="relative max-w-5xl mt-16 mx-auto px-4 md:px-6 lg:px-8 w-full flex flex-col items-center gap-10"
         dir={isAr ? "rtl" : "ltr"}
       >
-        {/* ── Top eyebrow ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
-          className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7b57fc]/25 bg-[#7b57fc]/8"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#7b57fc]" />
-          <span className="text-xs font-semibold text-[#7b57fc]">
-            {isAr ? "قصتنا ومهمتنا" : "Our story & mission"}
-          </span>
-          <Globe className="w-3.5 h-3.5 text-[#7b57fc]" />
-        </motion.div>
+        
 
         {/* ── Headline ── */}
         <motion.div

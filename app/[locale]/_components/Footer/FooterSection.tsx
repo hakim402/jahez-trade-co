@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { AiFillTikTok } from "react-icons/ai";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WhatsApp SVG (inline — no external dep)
@@ -242,7 +243,7 @@ function ContactRow({ isAr }: { isAr: boolean }) {
 
       {/* Email */}
       <a
-        href="mailto:support@yourplatform.com"
+        href="mailto:info@jahez.online"
         className="flex items-center gap-2 px-4 py-2 rounded-full border border-border/60 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-[#7b57fc]/40 transition-all hover:-translate-y-0.5"
       >
         <Mail className="w-3.5 h-3.5" />
@@ -439,7 +440,7 @@ export function FooterSection() {
           {/* Social Media Icons */}
           <div className="flex items-center gap-3">
             <a
-              href="https://www.facebook.com/share/17cE3NkE5k/?mibextid=wwXIfr"
+              href="https://www.facebook.com/profile.php?id=61590643993991"
               target="_blank"
               rel="noopener noreferrer"
               aria-label={isAr ? "فيسبوك" : "Facebook"}
@@ -448,7 +449,7 @@ export function FooterSection() {
               <Facebook className="w-4 h-4" />
             </a>
             <a
-              href="https://www.instagram.com/jahez.t.co?igsh=MXdzZnRmYmQ4YzFncA%3D%3D&utm_source=qr"
+              href="https://www.instagram.com/jahez_trade_co/"
               target="_blank"
               rel="noopener noreferrer"
               aria-label={isAr ? "إنستغرام" : "Instagram"}
@@ -457,13 +458,13 @@ export function FooterSection() {
               <Instagram className="w-4 h-4" />
             </a>
             <a
-              href="#" // ← placeholder – update when X link is ready
+              href="https://www.tiktok.com/@jahez.trade.co?is_from_webapp=1&sender_device=pc"
               target="_blank"
               rel="noopener noreferrer"
               aria-label={isAr ? "إكس" : "X"}
               className="text-muted-foreground/60 hover:text-foreground transition-colors"
             >
-              <Twitter className="w-4 h-4" />
+              <AiFillTikTok  className="w-4 h-4" />
             </a>
           </div>
         </div>

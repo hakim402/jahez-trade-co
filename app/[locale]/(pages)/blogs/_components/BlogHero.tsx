@@ -33,23 +33,8 @@ export function BlogHero({
       <div className="absolute -bottom-20 -right-20 w-60 h-60 rounded-full orb-brand pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 w-48 h-48 rounded-full orb-brand pointer-events-none" />
 
-      <div className="relative max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-24">
+      <div className="relative max-w-6xl mt-16 mx-auto px-4 md:px-6 lg:px-8 py-24">
         <div className="flex flex-col items-center gap-8">
-          {/* Top badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.4 }}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-color/25 bg-color/8"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-color" />
-            <span className="text-xs font-semibold text-color">
-              {isAr
-                ? "أحدث المقالات والنصائح من خبرائنا"
-                : "Latest insights & tips from our experts"}
-            </span>
-            <Sparkles className="w-3.5 h-3.5 text-color" />
-          </motion.div>
 
           {/* Headline */}
           <motion.div
