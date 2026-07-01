@@ -3,7 +3,6 @@
 import { Metadata } from "next";
 import { getLocale } from "next-intl/server";
 import { Header } from "./_components/Header/Header";
-import Pricing from "./_components/Pricing/Pricing";
 import { FeatureSections } from "./_components/Features/FeaturesSection";
 import { VideoBookingSections } from "./_components/Features/VideoBookingSection";
 import { HomeHero } from "./_components/Hero/HomeHero";
@@ -32,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const description = isAr
     ? "جاهز تساعدك في البحث عن المنتجات من الصين، طلب عروض الأسعار، حجز مكالمات فيديو مباشرة من الأسواق، وخدمات الاستيراد والاستشارات التجارية."
-    : "Source products from China with JAHEZ. Request quotations, find suppliers, book live market video calls, explore trending products, and get import and business consulting services.";
+    : "Source products from China with JAHEZ TRADE CO. Request quotations, find suppliers, book live market video calls, explore trending products, and get import and business consulting services.";
 
   const pageUrl = `${baseUrl}/${locale}`;
 

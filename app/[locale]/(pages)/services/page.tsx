@@ -29,7 +29,7 @@ export async function generateMetadata({
 
   const title = isAr
     ? "خدمات الاستشارة | جاهز"
-    : "Consulting Services | JAHEZ";
+    : "Consulting Services | JAHEZ TRADE CO";
 
   const description = isAr
     ? "استكشف خدمات الاستشارة المتخصصة في مصادر المنتجات واللوجستيات ودخول الأسواق. خبراء في مساعدتك على النمو."
@@ -47,7 +47,7 @@ export async function generateMetadata({
     url: `${baseUrl}/images/services-og.jpg`, // Update with actual path if available
     width: 1200,
     height: 630,
-    alt: isAr ? "خدمات جاهز الاستشارية" : "JAHEZ Consulting Services",
+    alt: isAr ? "خدمات جاهز الاستشارية" : "JAHEZ TRADE CO Consulting Services",
   };
 
   return {
@@ -58,7 +58,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/${locale}/services`,
-      siteName: isAr ? "جاهز" : "JAHEZ",
+      siteName: isAr ? "جاهز" : "JAHEZ TRADE CO",
       locale: isAr ? "ar_SA" : "en_US",
       type: "website",
       images: ogImage,

@@ -21,10 +21,10 @@ export async function generateMetadata({
   const isAr = locale === "ar";
   const baseUrl = "https://jahez.online";
 
-  const title = isAr ? "اتصل بنا | جاهز" : "Contact Us | JAHEZ";
+  const title = isAr ? "اتصل بنا | جاهز" : "Contact Us | JAHEZ TRADE CO";
   const description = isAr
     ? "تواصل مع فريق جاهز لطلبات توريد المنتجات، حجز الفيديو كول، أو الاستشارات التجارية."
-    : "Get in touch with the JAHEZ team for product sourcing, video bookings, or business consulting.";
+    : "Get in touch with the JAHEZ TRADE CO team for product sourcing, video bookings, or business consulting.";
 
   const alternates = {
     canonical: `${baseUrl}/${locale}/contact`,
@@ -38,7 +38,7 @@ export async function generateMetadata({
     url: `${baseUrl}/images/contact-og.jpg`,
     width: 1200,
     height: 630,
-    alt: isAr ? "اتصل بجاهز" : "Contact JAHEZ",
+    alt: isAr ? "اتصل بجاهز" : "Contact JAHEZ TRADE CO",
   };
 
   return {
@@ -49,7 +49,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/${locale}/contact`,
-      siteName: isAr ? "جاهز" : "JAHEZ",
+      siteName: isAr ? "جاهز" : "JAHEZ TRADE CO",
       locale: isAr ? "ar_SA" : "en_US",
       type: "website",
       images: ogImage,

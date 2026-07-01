@@ -26,7 +26,7 @@ export async function generateMetadata({
   const isAr = locale === "ar";
   const baseUrl = "https://jahez.online";
 
-  const title = isAr ? "المدونة | جاهز" : "Blog | JAHEZ";
+  const title = isAr ? "المدونة | جاهز" : "Blog | JAHEZ TRADE CO";
   const description = isAr
     ? "اقرأ أحدث المقالات والنصائح حول استيراد المنتجات، الخدمات اللوجستية، ودخول الأسواق."
     : "Read the latest articles and insights on product sourcing, logistics, and market entry.";
@@ -45,7 +45,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/${locale}/blogs`,
-      siteName: "JAHEZ",
+      siteName: "JAHEZ TRADE CO",
       locale: isAr ? "ar_SA" : "en_US",
       type: "website",
     },

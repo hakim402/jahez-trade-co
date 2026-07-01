@@ -26,7 +26,7 @@ export async function generateMetadata({
 
   const title = isAr
     ? "المنتجات الرائجة | جاهز"
-    : "Trending Products | JAHEZ";
+    : "Trending Products | JAHEZ TRADE CO";
 
   const description = isAr
     ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
@@ -44,7 +44,7 @@ export async function generateMetadata({
     url: `${baseUrl}/images/products-og.jpg`, // Update with actual path if available
     width: 1200,
     height: 630,
-    alt: isAr ? "منتجات جاهز الرائجة" : "JAHEZ Trending Products",
+    alt: isAr ? "منتجات جاهز الرائجة" : "JAHEZ TRADE CO Trending Products",
   };
 
   return {
@@ -55,7 +55,7 @@ export async function generateMetadata({
       title,
       description,
       url: `${baseUrl}/${locale}/products`,
-      siteName: isAr ? "جاهز" : "JAHEZ",
+      siteName: isAr ? "جاهز" : "JAHEZ TRADE CO",
       locale: isAr ? "ar_SA" : "en_US",
       type: "website",
       images: ogImage,

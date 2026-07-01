@@ -38,7 +38,7 @@ export default async function LocaleLayout({ children, params }: Props) {
     description:
       locale === "ar"
         ? "جاهز تقدم خدمات التوريد من الصين، طلب عروض الأسعار، مكالمات فيديو مباشرة من الأسواق، والاستشارات التجارية."
-        : "JAHEZ provides China product sourcing, quotation requests, live market video calls, product inspection, shipping support, and business consulting services.",
+        : "JAHEZ TRADE CO provides China product sourcing, quotation requests, live market video calls, product inspection, shipping support, and business consulting services.",
     sameAs: [],
   };
 

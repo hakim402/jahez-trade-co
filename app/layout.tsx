@@ -26,11 +26,11 @@ const cairo = Cairo({
 export const metadata: Metadata = {
   metadataBase: new URL("https://jahez.online"),
   title: {
-    template: "%s | JAHEZ",
-    default: "JAHEZ China Product Sourcing & Import Services",
+    template: "%s | JAHEZ TRADE CO",
+    default: "JAHEZ TRADE CO China Product Sourcing & Import Services",
   },
   description:
-    "JAHEZ helps businesses source products from China, request quotations, book live market video calls, and get product sourcing, inspection, shipping, and business consulting services.",
+    "JAHEZ TRADE CO helps businesses source products from China, request quotations, book live market video calls, and get product sourcing, inspection, shipping, and business consulting services.",
   verification: {
     google: "nZi9ngdAitHA46eBbJIOdPwpAQcfe7a2PRaB1R6LR68",
   },
