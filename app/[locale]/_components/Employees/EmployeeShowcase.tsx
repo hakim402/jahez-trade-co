@@ -1,3 +1,5 @@
+// app/[locale]/_components/Employees/EmployeeShowcase.tsx
+
 import { cachedGetPublicEmployees } from "./actions";
 import EmployeeShowcaseClient from "./EmployeeShowcaseClient";
 

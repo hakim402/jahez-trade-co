@@ -1,14 +1,14 @@
 // app/[locale]/page.tsx
 
 import { Metadata } from "next";
-import { getLocale } from "next-intl/server";
+import { setRequestLocale } from "next-intl/server";
 import { Header } from "./_components/Header/Header";
 import { FeatureSections } from "./_components/Features/FeaturesSection";
 import { VideoBookingSections } from "./_components/Features/VideoBookingSection";
 import { HomeHero } from "./_components/Hero/HomeHero";
 import { HowItWorks } from "./_components/HowItWork/HowItWorks";
 import { FooterSection } from "./_components/Footer/FooterSection";
-import { TrendingProductsSection } from "./(pages)/products/_components/TrendingProductsSection";
+import { TrendingProductsSection } from "./_components/TrendingProducts/TrendingProductsSection";
 import { FooterHero } from "./_components/Footer/FooterHero";
 import { HowWeOperate } from "./(pages)/about/_components/HowWeOperate";
 import { MissionValues } from "./(pages)/about/_components/MissionValues";
@@ -43,6 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       languages: {
         en: `${baseUrl}/en`,
         ar: `${baseUrl}/ar`,
+        "x-default": `${baseUrl}/en`,
       },
     },
     openGraph: {
@@ -72,8 +73,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function Home() {
-  const locale = await getLocale();
+export default async function Home({ params }: Props) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const isAr = locale === "ar";
 
   return (

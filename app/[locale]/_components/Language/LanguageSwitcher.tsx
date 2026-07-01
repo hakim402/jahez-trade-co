@@ -3,7 +3,7 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { usePathname, useRouter } from "@/i18n/routing";
+import { usePathname } from "@/i18n/routing";
 import { useState, useRef, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Check } from "lucide-react";
@@ -22,7 +22,6 @@ const LOCALES = [
 
 export function LanguageSwitcher() {
   const locale = useLocale();
-  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -31,8 +30,26 @@ export function LanguageSwitcher() {
   const FlagComponent = active.flag;
 
   const handleChange = (newLocale: string) => {
-    router.push(pathname, { locale: newLocale });
+    if (newLocale === locale) {
+      setOpen(false);
+      return;
+    }
+
+    // Full page reload on locale switch (not router.push).
+    // The root layout renders a <script type="application/ld+json"> whose
+    // content (name/description) differs per locale. A soft/client-side
+    // navigation keeps that layout mounted and asks React to patch the
+    // script's content on the client — which React explicitly disallows
+    // for <script> tags, producing the console error. A hard navigation
+    // makes the whole page — including the correct script — come straight
+    // from the server, avoiding the issue entirely. This also matches how
+    // most production sites handle language switches, since providers like
+    // Clerk's localization and web fonts benefit from a fresh boot too.
+    const targetPath =
+      pathname === "/" ? `/${newLocale}` : `/${newLocale}${pathname}`;
+
     setOpen(false);
+    window.location.href = targetPath;
   };
 
   // Close on outside click

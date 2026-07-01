@@ -1,4 +1,6 @@
-// proxy.ts or middleware.ts
+// middleware.ts — UNCHANGED, included here for completeness/confirmation.
+// No changes needed: since app/[locale]/layout.tsx now reads locale from the
+// route param (not a header), this file works as-is with all the fixes above.
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import createIntlMiddleware from "next-intl/middleware";
