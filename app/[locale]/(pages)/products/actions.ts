@@ -33,6 +33,39 @@ export async function getTrendingProducts(limit = 50) {
   }))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET SINGLE PRODUCT BY SLUG (public product detail page)
+//
+// Looks up, in order: the slug, then the raw `id`. The `id` fallback keeps
+// any already-shared/indexed `/products/{id}` links working even after
+// switching the canonical route to slugs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPublicProductBySlug(slugOrId: string) {
+  const p = await prisma.trendingProduct.findFirst({
+    where: {
+      isDeleted: false,
+      OR: [{ slug: slugOrId }, { id: slugOrId }],
+    },
+    include: {
+      images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }] },
+      _count: { select: { relatedRequests: true } },
+    },
+  })
+
+  if (!p) return null
+
+  return {
+    ...p,
+    estimatedPrice: p.estimatedPrice !== null ? Number(p.estimatedPrice) : null,
+    featuredUntil:  p.featuredUntil  ? p.featuredUntil.toISOString()    : null,
+    createdAt:      p.createdAt.toISOString(),
+    updatedAt:      p.updatedAt.toISOString(),
+  }
+}
+
+// Kept for backward compatibility with any other callers that still look
+// products up by their raw id. New code should prefer getPublicProductBySlug.
 export async function getPublicProductById(id: string) {
   const p = await prisma.trendingProduct.findUnique({
     where: { id, isDeleted: false },
@@ -145,9 +178,23 @@ export async function linkProductRequest(
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SITEMAP HELPER – Lightweight fetch of all public product IDs and updatedAt
+// SITEMAP HELPER – Lightweight fetch of all public product slugs/ids
 // ─────────────────────────────────────────────────────────────────────────────
 
+export async function getAllProductSlugsForSitemap(): Promise<
+  Array<{ id: string; slug: string | null; updatedAt: Date }>
+> {
+  const products = await prisma.trendingProduct.findMany({
+    where: { isActive: true, isDeleted: false },
+    select: { id: true, slug: true, updatedAt: true },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return products;
+}
+
+// Deprecated — kept only so any lingering imports don't break the build.
+// Prefer getAllProductSlugsForSitemap for new code.
 export async function getAllProductIdsForSitemap(): Promise<
   Array<{ id: string; updatedAt: Date }>
 > {

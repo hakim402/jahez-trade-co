@@ -8,13 +8,13 @@ import { VideoBookingSections } from "./_components/Features/VideoBookingSection
 import { HomeHero } from "./_components/Hero/HomeHero";
 import { HowItWorks } from "./_components/HowItWork/HowItWorks";
 import { FooterSection } from "./_components/Footer/FooterSection";
-import { TrendingProductsSection } from "./_components/TrendingProducts/TrendingProductsSection";
 import { FooterHero } from "./_components/Footer/FooterHero";
 import { HowWeOperate } from "./(pages)/about/_components/HowWeOperate";
 import { MissionValues } from "./(pages)/about/_components/MissionValues";
 import { ServicesShowcase } from "./(pages)/services/_components/ServicesShowcase";
 import HomeBlogShowCase from "./(pages)/blogs/_components/HomeBlogShowCase";
 import EmployeeShowcase from "./_components/Employees/EmployeeShowcase";
+import { TrendingProductsSection } from "./(pages)/products/_components/TrendingProductsSection";
 
 type Props = {
   params: Promise<{ locale: string }>;

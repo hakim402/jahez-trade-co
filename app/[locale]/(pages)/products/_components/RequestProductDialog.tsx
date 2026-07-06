@@ -38,6 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import { createProductRequest } from "@/app/[locale]/dashboard/(routes)/requests/actions";
 import { linkProductRequest } from "@/app/[locale]/(pages)/products/actions";
+import { getProductHref } from "@/app/[locale]/(pages)/products/_lib/product-url";
 import { Button } from "@/components/ui/button";
 import SA from "country-flag-icons/react/3x2/SA";
 import AE from "country-flag-icons/react/3x2/AE";
@@ -53,6 +54,7 @@ export type ProductInfo = {
   id: string;
   name: string;
   nameAr?: string | null;
+  slug?: string | null;
   shortDesc?: string | null;
   shortDescAr?: string | null;
   description?: string | null;
@@ -175,6 +177,7 @@ function ProductBanner({
   locale: string;
 }) {
   const name = isAr && product.nameAr ? product.nameAr : product.name;
+  const href = getProductHref(product, locale);
   return (
     <div
       className="flex items-center gap-3 p-3.5 rounded-xl border border-[#7b57fc]/20 bg-[#7b57fc]/5"
@@ -210,7 +213,7 @@ function ProductBanner({
         )}
       </div>
       <a
-        href={`/${locale}/products/${product.id}`}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}

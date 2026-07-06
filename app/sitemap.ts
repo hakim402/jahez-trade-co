@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import type { MetadataRoute } from "next";
 import { routing } from "@/i18n/routing";
-import { getAllProductIdsForSitemap } from "@/app/[locale]/(pages)/products/actions";
+import { getAllProductSlugsForSitemap } from "@/app/[locale]/(pages)/products/actions";
 import { getAllServiceIdsForSitemap } from "@/app/[locale]/(pages)/services/actions";
 import { getAllPublicSlugs } from "@/app/[locale]/(pages)/blogs/actions";
 
@@ -35,13 +35,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
 
   // Dynamic Products
+  // Every product uses a single slug shared across locales — only the
+  // `/{locale}/` prefix changes, falling back to the raw `id` for any
+  // legacy records that were never backfilled with a slug.
   try {
-    const products = await getAllProductIdsForSitemap();
+    const products = await getAllProductSlugsForSitemap();
 
     products.forEach((product) => {
+      const slug = product.slug || product.id;
+
       routing.locales.forEach((locale) => {
         entries.push({
-          url: `${baseUrl}/${locale}/product/${product.id}`,
+          url: `${baseUrl}/${locale}/products/${slug}`,
           lastModified: product.updatedAt ?? new Date(),
           changeFrequency: "weekly",
           priority: 0.7,
@@ -49,7 +54,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     });
   } catch (error) {
-    console.error("Sitemap: Failed to fetch product IDs", error);
+    console.error("Sitemap: Failed to fetch product slugs", error);
   }
 
   // Dynamic Services

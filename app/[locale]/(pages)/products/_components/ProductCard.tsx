@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import { Star, Package, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RequestProductButton } from "./RequestProductDialog";
+import { getProductHref } from "../_lib/product-url";
 import CN from "country-flag-icons/react/3x2/CN";
 import US from "country-flag-icons/react/3x2/US";
 import SA from "country-flag-icons/react/3x2/SA";
@@ -20,6 +21,7 @@ export type Product = {
   id: string;
   name: string;
   nameAr: string | null;
+  slug: string | null;
   shortDesc: string | null;
   shortDescAr: string | null;
   description: string | null;
@@ -64,6 +66,7 @@ export function ProductCard({
 }: ProductCardProps) {
   const params = useParams();
   const locale = params.locale as string;
+  const href = getProductHref(product, locale);
   const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const name = isAr && product.nameAr ? product.nameAr : product.name;
   const desc =
@@ -106,10 +109,7 @@ export function ProductCard({
         )}
       >
         {/* ── Clickable area: image + info ── */}
-        <Link
-          href={`/${locale}/products/${product.id}`}
-          className="flex flex-col flex-1"
-        >
+        <Link href={href} className="flex flex-col flex-1">
           {/* Image */}
           <div className="relative aspect-square overflow-hidden bg-muted/30">
             {primary ? (
@@ -229,6 +229,7 @@ export function ProductCard({
               id: product.id,
               name: product.name,
               nameAr: product.nameAr,
+              slug: product.slug,
               shortDesc: product.shortDesc,
               shortDescAr: product.shortDescAr,
               description: product.description,

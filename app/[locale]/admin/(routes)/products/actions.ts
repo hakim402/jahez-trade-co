@@ -26,7 +26,6 @@ export type CreateProductInput = {
   name: string
   nameAr?: string
   slug?: string
-  slugAr?: string
   description?: string
   descriptionAr?: string
   shortDesc?: string
@@ -132,27 +131,34 @@ async function logAdminAction(opts: {
 // Slug helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Basic slugify — works for Latin text. For Arabic (or any non-Latin) input,
-// diacritics/punctuation are stripped and whitespace becomes hyphens, but the
-// script itself is preserved so Arabic slugs stay readable/SEO-friendly.
+// Basic slugify — works for any script (Latin, Arabic, etc). Punctuation and
+// symbols are stripped and whitespace becomes hyphens; letters and numbers in
+// any language are preserved as-is (Unicode slugs are valid URLs).
+//
+// IMPORTANT: this normalizes to NFC (composed), not NFKD (decomposed).
+// NFKD would split precomposed Arabic Hamza letters (أ إ ؤ ئ) into a base
+// letter + a separate combining mark — and since that combining mark isn't
+// a "letter", the filter below would silently delete it, corrupting the
+// word (e.g. "كهربائي" → "كهربايي"). NFC keeps those as single letters, and
+// also keeps accented Latin letters (é, ñ, …) intact rather than mangling
+// them, which is fine — Unicode slugs are valid URL segments.
 function slugify(text: string): string {
   return text
     .toString()
     .trim()
     .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "") // strip Latin diacritics
+    .normalize("NFC")
     .replace(/[^\p{L}\p{N}\s-]/gu, "") // keep letters (any script), numbers, spaces, hyphens
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
 }
 
-// Ensures the generated slug is unique for the given field (slug | slugAr),
-// appending -2, -3, … as needed. `excludeId` lets updates ignore themselves.
+// Ensures the generated slug is unique, appending -2, -3, … as needed.
+// `excludeId` lets updates ignore themselves.
 async function generateUniqueSlug(
   base: string,
-  field: "slug" | "slugAr",
+  field: "slug",
   excludeId?: string,
 ): Promise<string> {
   const root = slugify(base) || "product"
@@ -375,7 +381,7 @@ export async function getProductBySlug(slug: string) {
       where: {
         isDeleted: false,
         isActive: true,
-        OR: [{ slug }, { slugAr: slug }],
+        OR: [{ slug }],
       },
       include: productDetailInclude,
     })
@@ -556,16 +562,12 @@ export async function createProduct(input: CreateProductInput) {
     // Slug: use the provided value if given, otherwise derive from the name.
     // Always resolved through generateUniqueSlug so collisions get a -2, -3… suffix.
     const slug = await generateUniqueSlug(input.slug?.trim() || input.name, "slug")
-    const slugAr = (input.slugAr?.trim() || input.nameAr?.trim())
-      ? await generateUniqueSlug((input.slugAr?.trim() || input.nameAr!)!, "slugAr")
-      : null
 
     const created = await prisma.trendingProduct.create({
       data: {
         name: input.name.trim(),
         nameAr: input.nameAr?.trim(),
         slug,
-        slugAr,
         description: input.description?.trim(),
         descriptionAr: input.descriptionAr?.trim(),
         shortDesc: input.shortDesc?.trim(),
@@ -619,11 +621,11 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
   try {
     await requireAdmin()
 
-    const existing = await prisma.trendingProduct.findUnique({ where: { id }, select: { id: true, isDeleted: true, slug: true, slugAr: true } })
+    const existing = await prisma.trendingProduct.findUnique({ where: { id }, select: { id: true, isDeleted: true, slug: true } })
     if (!existing) return { success: false, error: "Product not found" }
     if (existing.isDeleted) return { success: false, error: "Cannot update a deleted product" }
 
-    // Only touch slug/slugAr if the caller actually sent a value, and only
+    // Only touch slug if the caller actually sent a value, and only
     // regenerate when it differs from what's stored (avoids needless -2 suffixes).
     let nextSlug: string | undefined
     if (input.slug !== undefined) {
@@ -632,13 +634,6 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
         ? (slugify(desired) === existing.slug ? existing.slug! : await generateUniqueSlug(desired, "slug", id))
         : existing.slug ?? undefined
     }
-    let nextSlugAr: string | null | undefined
-    if (input.slugAr !== undefined) {
-      const desired = input.slugAr?.trim()
-      nextSlugAr = desired
-        ? (slugify(desired) === existing.slugAr ? existing.slugAr : await generateUniqueSlug(desired, "slugAr", id))
-        : null
-    }
 
     const updated = await prisma.trendingProduct.update({
       where: { id },
@@ -646,7 +641,6 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
         ...(input.name !== undefined && { name: input.name.trim() }),
         ...(input.nameAr !== undefined && { nameAr: input.nameAr?.trim() }),
         ...(nextSlug !== undefined && { slug: nextSlug }),
-        ...(nextSlugAr !== undefined && { slugAr: nextSlugAr }),
         ...(input.description !== undefined && { description: input.description?.trim() }),
         ...(input.descriptionAr !== undefined && { descriptionAr: input.descriptionAr?.trim() }),
         ...(input.shortDesc !== undefined && { shortDesc: input.shortDesc?.trim() }),
@@ -682,7 +676,7 @@ export async function updateProduct(id: string, input: UpdateProductInput) {
 
 export async function checkSlugAvailability(
   slugInput: string,
-  field: "slug" | "slugAr",
+  field: "slug",
   excludeId?: string,
 ): Promise<ActionResult<{ available: boolean; suggested: string }>> {
   try {

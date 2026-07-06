@@ -1,8 +1,8 @@
 "use client";
 
-// app/[locale]/(pages)/products/_components/TrendingProductsClient.tsx
+// app/[locale]/(pages)/products/_components/TrendingProductsSection.tsx
 
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
@@ -20,7 +20,12 @@ import {
 import { cn } from "@/lib/utils";
 import Carousel from "@/app/[locale]/_components/Carousel/carousel";
 import { RequestProductButton } from "./RequestProductDialog";
-import { incrementProductView } from "../actions";
+import {
+  getTrendingProducts,
+  getPublicProductCategories,
+  incrementProductView,
+} from "../actions";
+import { getProductHref } from "../_lib/product-url";
 import type { Product } from "./ProductCard";
 import { Button } from "@/components/ui/button";
 import CN from "country-flag-icons/react/3x2/CN";
@@ -56,6 +61,21 @@ function getTrendBadge(score: number, isAr: boolean) {
   return null;
 }
 
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl border border-border/50 overflow-hidden bg-card h-full">
+      <div className="aspect-square bg-muted animate-pulse" />
+      <div className="p-4 space-y-2.5">
+        <div className="h-3.5 bg-muted rounded-lg animate-pulse w-3/4" />
+        <div className="h-3   bg-muted rounded-lg animate-pulse w-1/2" />
+        <div className="h-9   bg-muted rounded-xl animate-pulse mt-3" />
+      </div>
+    </div>
+  );
+}
+
 // ─── Featured hero card ───────────────────────────────────────────────────────
 
 function FeaturedHeroCard({
@@ -67,6 +87,7 @@ function FeaturedHeroCard({
   isAr: boolean;
   locale: string;
 }) {
+  const href = getProductHref(product, locale);
   const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const name = isAr && product.nameAr ? product.nameAr : product.name;
   const desc =
@@ -86,7 +107,7 @@ function FeaturedHeroCard({
       <div className="grid grid-cols-1 sm:grid-cols-5 min-h-65">
         {/* Image */}
         <Link
-          href={`/${locale}/products/${product.id}`}
+          href={href}
           onClick={() => incrementProductView(product.id).catch(() => {})}
           className="relative sm:col-span-2 overflow-hidden bg-muted/30 min-h-50 block"
         >
@@ -189,6 +210,7 @@ function FeaturedHeroCard({
                     id: product.id,
                     name: product.name,
                     nameAr: product.nameAr,
+                    slug: product.slug,
                     shortDesc: product.shortDesc,
                     shortDescAr: product.shortDescAr,
                     description: product.description,
@@ -202,7 +224,7 @@ function FeaturedHeroCard({
                 />
               </div>
               <Link
-                href={`/${locale}/products/${product.id}`}
+                href={href}
                 className="h-9 px-4 rounded-xl border border-border/60 text-sm font-semibold text-muted-foreground flex items-center hover:text-foreground hover:border-[#7b57fc]/40 transition-all whitespace-nowrap"
               >
                 {isAr ? "تفاصيل" : "Details"}
@@ -226,6 +248,7 @@ function CarouselCard({
   isAr: boolean;
   locale: string;
 }) {
+  const href = getProductHref(product, locale);
   const primary = product.images.find((i) => i.isPrimary) ?? product.images[0];
   const name = isAr && product.nameAr ? product.nameAr : product.name;
   const desc =
@@ -241,7 +264,7 @@ function CarouselCard({
     <div className="group flex flex-col h-full rounded-2xl border border-border/50 bg-card overflow-hidden transition-all duration-300 hover:border-[#7b57fc]/35 hover:shadow-lg hover:shadow-[#7b57fc]/6 hover:-translate-y-1">
       {/* Image — Link for navigation */}
       <Link
-        href={`/${locale}/products/${product.id}`}
+        href={href}
         onClick={() => incrementProductView(product.id).catch(() => {})}
         className="relative aspect-square overflow-hidden bg-muted/30 block shrink-0"
       >
@@ -283,7 +306,7 @@ function CarouselCard({
 
       {/* Info — also a link */}
       <Link
-        href={`/${locale}/products/${product.id}`}
+        href={href}
         className={cn(
           "flex flex-col gap-1.5 px-3.5 pt-3 flex-1",
           isAr && "text-right",
@@ -328,6 +351,7 @@ function CarouselCard({
             id: product.id,
             name: product.name,
             nameAr: product.nameAr,
+            slug: product.slug,
             shortDesc: product.shortDesc,
             shortDescAr: product.shortDescAr,
             description: product.description,
@@ -413,23 +437,32 @@ function ArrowBtn({
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export default function TrendingProductsClient({
-  initialProducts,
-  initialCategories,
-}: {
-  initialProducts: Product[];
-  initialCategories: Category[];
-}) {
+export function TrendingProductsSection() {
   const locale = useLocale();
   const isAr = locale === "ar";
 
-  // Data arrives pre-fetched via props (server-rendered) — no loading state,
-  // no client-side fetch. Real content ships in the initial HTML response.
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    Promise.all([getTrendingProducts(20), getPublicProductCategories()])
+      .then(([raw, cats]) => {
+        setProducts(raw as Product[]);
+        setCategories(cats);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const displayed = activeCategory
-    ? initialProducts.filter((p) => p.category === activeCategory)
-    : initialProducts;
+    ? products.filter((p) => p.category === activeCategory)
+    : products;
   const topFeatured = displayed.find((p) => p.isFeatured) ?? null;
   const carouselItems = displayed.filter((p) => p.id !== topFeatured?.id);
 
@@ -469,11 +502,11 @@ export default function TrendingProductsClient({
                 </>
               )}
             </h2>
-            {initialProducts.length > 0 && (
+            {!loading && products.length > 0 && (
               <p className="text-sm text-muted-foreground mt-1.5">
                 {isAr
-                  ? `${initialProducts.length} منتج متاح الآن`
-                  : `${initialProducts.length} products available now`}
+                  ? `${products.length} منتج متاح الآن`
+                  : `${products.length} products available now`}
               </p>
             )}
           </div>
@@ -492,22 +525,30 @@ export default function TrendingProductsClient({
         </motion.div>
 
         {/* Category pills */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6"
-        >
-          <CategoryPills
-            categories={initialCategories}
-            active={activeCategory}
-            onChange={setActiveCategory}
-            isAr={isAr}
-          />
-        </motion.div>
+        {!loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <CategoryPills
+              categories={categories}
+              active={activeCategory}
+              onChange={setActiveCategory}
+              isAr={isAr}
+            />
+          </motion.div>
+        )}
 
         {/* Content */}
-        {displayed.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        ) : displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="w-10 h-10 text-muted-foreground/25 mb-3" />
             <p className="text-muted-foreground text-sm">
@@ -573,7 +614,7 @@ export default function TrendingProductsClient({
         )}
 
         {/* Bottom CTAs */}
-        {initialProducts.length > 0 && (
+        {!loading && products.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}

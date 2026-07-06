@@ -1,4 +1,4 @@
-// app/[locale]/(pages)/products/[id]/page.tsx
+// app/[locale]/(pages)/products/[slug]/page.tsx
 
 import { notFound } from "next/navigation";
 import { getLocale } from "next-intl/server";
@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { getPublicProductById, incrementProductView } from "../actions";
+import { getPublicProductBySlug, incrementProductView } from "../actions";
+import { getProductSlug } from "../_lib/product-url";
 import { Header } from "@/app/[locale]/_components/Header/Header";
 import CN from "country-flag-icons/react/3x2/CN";
 import US from "country-flag-icons/react/3x2/US";
@@ -28,7 +29,7 @@ import YE from "country-flag-icons/react/3x2/YE";
 export const revalidate = 300;
 
 interface PageProps {
-  params: Promise<{ id: string; locale: string }>;
+  params: Promise<{ slug: string; locale: string }>;
 }
 
 // Map country code to SVG flag component
@@ -43,24 +44,54 @@ const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { id } = await params;
-  const product = await getPublicProductById(id);
+  const { slug, locale } = await params;
+  const isAr = locale === "ar";
+  const baseUrl = "https://jahez.online";
+
+  const product = await getPublicProductBySlug(slug);
   if (!product) return { title: "Product Not Found" };
+
+  const name = isAr && product.nameAr ? product.nameAr : product.name;
+  const description =
+    (isAr && product.shortDescAr ? product.shortDescAr : product.shortDesc) ??
+    (isAr && product.descriptionAr ? product.descriptionAr : product.description) ??
+    undefined;
+
+  const slugValue = getProductSlug(product);
+
   return {
-    title: product.name,
-    description: product.shortDesc ?? product.description ?? undefined,
+    title: name,
+    description,
+    alternates: {
+      canonical: `${baseUrl}/${locale}/products/${slugValue}`,
+      languages: {
+        en: `${baseUrl}/en/products/${slugValue}`,
+        ar: `${baseUrl}/ar/products/${slugValue}`,
+      },
+    },
     openGraph: {
+      title: name,
+      description,
+      url: `${baseUrl}/${locale}/products/${slugValue}`,
+      locale: isAr ? "ar_SA" : "en_US",
+      type: "website",
+      images: product.images[0] ? [product.images[0].url] : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: name,
+      description,
       images: product.images[0] ? [product.images[0].url] : [],
     },
   };
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
-  const { id } = await params;
+  const { slug } = await params;
   const locale = await getLocale();
   const isAr = locale === "ar";
 
-  const product = await getPublicProductById(id);
+  const product = await getPublicProductBySlug(slug);
   if (!product) notFound();
 
   // Show unavailable screen if product exists but is inactive
@@ -91,11 +122,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
     );
   }
 
-  // estimatedPrice is already number | null — serialized by getPublicProductById
+  // estimatedPrice is already number | null — serialized by getPublicProductBySlug
   const estimatedPrice = product.estimatedPrice;
 
-  // Fire-and-forget view count
-  incrementProductView(id).catch(() => {});
+  // Fire-and-forget view count (keyed by id — stable regardless of slug changes)
+  incrementProductView(product.id).catch(() => {});
 
   const name = isAr && product.nameAr ? product.nameAr : product.name;
   const desc =
@@ -290,6 +321,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   id: product.id,
                   name: product.name,
                   nameAr: product.nameAr,
+                  slug: product.slug,
                   shortDesc: product.shortDesc,
                   shortDescAr: product.shortDescAr,
                   description: product.description,

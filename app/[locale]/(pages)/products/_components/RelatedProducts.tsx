@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { TrendingUp, Package, Star } from "lucide-react";
 import { getRelatedProducts } from "../actions";
+import { getProductHref } from "../_lib/product-url";
 import { getLocale } from "next-intl/server";
 
 interface RelatedProductsProps {
@@ -39,11 +40,12 @@ export async function RelatedProducts({
           const desc = isAr && p.shortDescAr ? p.shortDescAr : p.shortDesc;
           // estimatedPrice is already serialized by getRelatedProducts
           const price = p.estimatedPrice;
+          const href = getProductHref(p, locale);
 
           return (
             <Link
               key={p.id}
-              href={`/${locale}/products/${p.id}`}
+              href={href}
               className="group flex flex-col rounded-2xl border border-border/50 bg-card overflow-hidden transition-all duration-300 hover:border-[#7b57fc]/35 hover:shadow-md hover:-translate-y-0.5"
             >
               {/* Image */}
