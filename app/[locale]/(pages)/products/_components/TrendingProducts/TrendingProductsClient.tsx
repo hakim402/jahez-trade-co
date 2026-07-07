@@ -1,8 +1,8 @@
 "use client";
 
-// app/[locale]/(pages)/products/_components/TrendingProductsSection.tsx
+// app/[locale]/(pages)/products/_components/TrendingProductsClient.tsx
 
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
@@ -19,14 +19,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Carousel from "@/app/[locale]/_components/Carousel/carousel";
-import { RequestProductButton } from "./RequestProductDialog";
-import {
-  getTrendingProducts,
-  getPublicProductCategories,
-  incrementProductView,
-} from "../actions";
-import { getProductHref } from "../_lib/product-url";
-import type { Product } from "./ProductCard";
+import { RequestProductButton } from "../RequestProductDialog";
+import { incrementProductView } from "../../actions";
+import { getProductHref } from "../../_lib/product-url";
+import type { Product } from "../ProductCard";
 import { Button } from "@/components/ui/button";
 import CN from "country-flag-icons/react/3x2/CN";
 import US from "country-flag-icons/react/3x2/US";
@@ -59,21 +55,6 @@ function getTrendBadge(score: number, isAr: boolean) {
       cls: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
     };
   return null;
-}
-
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function SkeletonCard() {
-  return (
-    <div className="rounded-2xl border border-border/50 overflow-hidden bg-card h-full">
-      <div className="aspect-square bg-muted animate-pulse" />
-      <div className="p-4 space-y-2.5">
-        <div className="h-3.5 bg-muted rounded-lg animate-pulse w-3/4" />
-        <div className="h-3   bg-muted rounded-lg animate-pulse w-1/2" />
-        <div className="h-9   bg-muted rounded-xl animate-pulse mt-3" />
-      </div>
-    </div>
-  );
 }
 
 // ─── Featured hero card ───────────────────────────────────────────────────────
@@ -437,32 +418,24 @@ function ArrowBtn({
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export function TrendingProductsSection() {
+export default function TrendingProductsClient({
+  initialProducts,
+  initialCategories,
+}: {
+  initialProducts: Product[];
+  initialCategories: Category[];
+}) {
   const locale = useLocale();
   const isAr = locale === "ar";
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Data arrives pre-fetched via props (server-rendered) — no client-side
+  // fetch, no loading skeleton needed. Real content ships in the first HTML
+  // response, which is what lets Googlebot see actual products.
   const [activeCategory, setActiveCategory] = useState("");
-  const hasFetched = useRef(false);
-
-  useEffect(() => {
-    if (hasFetched.current) return;
-    hasFetched.current = true;
-
-    Promise.all([getTrendingProducts(20), getPublicProductCategories()])
-      .then(([raw, cats]) => {
-        setProducts(raw as Product[]);
-        setCategories(cats);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   const displayed = activeCategory
-    ? products.filter((p) => p.category === activeCategory)
-    : products;
+    ? initialProducts.filter((p) => p.category === activeCategory)
+    : initialProducts;
   const topFeatured = displayed.find((p) => p.isFeatured) ?? null;
   const carouselItems = displayed.filter((p) => p.id !== topFeatured?.id);
 
@@ -502,11 +475,11 @@ export function TrendingProductsSection() {
                 </>
               )}
             </h2>
-            {!loading && products.length > 0 && (
+            {initialProducts.length > 0 && (
               <p className="text-sm text-muted-foreground mt-1.5">
                 {isAr
-                  ? `${products.length} منتج متاح الآن`
-                  : `${products.length} products available now`}
+                  ? `${initialProducts.length} منتج متاح الآن`
+                  : `${initialProducts.length} products available now`}
               </p>
             )}
           </div>
@@ -525,30 +498,22 @@ export function TrendingProductsSection() {
         </motion.div>
 
         {/* Category pills */}
-        {!loading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="mb-6"
-          >
-            <CategoryPills
-              categories={categories}
-              active={activeCategory}
-              onChange={setActiveCategory}
-              isAr={isAr}
-            />
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="mb-6"
+        >
+          <CategoryPills
+            categories={initialCategories}
+            active={activeCategory}
+            onChange={setActiveCategory}
+            isAr={isAr}
+          />
+        </motion.div>
 
         {/* Content */}
-        {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : displayed.length === 0 ? (
+        {displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Package className="w-10 h-10 text-muted-foreground/25 mb-3" />
             <p className="text-muted-foreground text-sm">
@@ -614,7 +579,7 @@ export function TrendingProductsSection() {
         )}
 
         {/* Bottom CTAs */}
-        {!loading && products.length > 0 && (
+        {initialProducts.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}

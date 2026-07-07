@@ -14,7 +14,7 @@ import { MissionValues } from "./(pages)/about/_components/MissionValues";
 import { ServicesShowcase } from "./(pages)/services/_components/ServicesShowcase";
 import HomeBlogShowCase from "./(pages)/blogs/_components/HomeBlogShowCase";
 import EmployeeShowcase from "./_components/Employees/EmployeeShowcase";
-import { TrendingProductsSection } from "./(pages)/products/_components/TrendingProductsSection";
+import { TrendingProductsSection } from "./(pages)/products/_components/TrendingProducts/TrendingProductsSection";
 
 type Props = {
   params: Promise<{ locale: string }>;
