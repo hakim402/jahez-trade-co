@@ -1,18 +1,16 @@
 "use client";
-// app/[locale]/(pages)/blogs/_components/HomeBlogShowCase.tsx
+// app/[locale]/(pages)/blogs/_components/HomeBlogShowCaseClient.tsx
 
-import { useState, useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, useInView, useScroll, useTransform } from "motion/react";
+import { motion, useInView } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  getPublishedPosts,
-  type PublicPostCard,
-} from "@/app/[locale]/(pages)/blogs/actions";
+import { type PublicPostCard } from "@/app/[locale]/(pages)/blogs/actions";
 import { Zap } from "lucide-react";
+import { useState } from "react";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -63,29 +61,6 @@ function getT(locale: Locale) {
     noPosts: ar ? "لا توجد مقالات حالياً." : "No posts found.",
     minRead: ar ? "دقائق" : "min read",
   };
-}
-
-// ─────────────────────────────────────────────
-// SKELETON
-// ─────────────────────────────────────────────
-function SkeletonFeatured() {
-  return (
-    <div className="relative rounded-3xl overflow-hidden bg-muted animate-pulse aspect-video md:aspect-2/1" />
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="rounded-2xl overflow-hidden border border-border/40 bg-card">
-      <div className="h-44 bg-muted animate-pulse" />
-      <div className="p-4 space-y-3">
-        <div className="h-3 w-20 bg-muted animate-pulse rounded-full" />
-        <div className="h-5 w-4/5 bg-muted animate-pulse rounded" />
-        <div className="h-3 w-full bg-muted animate-pulse rounded" />
-        <div className="h-3 w-3/4 bg-muted animate-pulse rounded" />
-      </div>
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────
@@ -481,35 +456,24 @@ function SectionHeader({
 // ─────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
-export default function HomeBlogShowCase() {
+export default function HomeBlogShowCaseClient({
+  initialPosts,
+  initialError,
+}: {
+  initialPosts: PublicPostCard[];
+  initialError: string | null;
+}) {
   const locale = useLocale() as Locale;
-  const [posts, setPosts] = useState<PublicPostCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  // Data arrives pre-fetched via props (server-rendered) — no client fetch,
+  // no loading skeleton needed. Real post content ships in the first HTML
+  // response, which is what lets Googlebot see actual blog posts.
+  const posts = initialPosts;
+  const error = initialError;
 
   const isRtl = locale === "ar";
   const isAr = locale === "ar";
   const t = getT(locale);
-
-  useEffect(() => {
-    async function fetchPosts() {
-      setLoading(true);
-      try {
-        const result = await getPublishedPosts({ locale, page: 1, limit: 7 });
-        if (result.success) {
-          setPosts(result.data.posts);
-          setError(null);
-        } else {
-          setError(result.error);
-        }
-      } catch (err: any) {
-        setError(err?.message ?? "Failed to load posts");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchPosts();
-  }, [locale]);
 
   const featured = posts[0] ?? null;
   const rest = posts.slice(1);
@@ -566,15 +530,13 @@ export default function HomeBlogShowCase() {
         {/* ── Featured Post ── */}
         <div>
           <SectionHeader title={t.featured} isRtl={isRtl} />
-          {loading ? (
-            <SkeletonFeatured />
-          ) : featured ? (
+          {featured ? (
             <FeaturedCard post={featured} locale={locale} t={t} />
           ) : null}
         </div>
 
         {/* ── Recent Posts Grid ── */}
-        {(loading || rest.length > 0) && (
+        {rest.length > 0 && (
           <div>
             <SectionHeader
               title={t.recentPosts}
@@ -583,13 +545,7 @@ export default function HomeBlogShowCase() {
               isRtl={isRtl}
             />
 
-            {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <SkeletonCard key={i} />
-                ))}
-              </div>
-            ) : rest.length === 0 ? (
+            {rest.length === 0 ? (
               <p className="text-muted-foreground text-center py-12">
                 {t.noPosts}
               </p>
@@ -610,7 +566,7 @@ export default function HomeBlogShowCase() {
         )}
 
         {/* ── View All CTA ── */}
-        {!loading && posts.length > 0 && (
+        {posts.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
