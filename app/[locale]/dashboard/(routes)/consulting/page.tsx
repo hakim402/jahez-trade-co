@@ -8,6 +8,11 @@ import { ConsultingPageClient } from "./_components/ConsultingPageClient";
 import { ConsultingPageSkeleton } from "./_components/ConsultingPageSkeleton";
 import { ClientHeader } from "../../_components/ClientHeader";
 
+
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = { title: "Consulting | Dashboard" };
 
 interface PageProps {

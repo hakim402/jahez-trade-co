@@ -4,6 +4,11 @@ import { AdminHeader } from "../../_components/AdminHeader";
 import { NotificationsClient } from "./_components/NotificationsClient";
 import { getNotificationStats } from "./actions";
 
+
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = { title: "Notifications — Admin" };
 
 export default async function NotificationsPage() {

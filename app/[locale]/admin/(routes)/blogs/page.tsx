@@ -7,6 +7,10 @@ import { BlogPageClient } from "./_components/BlogPageClient";
 import { BlogPageSkeleton } from "./_components/BlogPageSkeleton";
 import { AdminHeader } from "../../_components/AdminHeader";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = { title: "Blog Management | Admin" };
 
 type StatusFilter = "all" | "DRAFT" | "PUBLISHED" | "ARCHIVED" | "DELETED";

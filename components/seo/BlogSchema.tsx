@@ -1,24 +1,38 @@
 import JsonLd from './JsonLd';
-import { PublicPostDetail } from '@/app/[locale]/(pages)/blogs/actions';
 import { Locale } from '@/lib/seo/types';
 
 export default function BlogSchema({
   post,
   locale,
 }: {
-  post: PublicPostDetail;
+  post: any; // Accept any, we'll handle safely
   locale: Locale;
 }) {
+  if (!post) return null;
+
+  const title = post.title || '';
+  const slug = post.slug || '';
+  const description = post.seo?.metaDescription || post.excerpt || '';
+  const authorName = post.author?.fullName || 'JAHEZ';
+  const publishedDate = post.publishedAt || undefined;
+
+  // Find image: seo > primaryImage > images[0] > fallback
+  const image =
+    post.seo?.ogImageUrl ||
+    post.primaryImage?.url ||
+    post.images?.[0]?.url ||
+    'https://jahez.online/og-image.jpg';
+
   const data = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
-    headline: post.title,
-    image: post.seo.ogImageUrl || post.images[0]?.url || 'https://jahez.online/og-image.jpg',
-    datePublished: post.publishedAt || undefined,
-    dateModified: post.publishedAt || undefined,
+    headline: title,
+    image: image,
+    datePublished: publishedDate,
+    dateModified: publishedDate,
     author: {
       '@type': 'Person',
-      name: post.author.fullName,
+      name: authorName,
     },
     publisher: {
       '@type': 'Organization',
@@ -28,11 +42,12 @@ export default function BlogSchema({
         url: 'https://jahez.online/logo.png',
       },
     },
-    description: post.seo.metaDescription || post.excerpt,
+    description: description,
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `https://jahez.online/${locale}/blogs/${post.slug}`,
+      '@id': `https://jahez.online/${locale}/blogs/${slug}`,
     },
   };
+
   return <JsonLd data={data} />;
 }

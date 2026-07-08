@@ -8,6 +8,10 @@ import { NotificationsPageSkeleton } from "./_components/NotificationsPageSkelet
 import type { ClientNotification, PaginationInfo } from "./_components/types";
 import { ClientHeader } from "../../_components/ClientHeader";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = { title: "Notifications | Dashboard" };
 
 interface PageProps {

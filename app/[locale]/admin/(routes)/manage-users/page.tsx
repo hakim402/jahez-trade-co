@@ -5,6 +5,10 @@ import { ManageUsersClient } from "./_components/ManageUsersClient";
 import { getUsers } from "./actions";
 import { Users, UserCheck, UserX, ShieldCheck } from "lucide-react";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = { title: "Users — Admin" };
 
 export default async function UsersPage() {

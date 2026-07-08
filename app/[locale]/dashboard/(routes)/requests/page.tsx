@@ -8,6 +8,10 @@ import { RequestsPageClient } from "./_components/RequestsPageClient";
 import { RequestsPageSkeleton } from "./_components/RequestsPageSkeleton";
 import { ClientHeader } from "../../_components/ClientHeader";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = { title: "My Requests | Dashboard" };
 
 interface PageProps {

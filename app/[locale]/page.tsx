@@ -24,6 +24,9 @@ import { getFeaturedPosts } from "./(pages)/blogs/actions";
 import { getTrendingProducts } from "./(pages)/products/actions";
 import { getFeaturedConsultingServices } from "./(pages)/services/actions";
 
+
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ locale: string }>;
 };

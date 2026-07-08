@@ -5,6 +5,11 @@ import { ManageEmployeesClient } from "./_components/ManageEmployeesClient";
 import { getEmployees } from "./actions";
 import { Users2, Eye, EyeOff, LayoutGrid } from "lucide-react";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 export const metadata = { title: "Employees — Admin" };
 
 export default async function EmployeesPage() {

@@ -8,6 +8,10 @@ import { RequestPageClient } from "./_components/RequestPageClient";
 import { RequestPageSkeleton } from "./_components/RequestPageSkeleton";
 import { AdminHeader } from "../../_components/AdminHeader";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = { title: "Product Requests | Admin" };
 
 interface PageProps {

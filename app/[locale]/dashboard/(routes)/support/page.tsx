@@ -5,6 +5,10 @@ import { ClientMessagesClient } from "./_components/ClientMessagesClient"
 import { getUserContext }        from "./actions"
 import { redirect }              from "next/navigation"
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = { title: "Messages — Dashboard" }
 
 interface PageProps {

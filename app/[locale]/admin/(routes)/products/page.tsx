@@ -11,6 +11,12 @@ import { ProductPageClient } from "./_components/ProductPageClient";
 import { ProductPageSkeleton } from "./_components/ProductPageSkeleton";
 import { AdminHeader } from "../../_components/AdminHeader";
 
+
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 export const metadata: Metadata = { title: "Trending Products | Admin" };
 
 type StatusFilter = "all" | "active" | "inactive" | "deleted" | "featured";

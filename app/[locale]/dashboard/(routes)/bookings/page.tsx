@@ -8,6 +8,10 @@ import { BookingPageClient } from "./_components/BookingPageClient";
 import { BookingPageSkeleton } from "./_components/BookingsPageSkeleton";
 import { ClientHeader } from "../../_components/ClientHeader";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = { title: "Video Booking | Dashboard" };
 
 interface PageProps {

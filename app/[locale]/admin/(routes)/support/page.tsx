@@ -4,6 +4,10 @@ import { AdminHeader } from "../../_components/AdminHeader";
 import { MessagesClient } from "./_components/MessagesClient";
 import { getMessagesStats } from "./actions";
 
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = { title: "Messages — Admin" };
 
 export default async function MessagesPage() {

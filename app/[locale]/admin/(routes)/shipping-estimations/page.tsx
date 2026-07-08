@@ -6,6 +6,12 @@ import { ShippingEstimationsClient } from "./_components/ShippingEstimationsClie
 import { ShippingEstimationsSkeleton } from "./_components/ShippingEstimationsSkeleton";
 import type { CalculationMode } from "./actions";
 
+
+// ─── FORCE DYNAMIC RENDERING ──────────────────
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 export const metadata: Metadata = {
   title: "Shipping Estimations | Admin",
 };
