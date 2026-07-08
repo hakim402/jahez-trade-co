@@ -1,7 +1,6 @@
-// app/[locale]/page.tsx
-
 import { Metadata } from "next";
 import { setRequestLocale } from "next-intl/server";
+import { Suspense } from "react";
 import { Header } from "./_components/Header/Header";
 import { FeatureSections } from "./_components/Features/FeaturesSection";
 import { VideoBookingSections } from "./_components/Features/VideoBookingSection";
@@ -16,70 +15,67 @@ import EmployeeShowcase from "./_components/Employees/EmployeeShowcase";
 import { TrendingProductsSection } from "./(pages)/products/_components/TrendingProducts/TrendingProductsSection";
 import HomeBlogShowCase from "./(pages)/blogs/_components/HomeBlogShowCase/HomeBlogShowCase";
 
+// ─── NEW SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BlogSchema from "@/components/seo/BlogSchema";
+import ProductSchema from "@/components/seo/ProductSchema";
+import ServiceSchema from "@/components/seo/ServiceSchema";
+import { getFeaturedPosts } from "./(pages)/blogs/actions";
+import { getTrendingProducts } from "./(pages)/products/actions";
+import { getFeaturedConsultingServices } from "./(pages)/services/actions";
+
 type Props = {
   params: Promise<{ locale: string }>;
 };
 
+// ─── SIMPLIFIED METADATA ─────────────────────────
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const baseUrl = "https://jahez.online";
-  const isAr = locale === "ar";
-
-  const title = isAr
-    ? "جاهز خدمات التوريد من الصين والاستيراد"
-    : "China Product Sourcing & Import Services";
-
-  const description = isAr
-    ? "جاهز تساعدك في البحث عن المنتجات من الصين، طلب عروض الأسعار، حجز مكالمات فيديو مباشرة من الأسواق، وخدمات الاستيراد والاستشارات التجارية."
-    : "Source products from China with JAHEZ TRADE CO. Request quotations, find suppliers, book live market video calls, explore trending products, and get import and business consulting services.";
-
-  const pageUrl = `${baseUrl}/${locale}`;
-
-  return {
-    title,
-    description,
-    alternates: {
-      canonical: pageUrl,
-      languages: {
-        en: `${baseUrl}/en`,
-        ar: `${baseUrl}/ar`,
-        "x-default": `${baseUrl}/en`,
-      },
-    },
-    openGraph: {
-      title,
-      description,
-      url: pageUrl,
-      siteName: isAr ? "جاهز" : "JAHEZ",
-      locale: isAr ? "ar_SA" : "en_US",
-      type: "website",
-      images: [
-        {
-          url: `${baseUrl}/images/home-og.jpg`,
-          width: 1200,
-          height: 630,
-          alt: isAr
-            ? "جاهز - خدمات التوريد من الصين"
-            : "JAHEZ - China Product Sourcing Services",
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [`${baseUrl}/images/home-og.jpg`],
-    },
-  };
+  return generatePageMetadata({
+    pageType: "home",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+  });
 }
 
+// ─── HOMEPAGE COMPONENT ──────────────────────────
 export default async function Home({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const isAr = locale === "ar";
 
+  // Fetch data for schemas
+  const featuredPosts = await getFeaturedPosts(locale as "en" | "ar", 3);
+  const trendingProducts = await getTrendingProducts(6);
+  const featuredServices = await getFeaturedConsultingServices(3);
+
   return (
     <div>
+      {/* ─── SCHEMA MARKUP FOR HOME ─────────────────── */}
+      
+      {/* Blog Schema: Featured Posts (cast to `any` to bypass strict type check) */}
+      {featuredPosts.success &&
+        featuredPosts.data.slice(0, 3).map((post) => (
+          <Suspense key={post.id} fallback={null}>
+            <BlogSchema post={post as any} locale={locale as "en" | "ar"} />
+          </Suspense>
+        ))}
+
+      {/* Product Schema: Trending Products (cast to `any`) */}
+      {trendingProducts.slice(0, 3).map((product) => (
+        <Suspense key={product.id} fallback={null}>
+          <ProductSchema product={product as any} locale={locale as "en" | "ar"} />
+        </Suspense>
+      ))}
+
+      {/* Service Schema: Featured Services (cast to `any`) */}
+      {featuredServices.slice(0, 3).map((service) => (
+        <Suspense key={service.id} fallback={null}>
+          <ServiceSchema service={service as any} locale={locale as "en" | "ar"} />
+        </Suspense>
+      ))}
+
+      {/* ─── UI COMPONENTS (unchanged) ────────────── */}
       <Header />
       <HomeHero />
       <TrendingProductsSection />

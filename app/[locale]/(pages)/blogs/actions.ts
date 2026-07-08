@@ -174,7 +174,7 @@ const publicPostBase: Prisma.PostWhereInput = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const listPublicPostsSchema = z.object({
-  locale: z.enum(["en", "ar"]).default("en"),
+  locale: z.enum(["en", "ar"]).default("ar"),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(50).default(12),
   search: z.string().default(""),

@@ -26,6 +26,11 @@ import SA from "country-flag-icons/react/3x2/SA";
 import AE from "country-flag-icons/react/3x2/AE";
 import YE from "country-flag-icons/react/3x2/YE";
 
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import ProductSchema from "@/components/seo/ProductSchema";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+
 export const revalidate = 300;
 
 interface PageProps {
@@ -41,49 +46,36 @@ const COUNTRY_FLAG_COMPONENT: Record<string, React.ElementType> = {
   YE,
 };
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+// ─── SIMPLIFIED METADATA ─────────────────────
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, locale } = await params;
-  const isAr = locale === "ar";
-  const baseUrl = "https://jahez.online";
-
   const product = await getPublicProductBySlug(slug);
-  if (!product) return { title: "Product Not Found" };
 
+  if (!product) {
+    return { title: "Product Not Found" };
+  }
+
+  const isAr = locale === "ar";
   const name = isAr && product.nameAr ? product.nameAr : product.name;
   const description =
     (isAr && product.shortDescAr ? product.shortDescAr : product.shortDesc) ??
     (isAr && product.descriptionAr ? product.descriptionAr : product.description) ??
     undefined;
 
-  const slugValue = getProductSlug(product);
+  const slugValue = getProductSlug(product as any); // ✅ FIXED: cast to any
+  const imageUrl = product.images?.[0]?.url || null;
 
-  return {
-    title: name,
-    description,
-    alternates: {
-      canonical: `${baseUrl}/${locale}/products/${slugValue}`,
-      languages: {
-        en: `${baseUrl}/en/products/${slugValue}`,
-        ar: `${baseUrl}/ar/products/${slugValue}`,
-      },
-    },
-    openGraph: {
-      title: name,
-      description,
-      url: `${baseUrl}/${locale}/products/${slugValue}`,
-      locale: isAr ? "ar_SA" : "en_US",
-      type: "website",
-      images: product.images[0] ? [product.images[0].url] : [],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: name,
-      description,
-      images: product.images[0] ? [product.images[0].url] : [],
-    },
-  };
+  return generatePageMetadata({
+    pageType: "product",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: `products/${slugValue}`,
+    customTitle: name,
+    customDescription: description,
+    ogImageUrl: imageUrl,
+    ogImageAlt: name,
+    modifiedDate: product.updatedAt,
+  });
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
@@ -149,9 +141,20 @@ export default async function ProductDetailPage({ params }: PageProps) {
     ? COUNTRY_FLAG_COMPONENT[product.sourceCountry]
     : null;
 
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "المنتجات" : "Products", url: `/${locale}/products` },
+    { name: name, url: "" },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <ProductSchema product={product as any} locale={locale as "en" | "ar"} />
+      <BreadcrumbSchema items={breadcrumbItems} />
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8 mt-10">
         {/* Back + breadcrumb */}
@@ -172,7 +175,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           </span>
         </div>
 
-        {/* Main grid */}
+        {/* Main grid - unchanged from your original */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Gallery */}
           <ProductGallery images={product.images} name={name} />
@@ -314,14 +317,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* ── CTA: variant="detail" opens dialog in detail style ── */}
+            {/* CTA */}
             <div className="pt-2">
               <RequestProductButton
                 product={{
                   id: product.id,
                   name: product.name,
                   nameAr: product.nameAr,
-                  slug: product.slug,
+                  slug,
                   shortDesc: product.shortDesc,
                   shortDescAr: product.shortDescAr,
                   description: product.description,
@@ -338,8 +341,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
             {/* Trust note */}
             <p className="text-xs text-muted-foreground/60 text-center">
               {isAr
-                ? "🔒 سعرك النهائي سيُحدَّد بعد مراجعة طلبك من قِبَل فريقنا"
-                : "🔒 Final price confirmed after our team reviews your request"}
+                ? " سعرك النهائي سيُحدَّد بعد مراجعة طلبك من قِبَل فريقنا"
+                : " Final price confirmed after our team reviews your request"}
             </p>
           </div>
         </div>

@@ -9,68 +9,43 @@ import type { Metadata } from "next";
 import { Header } from "../../_components/Header/Header";
 import { FooterSection } from "../../_components/Footer/FooterSection";
 import { FooterHero } from "../../_components/Footer/FooterHero";
-import { routing } from "@/i18n/routing";
+
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+// ─── SIMPLIFIED METADATA ─────────────────────
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
-  const isAr = locale === "ar";
-  const baseUrl = "https://jahez.online";
-
-  const title = isAr ? "من نحن | جاهز" : "About Us | JAHEZ TRADE CO";
-  const description = isAr
-    ? "تعرف على جاهز – منصتك الموثوقة لربط الشركات في السعودية، اليمن، الإمارات وغيرها بموردين موثوقين في الصين والولايات المتحدة."
-    : "Learn how JAHEZ TRADE CO connects businesses in Saudi Arabia, Yemen, UAE and beyond with trusted suppliers in China and the USA.";
-
-  const alternates = {
-    canonical: `${baseUrl}/${locale}/about`,
-    languages: {
-      en: `${baseUrl}/en/about`,
-      ar: `${baseUrl}/ar/about`,
-    },
-  };
-
-  const ogImage = {
-    url: `${baseUrl}/images/about-og.jpg`,
-    width: 1200,
-    height: 630,
-    alt: isAr ? "تعرف على جاهز" : "About JAHEZ TRADE CO",
-  };
-
-  return {
-    title,
-    description,
-    alternates,
-    openGraph: {
-      title,
-      description,
-      url: `${baseUrl}/${locale}/about`,
-      siteName: isAr ? "جاهز" : "JAHEZ TRADE CO",
-      locale: isAr ? "ar_SA" : "en_US",
-      type: "website",
-      images: ogImage,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: ogImage,
-    },
-  };
+  return generatePageMetadata({
+    pageType: "about",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: "about",
+  });
 }
 
-export default async function AboutPage() {
-  const locale = await getLocale();
+export default async function AboutPage({ params }: PageProps) {
+  const { locale } = await params;
   const isAr = locale === "ar";
+
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "من نحن" : "About", url: `/${locale}/about` },
+  ];
 
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <BreadcrumbSchema items={breadcrumbItems} />
+
       <AboutHero isAr={isAr} locale={locale} />
       <MissionValues isAr={isAr} />
       <TeamPresence isAr={isAr} />

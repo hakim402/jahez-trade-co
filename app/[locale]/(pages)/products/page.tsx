@@ -1,4 +1,5 @@
 // app/[locale]/(pages)/products/page.tsx
+
 import { Suspense } from "react";
 import { getLocale } from "next-intl/server";
 import { getTrendingProducts, getPublicProductCategories } from "./actions";
@@ -8,7 +9,11 @@ import { Header } from "../../_components/Header/Header";
 import { FooterSection } from "../../_components/Footer/FooterSection";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Metadata } from "next";
-import { routing } from "@/i18n/routing";
+
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import ProductSchema from "@/components/seo/ProductSchema";
 
 export const revalidate = 300;
 
@@ -17,56 +22,15 @@ interface PageProps {
   searchParams: Promise<{ category?: string; search?: string; sort?: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+// ─── SIMPLIFIED METADATA ─────────────────────
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
-  const isAr = locale === "ar";
-  const baseUrl = "https://jahez.online";
-
-  const title = isAr
-    ? "المنتجات الرائجة | جاهز"
-    : "Trending Products | JAHEZ TRADE CO";
-
-  const description = isAr
-    ? "اكتشف أحدث المنتجات الرائجة من الأسواق العالمية. منتجات مُختارة بعناية من الصين وأمريكا والمزيد."
-    : "Discover the latest trending products from global markets. Carefully curated products from China, USA & more.";
-
-  const alternates = {
-    canonical: `${baseUrl}/${locale}/products`,
-    languages: {
-      en: `${baseUrl}/en/products`,
-      ar: `${baseUrl}/ar/products`,
-    },
-  };
-
-  const ogImage = {
-    url: `${baseUrl}/images/products-og.jpg`, // Update with actual path if available
-    width: 1200,
-    height: 630,
-    alt: isAr ? "منتجات جاهز الرائجة" : "JAHEZ TRADE CO Trending Products",
-  };
-
-  return {
-    title,
-    description,
-    alternates,
-    openGraph: {
-      title,
-      description,
-      url: `${baseUrl}/${locale}/products`,
-      siteName: isAr ? "جاهز" : "JAHEZ TRADE CO",
-      locale: isAr ? "ar_SA" : "en_US",
-      type: "website",
-      images: ogImage,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: ogImage,
-    },
-  };
+  return generatePageMetadata({
+    pageType: "product",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: "products",
+  });
 }
 
 export default async function ProductsPage({ searchParams }: PageProps) {
@@ -81,9 +45,25 @@ export default async function ProductsPage({ searchParams }: PageProps) {
 
   const featuredCount = products.filter((p) => p.isFeatured).length;
 
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "المنتجات" : "Products", url: `/${locale}/products` },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <BreadcrumbSchema items={breadcrumbItems} />
+
+      {/* Product Schema for first 3 trending products */}
+      {products.slice(0, 3).map((product) => (
+        <Suspense key={product.id} fallback={null}>
+          <ProductSchema product={product as any} locale={locale as "en" | "ar"} />
+        </Suspense>
+      ))}
 
       <ProductsPageHero
         isAr={isAr}

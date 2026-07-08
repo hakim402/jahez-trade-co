@@ -1,5 +1,3 @@
-// app/[locale]/layout.tsx
-
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
@@ -8,7 +6,6 @@ import { routing } from "@/i18n/routing";
 import { ReactNode } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { enUS, arSA } from "@clerk/localizations";
-import Script from "next/script";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { Cairo, Roboto } from "next/font/google";
@@ -17,6 +14,10 @@ import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
 import { ShippingEstimationButton } from "./_components/ShippingEstimation/ShippingEstimationButton";
 import "../globals.css";
 import "flag-icons/css/flag-icons.min.css";
+
+// ─── NEW SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import  OrganizationSchema  from "@/components/seo/OrganizationSchema";
 
 const inter = Roboto({
   subsets: ["latin"],
@@ -31,18 +32,19 @@ const cairo = Cairo({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://jahez.online"),
-  title: {
-    template: "%s | JAHEZ TRADE CO",
-    default: "JAHEZ TRADE CO China Product Sourcing & Import Services",
-  },
-  description:
-    "JAHEZ TRADE CO helps businesses source products from China, request quotations, book live market video calls, and get product sourcing, inspection, shipping, and business consulting services.",
-  verification: {
-    google: "nZi9ngdAitHA46eBbJIOdPwpAQcfe7a2PRaB1R6LR68",
-  },
-};
+// ─── DYNAMIC METADATA ─────────────────────────────
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return generatePageMetadata({
+    pageType: "home",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+  });
+}
 
 type Props = {
   children: ReactNode;
@@ -69,18 +71,6 @@ export default async function LocaleLayout({ children, params }: Props) {
     ar: arSA,
   };
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: isAr ? "جاهز" : "JAHEZ",
-    url: "https://jahez.online",
-    logo: "https://jahez.online/logo.png",
-    description: isAr
-      ? "جاهز تقدم خدمات التوريد من الصين، طلب عروض الأسعار، مكالمات فيديو مباشرة من الأسواق، والاستشارات التجارية."
-      : "JAHEZ TRADE CO provides China product sourcing, quotation requests, live market video calls, product inspection, shipping support, and business consulting services.",
-    sameAs: [],
-  };
-
   return (
     <html
       lang={locale}
@@ -89,12 +79,8 @@ export default async function LocaleLayout({ children, params }: Props) {
       className={`${inter.variable} ${cairo.variable}`}
     >
       <body>
-        <Script
-          id="schema-organization"
-          type="application/ld+json"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+        {/* ─── ORGANIZATION SCHEMA (Replaces inline script) ─── */}
+        <OrganizationSchema />
 
         <ClerkProvider
           localization={localizationMap[locale as "en" | "ar"]}

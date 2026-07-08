@@ -1,4 +1,5 @@
 // app/[locale]/(pages)/services/page.tsx
+
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getListingPageMeta, getPublicConsultingServices } from "./actions";
@@ -8,6 +9,11 @@ import { ServicesListSkeleton } from "./_components/ServicesListSkeleton";
 import { Header } from "../../_components/Header/Header";
 import { FooterSection } from "../../_components/Footer/FooterSection";
 import { ServicesHero } from "./_components/ServicesHero";
+
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import ServiceSchema from "@/components/seo/ServiceSchema";
 
 interface PageProps {
   params: Promise<{ locale: string }>;
@@ -20,56 +26,15 @@ interface PageProps {
   }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+// ─── SIMPLIFIED METADATA ─────────────────────
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
-  const isAr = locale === "ar";
-  const baseUrl = "https://jahez.online";
-
-  const title = isAr
-    ? "خدمات الاستشارة | جاهز"
-    : "Consulting Services | JAHEZ TRADE CO";
-
-  const description = isAr
-    ? "استكشف خدمات الاستشارة المتخصصة في مصادر المنتجات واللوجستيات ودخول الأسواق. خبراء في مساعدتك على النمو."
-    : "Explore expert consulting services for product sourcing, logistics, and market entry. We help your business grow.";
-
-  const alternates = {
-    canonical: `${baseUrl}/${locale}/services`,
-    languages: {
-      en: `${baseUrl}/en/services`,
-      ar: `${baseUrl}/ar/services`,
-    },
-  };
-
-  const ogImage = {
-    url: `${baseUrl}/images/services-og.jpg`, // Update with actual path if available
-    width: 1200,
-    height: 630,
-    alt: isAr ? "خدمات جاهز الاستشارية" : "JAHEZ TRADE CO Consulting Services",
-  };
-
-  return {
-    title,
-    description,
-    alternates,
-    openGraph: {
-      title,
-      description,
-      url: `${baseUrl}/${locale}/services`,
-      siteName: isAr ? "جاهز" : "JAHEZ TRADE CO",
-      locale: isAr ? "ar_SA" : "en_US",
-      type: "website",
-      images: ogImage,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: ogImage,
-    },
-  };
+  return generatePageMetadata({
+    pageType: "service",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: "services",
+  });
 }
 
 export const revalidate = 300;
@@ -110,9 +75,29 @@ export default async function ServicesPage({
     ? initialServices.data.totalPages
     : 0;
 
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "الخدمات" : "Services", url: `/${locale}/services` },
+  ];
+
+  // Featured services (from meta) to use in schema
+  const featuredServices = meta.featured.slice(0, 3);
+
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <BreadcrumbSchema items={breadcrumbItems} />
+
+      {/* Service Schema for featured services */}
+      {featuredServices.map((service) => (
+        <Suspense key={service.id} fallback={null}>
+          <ServiceSchema service={service as any} locale={locale as "en" | "ar"} />
+        </Suspense>
+      ))}
+
       <ServicesHero
         isAr={isAr}
         totalCount={meta.totalCount}
@@ -120,6 +105,7 @@ export default async function ServicesPage({
         topics={meta.topicCounts}
         categories={meta.categories}
       />
+
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         <Suspense fallback={<ServicesListSkeleton isAr={isAr} />}>
           <ServicesListClient
@@ -134,6 +120,7 @@ export default async function ServicesPage({
           />
         </Suspense>
       </section>
+
       <FooterSection />
     </main>
   );

@@ -9,6 +9,11 @@ import { BlogListClient } from "./_components/BlogListClient";
 import { BlogListSkeleton } from "./_components/BlogListSkeleton";
 import { getPublishedPosts, getPublicCategories, getPublicTags } from "./actions";
 
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import BlogSchema from "@/components/seo/BlogSchema";
+
 interface PageProps {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{
@@ -19,42 +24,15 @@ interface PageProps {
   }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+// ─── SIMPLIFIED METADATA ─────────────────────
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
-  const isAr = locale === "ar";
-  const baseUrl = "https://jahez.online";
-
-  const title = isAr ? "المدونة | جاهز" : "Blog | JAHEZ TRADE CO";
-  const description = isAr
-    ? "اقرأ أحدث المقالات والنصائح حول استيراد المنتجات، الخدمات اللوجستية، ودخول الأسواق."
-    : "Read the latest articles and insights on product sourcing, logistics, and market entry.";
-
-  return {
-    title,
-    description,
-    alternates: {
-      canonical: `${baseUrl}/${locale}/blogs`,
-      languages: {
-        en: `${baseUrl}/en/blogs`,
-        ar: `${baseUrl}/ar/blogs`,
-      },
-    },
-    openGraph: {
-      title,
-      description,
-      url: `${baseUrl}/${locale}/blogs`,
-      siteName: "JAHEZ TRADE CO",
-      locale: isAr ? "ar_SA" : "en_US",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
-  };
+  return generatePageMetadata({
+    pageType: "blog",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: "blogs",
+  });
 }
 
 export const revalidate = 300;
@@ -91,9 +69,25 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
     ? initialPostsResult.data.pages
     : 0;
 
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "المدونة" : "Blog", url: `/${locale}/blogs` },
+  ];
+
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <BreadcrumbSchema items={breadcrumbItems} />
+
+      {/* Blog Schema for first 3 posts */}
+      {posts.slice(0, 3).map((post) => (
+        <Suspense key={post.id} fallback={null}>
+          <BlogSchema post={post as any} locale={locale as "en" | "ar"} />
+        </Suspense>
+      ))}
 
       <BlogHero
         isAr={isAr}

@@ -18,41 +18,42 @@ import { PostMedia } from "./_components/PostMedia";
 import { PostVideo } from "./_components/PostVideo";
 import { headers } from "next/headers";
 
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BlogSchema from "@/components/seo/BlogSchema";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+
 interface PageProps {
   params: Promise<{ locale: string; slug: string }>;
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+// ─── SIMPLIFIED METADATA ─────────────────────
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug } = await params;
   const result = await getPostBySlug(slug, locale as "en" | "ar");
+
   if (!result.success) {
     return { title: "Post not found" };
   }
+
   const post = result.data;
   const title = post.seo?.metaTitle ?? post.title;
   const description = post.seo?.metaDescription ?? post.excerpt ?? undefined;
-  const imageUrl = post.seo?.ogImageUrl ?? post.images?.[0]?.url;
+  const imageUrl = post.seo?.ogImageUrl ?? post.images?.[0]?.url ?? null;
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: "article",
-      publishedTime: post.publishedAt ?? undefined,
-      authors: [post.author.fullName ?? "JAHEZ"],
-      images: imageUrl ? [{ url: imageUrl }] : [],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: imageUrl ? [imageUrl] : [],
-    },
-  };
+  return generatePageMetadata({
+    pageType: "blog",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: `blogs/${post.slug}`,
+    customTitle: title,
+    customDescription: description,
+    ogImageUrl: imageUrl,
+    ogImageAlt: title,
+    publishedDate: post.publishedAt || undefined,
+    modifiedDate: post.publishedAt || undefined,
+    authorName: post.author.fullName,
+  });
 }
 
 export default async function BlogPostPage({ params }: PageProps) {
@@ -77,9 +78,21 @@ export default async function BlogPostPage({ params }: PageProps) {
   );
   const relatedPosts = relatedResult.success ? relatedResult.data : [];
 
+  // Breadcrumb items
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "المدونة" : "Blog", url: `/${locale}/blogs` },
+    { name: post.title, url: "" },
+  ];
+
   return (
     <main className="min-h-screen bg-background" dir={isAr ? "rtl" : "ltr"}>
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <BlogSchema post={post as any} locale={locale as "en" | "ar"} />
+      <BreadcrumbSchema items={breadcrumbItems} />
+
       <article className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-24">
         <Suspense fallback={<PostSkeleton isAr={isAr} />}>
           <PostHeader post={post} isAr={isAr} />

@@ -1,14 +1,19 @@
-// app/[locale]/(pages)/blogs/_components/HomeBlogShowCase.tsx
-
 import { getPublishedPosts } from "@/app/[locale]/(pages)/blogs/actions";
 import HomeBlogShowCaseClient from "./HomeBlogShowCaseClient";
 
 export default async function HomeBlogShowCase({
   locale,
 }: {
-  locale: "en" | "ar";
+  locale?: "en" | "ar";
 }) {
-  const result = await getPublishedPosts({ locale, page: 1, limit: 7 });
+
+  const safeLocale = (locale === "en" || locale === "ar") ? locale : "ar";
+
+  const result = await getPublishedPosts({
+    locale: safeLocale,
+    page: 1,
+    limit: 7,
+  });
 
   return (
     <HomeBlogShowCaseClient
