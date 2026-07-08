@@ -1,6 +1,10 @@
 "use client";
 
+// app/[locale]/(auth)/sign-in/[[...sign-in]]/SignInClient.tsx
+
 import { SignIn } from "@clerk/nextjs";
+import Image from "next/image";
+import { motion } from "motion/react";
 
 interface SignInClientProps {
   locale: string;
@@ -8,10 +12,74 @@ interface SignInClientProps {
 }
 
 export function SignInClient({ locale, isAr }: SignInClientProps) {
+  // Business translations
+  const content = {
+    en: {
+      brand: "JAHEZ",
+      tagline: "China Sourcing & Global Trade",
+      welcome: "Welcome Back",
+      subtitle: "Access your sourcing dashboard, track shipments, and manage imports from China to the USA, UAE, Dubai & Yemen.",
+      features: [
+        { label: "Verified Suppliers", icon: "✓" },
+        { label: "Quality Control", icon: "✓" },
+        { label: "Global Shipping", icon: "✓" },
+      ],
+      trustText: "Trusted by businesses across 4 continents",
+      noAccount: "Don't have an account?",
+      signUp: "Sign Up",
+    },
+    ar: {
+      brand: "جاهز",
+      tagline: "التوريد من الصين والتجارة العالمية",
+      welcome: "مرحباً بعودتك",
+      subtitle: "لوحة تحكم التوريد، تتبع الشحنات، وإدارة الواردات من الصين إلى الولايات المتحدة والإمارات ودبي واليمن.",
+      features: [
+        { label: "موردون معتمدون", icon: "✓" },
+        { label: "مراقبة الجودة", icon: "✓" },
+        { label: "شحن عالمي", icon: "✓" },
+      ],
+      trustText: "موثوق من قبل شركات في 4 قارات",
+      noAccount: "ليس لديك حساب؟",
+      signUp: "إنشاء حساب",
+    },
+  };
+
+  const t = content[isAr ? "ar" : "en"];
+  const isRtl = isAr;
+
   return (
     <>
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap");
+
+        .animate-fade-in-up {
+          animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        .animate-slide-in-left {
+          animation: slideInFromLeft 0.8s ease-out forwards;
+        }
+
+        .animate-slide-in-right {
+          animation: slideInFromRight 0.8s ease-out forwards;
+        }
+
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+
+        .delay-100 {
+          animation-delay: 100ms;
+        }
+        .delay-200 {
+          animation-delay: 200ms;
+        }
+        .delay-300 {
+          animation-delay: 300ms;
+        }
+        .delay-400 {
+          animation-delay: 400ms;
+        }
 
         @keyframes fadeInUp {
           from {
@@ -56,47 +124,6 @@ export function SignInClient({ locale, isAr }: SignInClientProps) {
           }
         }
 
-        @keyframes shimmer {
-          0% {
-            background-position: -1000px 0;
-          }
-          100% {
-            background-position: 1000px 0;
-          }
-        }
-
-        .animate-fade-in-up {
-          animation: fadeInUp 0.8s ease-out forwards;
-        }
-
-        .animate-slide-in-left {
-          animation: slideInFromLeft 0.8s ease-out forwards;
-        }
-
-        .animate-slide-in-right {
-          animation: slideInFromRight 0.8s ease-out forwards;
-        }
-
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-
-        .delay-100 {
-          animation-delay: 100ms;
-        }
-
-        .delay-200 {
-          animation-delay: 200ms;
-        }
-
-        .delay-300 {
-          animation-delay: 300ms;
-        }
-
-        .delay-400 {
-          animation-delay: 400ms;
-        }
-
         .grain-overlay {
           position: absolute;
           inset: 0;
@@ -105,40 +132,38 @@ export function SignInClient({ locale, isAr }: SignInClientProps) {
           opacity: 0.4;
         }
 
-        .shimmer-effect {
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(99, 102, 241, 0.1) 50%,
-            transparent 100%
-          );
-          background-size: 1000px 100%;
-          animation: shimmer 3s infinite;
+        .feature-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: rgba(99, 102, 241, 0.15);
+          color: #818cf8;
+          font-weight: 700;
+          font-size: 14px;
         }
 
-        .dark .shimmer-effect {
-          background: linear-gradient(
-            90deg,
-            transparent 0%,
-            rgba(129, 140, 248, 0.1) 50%,
-            transparent 100%
-          );
+        .dark .feature-icon {
+          background: rgba(129, 140, 248, 0.2);
+          color: #a5b4fc;
         }
       `}</style>
 
-      {/* Split Screen Layout */}
+      {/* ─── SPLIT SCREEN LAYOUT ────────────────── */}
       <div className="relative flex min-h-[calc(100vh-80px)]">
-        {/* Left Panel - Visual/Brand Side */}
+        {/* ─── LEFT PANEL: BRAND & TRADE ────────── */}
         <div
           className={`hidden lg:flex lg:w-1/2 relative overflow-hidden ${
-            isAr ? "lg:order-2" : "lg:order-1"
+            isRtl ? "lg:order-2" : "lg:order-1"
           }`}
         >
-          {/* Background with gradient and pattern - Dark Mode */}
+          {/* Background Gradient */}
           <div className="absolute inset-0 bg-linear-to-br from-indigo-950 via-indigo-900 to-slate-950 dark:from-indigo-950 dark:via-slate-900 dark:to-slate-950">
             <div className="grain-overlay" />
 
-            {/* Geometric pattern overlay */}
+            {/* Global Trade Pattern - Grid with dots representing global connectivity */}
             <div className="absolute inset-0 opacity-10 dark:opacity-5">
               <svg
                 width="100%"
@@ -147,173 +172,196 @@ export function SignInClient({ locale, isAr }: SignInClientProps) {
               >
                 <defs>
                   <pattern
-                    id="grid"
-                    width="60"
-                    height="60"
+                    id="tradeGrid"
+                    width="80"
+                    height="80"
                     patternUnits="userSpaceOnUse"
                   >
+                    <circle cx="40" cy="40" r="1.5" fill="white" opacity="0.3" />
                     <path
-                      d="M 60 0 L 0 0 0 60"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="0.5"
-                      className="text-indigo-400"
+                      d="M 0 40 L 80 40 M 40 0 L 40 80"
+                      stroke="white"
+                      strokeWidth="0.3"
+                      opacity="0.1"
                     />
                   </pattern>
                 </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
+                <rect width="100%" height="100%" fill="url(#tradeGrid)" />
               </svg>
             </div>
 
-            {/* Floating decorative elements */}
-            <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-indigo-500 rounded-full blur-[120px] opacity-30 dark:opacity-20 animate-float" />
+            {/* Floating Globe / Trade Abstract */}
+            <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-indigo-500 rounded-full blur-[150px] opacity-20 dark:opacity-15 animate-float" />
             <div
-              className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-400 rounded-full blur-[140px] opacity-20 dark:opacity-15 animate-float delay-300"
+              className="absolute bottom-1/4 left-1/3 w-64 h-64 bg-indigo-400 rounded-full blur-[120px] opacity-15 dark:opacity-10 animate-float delay-300"
               style={{ animationDelay: "2s" }}
             />
+
+            {/* Shipping Container Icons (Decorative) */}
+            <div className="absolute bottom-20 left-10 flex gap-2 opacity-20">
+              <div className="w-8 h-12 bg-indigo-400/30 rounded-sm border border-indigo-400/20" />
+              <div className="w-8 h-14 bg-indigo-400/20 rounded-sm border border-indigo-400/20 mt-2" />
+              <div className="w-8 h-10 bg-indigo-400/30 rounded-sm border border-indigo-400/20" />
+            </div>
+
+            <div className="absolute top-20 right-10 flex gap-2 opacity-10">
+              <div className="w-6 h-10 bg-white/20 rounded-sm border border-white/10" />
+              <div className="w-6 h-12 bg-white/10 rounded-sm border border-white/10 mt-2" />
+              <div className="w-6 h-8 bg-white/20 rounded-sm border border-white/10" />
+            </div>
           </div>
 
-          {/* Content */}
-          <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 text-white">
-            {/* Logo/Brand */}
-            <div className="animate-slide-in-left">
+          {/* ─── LEFT CONTENT ────────────────────── */}
+          <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 text-white w-full">
+            {/* Brand */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              className="space-y-1"
+            >
               <h1
                 className="text-5xl xl:text-6xl font-bold tracking-tight"
                 style={{ fontFamily: "'Crimson Pro', serif" }}
               >
-                {isAr ? "جاهز" : "JAHEZ"}
+                {t.brand}
               </h1>
+              <p
+                className="text-indigo-300 text-sm tracking-wider uppercase"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                {t.tagline}
+              </p>
               <div className="mt-2 h-1 w-20 bg-linear-to-r from-indigo-400 to-transparent" />
-            </div>
+            </motion.div>
 
-            {/* Main message */}
-            <div className="space-y-6 animate-slide-in-left delay-200">
+            {/* Main Message */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="space-y-4"
+            >
               <h2
                 className="text-4xl xl:text-5xl font-semibold leading-tight max-w-lg"
                 style={{ fontFamily: "'Crimson Pro', serif" }}
               >
-                {isAr
-                  ? "مرحباً بعودتك إلى تجربة التسوق المميزة"
-                  : "Welcome back to your premium shopping experience"}
+                {t.welcome}
               </h2>
               <p
-                className="text-lg text-indigo-100 max-w-md"
+                className="text-base text-indigo-100 max-w-md leading-relaxed"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
               >
-                {isAr
-                  ? "استمتع بالوصول إلى آلاف المنتجات، عروض حصرية، وخدمة استثنائية."
-                  : "Access thousands of products, exclusive deals, and exceptional service at your fingertips."}
+                {t.subtitle}
               </p>
-            </div>
 
-            {/* Trust indicators */}
-            <div className="flex items-center gap-8 animate-slide-in-left delay-300">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-indigo-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <span
-                  className="text-sm text-indigo-100"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  {isAr ? "آمن وموثوق" : "Secure & Trusted"}
-                </span>
+              {/* Feature List */}
+              <div className="flex flex-col gap-2 pt-4">
+                {t.features.map((feature, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="feature-icon">{feature.icon}</span>
+                    <span
+                      className="text-sm text-indigo-100"
+                      style={{ fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {feature.label}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-indigo-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+            </motion.div>
+
+            {/* Trust Footer */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex flex-col gap-3"
+            >
+              <p
+                className="text-xs text-indigo-300 tracking-wider uppercase"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                {t.trustText}
+              </p>
+              {/* Country flags */}
+              <div className="flex gap-4 items-center">
+                {["CN", "US", "AE", "YE"].map((code) => (
+                  <span
+                    key={code}
+                    className="text-2xl opacity-60 hover:opacity-100 transition-opacity"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-                <span
-                  className="text-sm text-indigo-100"
-                  style={{ fontFamily: "'DM Sans', sans-serif" }}
-                >
-                  {isAr ? "خدمة 24/7" : "24/7 Support"}
-                </span>
+                    <span className={`fi fi-${code.toLowerCase()}`} />
+                  </span>
+                ))}
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 
-        {/* Right Panel - Sign In Form */}
+        {/* ─── RIGHT PANEL: SIGN IN FORM ────────── */}
         <div
           className={`w-full lg:w-1/2 relative flex items-center justify-center p-6 sm:p-12 bg-white dark:bg-slate-950 ${
-            isAr ? "lg:order-1" : "lg:order-2"
+            isRtl ? "lg:order-1" : "lg:order-2"
           }`}
         >
           {/* Subtle background accent */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500 rounded-full blur-[200px] opacity-5 dark:opacity-10" />
 
           <div
-            className={`w-full max-w-md relative z-10 ${isAr ? "rtl" : "ltr"}`}
+            className={`w-full max-w-md relative z-10 ${isRtl ? "rtl" : "ltr"}`}
           >
             {/* Mobile logo (shown only on mobile) */}
-            <div className="lg:hidden mb-8 animate-fade-in-up">
+            <div className="lg:hidden mb-8 text-center">
               <h1
-                className="text-4xl font-bold tracking-tight text-slate-900 dark:text-white"
+                className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white"
                 style={{ fontFamily: "'Crimson Pro', serif" }}
               >
-                {isAr ? "جاهز" : "JAHEZ"}
+                {t.brand}
               </h1>
-              <div className="mt-2 h-1 w-16 bg-linear-to-r from-indigo-600 dark:from-indigo-400 to-transparent" />
+              <p
+                className="text-xs text-indigo-600 dark:text-indigo-400 tracking-wider uppercase mt-1"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                {t.tagline}
+              </p>
+              <div className="mt-2 h-0.5 w-12 mx-auto bg-linear-to-r from-indigo-600 to-transparent" />
             </div>
 
             <SignIn
               appearance={{
                 elements: {
                   rootBox: "w-full",
-                  card: "shadow-none bg-transparent border-none",
-                  headerTitle: `${isAr ? "text-right" : "text-left"} !text-slate-900 dark:!text-white`,
-                  headerSubtitle: `${isAr ? "text-right" : "text-left"} !text-slate-600 dark:!text-slate-400`,
+                  card: "shadow-none bg-transparent border-none p-0",
+                  headerTitle: `${isRtl ? "text-right" : "text-left"} !text-2xl !font-bold !text-slate-900 dark:!text-white`,
+                  headerSubtitle: `${isRtl ? "text-right" : "text-left"} !text-slate-600 dark:!text-slate-400 !text-sm !mt-1`,
                   socialButtonsBlockButton:
-                    "!rounded-xl !border !border-slate-300 dark:!border-slate-700 !bg-white dark:!bg-slate-800 hover:!bg-slate-50 dark:hover:!bg-slate-750 !transition-all !duration-200 !text-slate-900 dark:!text-white hover:!border-indigo-500 dark:hover:!border-indigo-400",
+                    "!rounded-xl !border !border-slate-300 dark:!border-slate-700 !bg-white dark:!bg-slate-800 hover:!bg-slate-50 dark:hover:!bg-slate-750 !transition-all !duration-200 !text-slate-900 dark:!text-white hover:!border-indigo-500 dark:hover:!border-indigo-400 !font-medium",
+                  socialButtonsBlockButtonText: "!text-sm",
                   formFieldInput:
-                    "!rounded-xl !border-slate-300 dark:!border-slate-700 !bg-white dark:!bg-slate-800 !text-slate-900 dark:!text-white placeholder:!text-slate-500 dark:placeholder:!text-slate-400 focus:!border-indigo-600 dark:focus:!border-indigo-400 focus:!ring-2 focus:!ring-indigo-600/20 dark:focus:!ring-indigo-400/20 !transition-all",
+                    "!rounded-xl !border-slate-300 dark:!border-slate-700 !bg-white dark:!bg-slate-800 !text-slate-900 dark:!text-white placeholder:!text-slate-500 dark:placeholder:!text-slate-400 focus:!border-indigo-600 dark:focus:!border-indigo-400 focus:!ring-2 focus:!ring-indigo-600/20 dark:focus:!ring-indigo-400/20 !transition-all !h-11",
                   formButtonPrimary:
-                    "!rounded-xl !bg-linear-to-r !from-indigo-600 !to-indigo-500 hover:!from-indigo-500 hover:!to-indigo-600 dark:!from-indigo-500 dark:!to-indigo-400 dark:hover:!from-indigo-400 dark:hover:!to-indigo-500 !transition-all !duration-300 !text-white !font-semibold !shadow-lg !shadow-indigo-600/30 dark:!shadow-indigo-500/30 hover:!shadow-indigo-600/50 dark:hover:!shadow-indigo-500/50",
-                  footerActionText: "!text-slate-600 dark:!text-slate-400",
+                    "!rounded-xl !bg-indigo-600 hover:!bg-indigo-500 dark:!bg-indigo-500 dark:hover:!bg-indigo-400 !transition-all !duration-300 !text-white !font-semibold !shadow-lg !shadow-indigo-600/25 dark:!shadow-indigo-500/25 hover:!shadow-indigo-600/40 dark:hover:!shadow-indigo-500/40 !h-11",
+                  footerActionText: "!text-slate-600 dark:!text-slate-400 !text-sm",
                   footerActionLink:
-                    "!text-indigo-600 dark:!text-indigo-400 hover:!text-indigo-500 dark:hover:!text-indigo-300 !font-medium !transition-colors",
+                    "!text-indigo-600 dark:!text-indigo-400 hover:!text-indigo-500 dark:hover:!text-indigo-300 !font-medium !transition-colors !text-sm",
                   dividerLine: "!bg-slate-300 dark:!bg-slate-700",
-                  dividerText: "!text-slate-500 dark:!text-slate-400",
+                  dividerText: "!text-slate-500 dark:!text-slate-400 !text-xs !uppercase !tracking-wider",
                   formFieldLabel:
-                    "!text-slate-700 dark:!text-slate-300 !font-medium",
+                    "!text-slate-700 dark:!text-slate-300 !font-medium !text-sm",
                   identityPreviewText: "!text-slate-900 dark:!text-white",
                   identityPreviewEditButton:
                     "!text-indigo-600 dark:!text-indigo-400 hover:!text-indigo-500 dark:hover:!text-indigo-300",
                   formResendCodeLink:
-                    "!text-indigo-600 dark:!text-indigo-400 hover:!text-indigo-500 dark:hover:!text-indigo-300",
+                    "!text-indigo-600 dark:!text-indigo-400 hover:!text-indigo-500 dark:hover:!text-indigo-300 !font-medium",
                   formFieldInputShowPasswordButton:
                     "!text-slate-500 dark:!text-slate-400 hover:!text-slate-900 dark:hover:!text-white",
                   otpCodeFieldInput:
-                    "!border-slate-300 dark:!border-slate-700 !bg-white dark:!bg-slate-800 !text-slate-900 dark:!text-white focus:!border-indigo-600 dark:focus:!border-indigo-400",
-                  formFieldErrorText: "!text-red-600 dark:!text-red-400",
+                    "!border-slate-300 dark:!border-slate-700 !bg-white dark:!bg-slate-800 !text-slate-900 dark:!text-white focus:!border-indigo-600 dark:focus:!border-indigo-400 !rounded-xl !h-12",
+                  formFieldErrorText: "!text-red-600 dark:!text-red-400 !text-sm !mt-1",
                   alertText: "!text-slate-700 dark:!text-slate-300",
                   alert:
-                    "!bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700",
+                    "!bg-slate-50 dark:!bg-slate-800 !border-slate-200 dark:!border-slate-700 !rounded-xl",
                 },
                 variables: {
                   colorPrimary: "#4f46e5",
