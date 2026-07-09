@@ -119,7 +119,7 @@ export default function EmployeeShowcaseClient({
 
           <div className="mt-5 flex flex-wrap gap-3">
             <a
-              href="/contact"
+              href={`/${locale}/contact`}
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-secondary px-4 text-xs font-semibold text-secondary-foreground ring-1 ring-border transition hover:bg-accent"
             >
               {t.applyNow}

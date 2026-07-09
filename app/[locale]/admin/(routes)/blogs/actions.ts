@@ -18,13 +18,10 @@ import path from "path"
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string }
 
-export type Locale = "en" | "ar"
-
 export type CreatePostInput = {
     titleEn: string
     titleAr?: string
     slugEn: string
-    slugAr?: string
     excerptEn?: string
     excerptAr?: string
     contentEn: string
@@ -108,11 +105,10 @@ function parseDateSafe(value: Date | string | null | undefined): Date | null {
 }
 
 /**
- * Generate a unique slug with retry logic
+ * Generate a unique slug with retry logic (English slug only)
  */
 async function generateUniqueSlugSafe(
     base: string,
-    locale: Locale,
     excludeId?: string,
     maxAttempts = 100
 ): Promise<string> {
@@ -123,7 +119,7 @@ async function generateUniqueSlugSafe(
         const candidate = attempt === 0 ? slug : `${base}-${attempt}`
         const where: Prisma.PostWhereInput = {
             AND: [
-                locale === "ar" ? { slugAr: candidate } : { slugEn: candidate },
+                { slugEn: candidate },
                 { isDeleted: false },
                 ...(excludeId ? [{ id: { not: excludeId } }] : [])
             ]
@@ -131,7 +127,7 @@ async function generateUniqueSlugSafe(
 
         const exists = await prisma.post.count({ where })
         if (exists === 0) return candidate
-        
+
         attempt++
     }
     // Fallback with timestamp if all attempts fail
@@ -345,7 +341,6 @@ export async function getAllPosts(raw: z.infer<typeof listPostsSchema> = {} as a
                 { excerptEn: { contains: search, mode: "insensitive" } },
                 { excerptAr: { contains: search, mode: "insensitive" } },
                 { slugEn: { contains: search, mode: "insensitive" } },
-                { slugAr: { contains: search, mode: "insensitive" } },
             ]
         }
 
@@ -400,21 +395,15 @@ export async function getPostById(id: string): Promise<ActionResult<any>> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// A3. GET POST BY SLUG (locale-aware — used for preview)
+// A3. GET POST BY SLUG (used for preview)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getPostBySlug(
-    slug: string,
-    locale: Locale = "en",
-): Promise<ActionResult<any>> {
+export async function getPostBySlug(slug: string): Promise<ActionResult<any>> {
     try {
         await requireAdmin()
 
-        const where: Prisma.PostWhereUniqueInput =
-            locale === "ar" ? { slugAr: slug } : { slugEn: slug }
-
         const post = await prisma.post.findUnique({
-            where,
+            where: { slugEn: slug },
             include: postDetailInclude,
         })
         if (!post) return { success: false, error: "Post not found" }
@@ -571,7 +560,6 @@ export async function getBlogStats(): Promise<
 
 export async function checkSlugAvailability(
     slug: string,
-    locale: Locale = "en",
     excludeId?: string,
 ): Promise<ActionResult<{ available: boolean }>> {
     try {
@@ -579,7 +567,7 @@ export async function checkSlugAvailability(
 
         const where: Prisma.PostWhereInput = {
             AND: [
-                locale === "ar" ? { slugAr: slug } : { slugEn: slug },
+                { slugEn: slug },
                 { isDeleted: false },
                 ...(excludeId ? [{ id: { not: excludeId } }] : [])
             ]
@@ -619,16 +607,6 @@ export async function createPost(input: CreatePostInput): Promise<ActionResult<a
         })
         if (slugConflict > 0) return { success: false, error: "English slug already exists" }
 
-        if (input.slugAr) {
-            const arConflict = await prisma.post.count({ 
-                where: { 
-                    slugAr: input.slugAr.trim(),
-                    isDeleted: false 
-                } 
-            })
-            if (arConflict > 0) return { success: false, error: "Arabic slug already exists" }
-        }
-
         // Resolve publish time with safe parsing
         const isPublishing = input.status === "PUBLISHED"
         const publishedAt = isPublishing
@@ -640,7 +618,6 @@ export async function createPost(input: CreatePostInput): Promise<ActionResult<a
                 titleEn: input.titleEn.trim(),
                 titleAr: input.titleAr?.trim(),
                 slugEn: input.slugEn.trim(),
-                slugAr: input.slugAr?.trim() || null,
                 excerptEn: input.excerptEn?.trim(),
                 excerptAr: input.excerptAr?.trim(),
                 contentEn: input.contentEn,
@@ -719,12 +696,12 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Ac
 
         const existing = await prisma.post.findUnique({
             where: { id },
-            select: { id: true, isDeleted: true, status: true, slugEn: true, slugAr: true },
+            select: { id: true, isDeleted: true, status: true, slugEn: true },
         })
         if (!existing) return { success: false, error: "Post not found" }
         if (existing.isDeleted) return { success: false, error: "Cannot update a deleted post" }
 
-        // Slug uniqueness checks (skip if unchanged, exclude soft-deleted)
+        // Slug uniqueness check (skip if unchanged, exclude soft-deleted)
         if (input.slugEn && input.slugEn.trim() !== existing.slugEn) {
             const conflict = await prisma.post.count({
                 where: { 
@@ -734,17 +711,6 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Ac
                 },
             })
             if (conflict > 0) return { success: false, error: "English slug already in use" }
-        }
-
-        if (input.slugAr && input.slugAr.trim() !== existing.slugAr) {
-            const conflict = await prisma.post.count({
-                where: { 
-                    slugAr: input.slugAr.trim(), 
-                    id: { not: id },
-                    isDeleted: false 
-                },
-            })
-            if (conflict > 0) return { success: false, error: "Arabic slug already in use" }
         }
 
         // Auto-set publishedAt when transitioning to PUBLISHED (with safe parsing)
@@ -761,7 +727,6 @@ export async function updatePost(id: string, input: UpdatePostInput): Promise<Ac
                 ...(input.titleEn !== undefined && { titleEn: input.titleEn.trim() }),
                 ...(input.titleAr !== undefined && { titleAr: input.titleAr?.trim() ?? null }),
                 ...(input.slugEn !== undefined && { slugEn: input.slugEn.trim() }),
-                ...(input.slugAr !== undefined && { slugAr: input.slugAr?.trim() ?? null }),
                 ...(input.excerptEn !== undefined && { excerptEn: input.excerptEn?.trim() ?? null }),
                 ...(input.excerptAr !== undefined && { excerptAr: input.excerptAr?.trim() ?? null }),
                 ...(input.contentEn !== undefined && { contentEn: input.contentEn }),
@@ -1037,13 +1002,9 @@ export async function duplicatePost(id: string): Promise<ActionResult<any>> {
 
         const baseSuffix = `-copy-${Date.now()}`
         const slugEn = await generateUniqueSlugSafe(
-            `${original.slugEn}${baseSuffix}`, 
-            "en", 
+            `${original.slugEn}${baseSuffix}`,
             undefined
         )
-        const slugAr = original.slugAr 
-            ? await generateUniqueSlugSafe(`${original.slugAr}${baseSuffix}`, "ar", undefined)
-            : null
 
         const { id: _id, createdAt: _c, updatedAt: _u, publishedAt: _p, ...rest } = original
 
@@ -1053,7 +1014,6 @@ export async function duplicatePost(id: string): Promise<ActionResult<any>> {
                 titleEn: `${original.titleEn} (Copy)`,
                 titleAr: original.titleAr ? `${original.titleAr} (نسخة)` : null,
                 slugEn,
-                slugAr,
                 status: "DRAFT",
                 publishedAt: null,
                 authorId: adminId,
@@ -2256,12 +2216,11 @@ export async function autoFillSeoFields(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// J2. GENERATE SLUG FROM TITLE
+// J2. GENERATE SLUG FROM TITLE (English slug only)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function generateUniqueSlug(
     title: string,
-    locale: Locale = "en",
     excludeId?: string,
 ): Promise<ActionResult<{ slug: string }>> {
     try {
@@ -2277,7 +2236,7 @@ export async function generateUniqueSlug(
             .replace(/^-|-$/g, "")
             .slice(0, 80)
 
-        const slug = await generateUniqueSlugSafe(base, locale, excludeId)
+        const slug = await generateUniqueSlugSafe(base, excludeId)
 
         return { success: true, data: { slug } }
     } catch (err) {

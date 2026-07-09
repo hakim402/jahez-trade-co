@@ -28,7 +28,15 @@ import YE from "country-flag-icons/react/3x2/YE";
 // Animated counter hook
 // ─────────────────────────────────────────────────────────────────────────────
 function useCountUp(to: number, duration = 1.4, suffix = "") {
-  const [display, setDisplay] = useState("0");
+  // Initialize with the real final value (not "0") so the server-rendered
+  // HTML always contains the correct number — Googlebot doesn't reliably
+  // trigger scroll-based IntersectionObserver animations, so it was seeing
+  // literal "0" for every stat. The count-up animation still plays for
+  // users once the section scrolls into view; only the initial/SSR state
+  // changes.
+  const [display, setDisplay] = useState(
+    () => Math.round(to).toLocaleString() + suffix,
+  );
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
 

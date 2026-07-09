@@ -110,7 +110,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { PostStatus } from "@prisma/client";
 import type {
-  Locale,
   CreatePostInput,
   BulkPostAction,
   CreateCategoryInput,
@@ -232,7 +231,6 @@ export type SerializedPost = {
   titleEn: string;
   titleAr: string | null;
   slugEn: string;
-  slugAr: string | null;
   excerptEn: string | null;
   excerptAr: string | null;
   contentEn: string;
@@ -1528,7 +1526,7 @@ function VideoManager({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADS MANAGER (Fixed: table inside dialog, not in toolbar)
+// ADS MANAGER
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AdsManager({ onChanged }: { onChanged: () => void }) {
@@ -2781,7 +2779,7 @@ function CommentManager({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REACTION SUMMARY (with delete capability)
+// REACTION SUMMARY
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ReactionSummary({ postId }: { postId: string }) {
@@ -2819,7 +2817,6 @@ const EMPTY_FORM = {
   titleEn: "",
   titleAr: "",
   slugEn: "",
-  slugAr: "",
   excerptEn: "",
   excerptAr: "",
   contentEn: "",
@@ -2862,10 +2859,7 @@ function PostFormDialog({
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [createdImages, setCreatedImages] = useState<PostImage[]>([]);
   const [createdVideos, setCreatedVideos] = useState<PostVideo[]>([]);
-  const [slugAvail, setSlugAvail] = useState<{
-    en: boolean | null;
-    ar: boolean | null;
-  }>({ en: null, ar: null });
+  const [slugAvail, setSlugAvail] = useState<boolean | null>(null);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2876,13 +2870,12 @@ function PostFormDialog({
     setCreatedId(null);
     setCreatedImages([]);
     setCreatedVideos([]);
-    setSlugAvail({ en: null, ar: null });
+    setSlugAvail(null);
     if (editPost) {
       setForm({
         titleEn: editPost.titleEn,
         titleAr: editPost.titleAr ?? "",
         slugEn: editPost.slugEn,
-        slugAr: editPost.slugAr ?? "",
         excerptEn: editPost.excerptEn ?? "",
         excerptAr: editPost.excerptAr ?? "",
         contentEn: editPost.contentEn,
@@ -2921,38 +2914,24 @@ function PostFormDialog({
 
   // Debounced slug check
   useEffect(() => {
-    if (!form.slugEn && !form.slugAr) return;
+    if (!form.slugEn) return;
     if (slugTimerRef.current) clearTimeout(slugTimerRef.current);
     slugTimerRef.current = setTimeout(async () => {
       setCheckingSlug(true);
-      const [enR, arR] = await Promise.all([
-        form.slugEn
-          ? checkSlugAvailability(form.slugEn, "en", editPost?.id)
-          : null,
-        form.slugAr
-          ? checkSlugAvailability(form.slugAr, "ar", editPost?.id)
-          : null,
-      ]);
-      setSlugAvail({
-        en: enR?.success ? enR.data.available : null,
-        ar: arR?.success ? arR.data.available : null,
-      });
+      const r = await checkSlugAvailability(form.slugEn, editPost?.id);
+      setSlugAvail(r.success ? r.data.available : null);
       setCheckingSlug(false);
     }, 500);
-  }, [form.slugEn, form.slugAr, editPost?.id]);
+  }, [form.slugEn, editPost?.id]);
 
-  const genSlug = async (locale: Locale) => {
-    const title = locale === "en" ? form.titleEn : form.titleAr;
+  const genSlug = async () => {
+    const title = form.titleEn;
     if (!title.trim()) {
       toast.error("Enter a title first");
       return;
     }
-    const r = await generateUniqueSlug(title, locale, editPost?.id);
-    if (r.success)
-      setForm((p) => ({
-        ...p,
-        [locale === "en" ? "slugEn" : "slugAr"]: r.data.slug,
-      }));
+    const r = await generateUniqueSlug(title, editPost?.id);
+    if (r.success) setForm((p) => ({ ...p, slugEn: r.data.slug }));
     else toast.error(r.error || "Failed");
   };
 
@@ -2961,8 +2940,7 @@ function PostFormDialog({
     if (!form.titleEn.trim()) e.titleEn = "English title is required";
     if (!form.slugEn.trim()) e.slugEn = "English slug is required";
     if (!form.contentEn.trim()) e.contentEn = "English content is required";
-    if (slugAvail.en === false) e.slugEn = "Slug is already taken";
-    if (slugAvail.ar === false) e.slugAr = "Arabic slug is already taken";
+    if (slugAvail === false) e.slugEn = "Slug is already taken";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -2971,7 +2949,6 @@ function PostFormDialog({
     titleEn: form.titleEn.trim(),
     titleAr: form.titleAr.trim() || undefined,
     slugEn: form.slugEn.trim(),
-    slugAr: form.slugAr.trim() || undefined,
     excerptEn: form.excerptEn.trim() || undefined,
     excerptAr: form.excerptAr.trim() || undefined,
     contentEn: form.contentEn,
@@ -3050,7 +3027,7 @@ function PostFormDialog({
       id: "basic",
       label: "Basic",
       icon: FileText,
-      hasError: !!(errors.titleEn || errors.slugEn || errors.slugAr),
+      hasError: !!(errors.titleEn || errors.slugEn),
     },
     {
       id: "content",
@@ -3251,83 +3228,46 @@ function PostFormDialog({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={LABEL_CLS} htmlFor="f-slug-en">
-                    Slug EN *
-                  </label>
-                  <div className="flex gap-1.5">
-                    <div className="relative flex-1">
-                      <Input
-                        id="f-slug-en"
-                        value={form.slugEn}
-                        onChange={setField("slugEn")}
-                        className={cn(
-                          INPUT_CLS,
-                          "pr-8",
-                          errors.slugEn && "border-red-400",
-                        )}
-                        placeholder="my-post-slug"
-                      />
-                      <SlugStatus avail={slugAvail.en} />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 px-2.5 rounded-xl shrink-0"
-                      onClick={() => genSlug("en")}
-                      title="Generate from title"
-                      aria-label="Generate slug"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </Button>
+              <div>
+                <label className={LABEL_CLS} htmlFor="f-slug-en">
+                  Slug *
+                </label>
+                <div className="flex gap-1.5">
+                  <div className="relative flex-1">
+                    <Input
+                      id="f-slug-en"
+                      value={form.slugEn}
+                      onChange={setField("slugEn")}
+                      className={cn(
+                        INPUT_CLS,
+                        "pr-8",
+                        errors.slugEn && "border-red-400",
+                      )}
+                      placeholder="my-post-slug"
+                    />
+                    <SlugStatus avail={slugAvail} />
                   </div>
-                  {errors.slugEn && (
-                    <p className="text-[10px] text-red-500 mt-0.5" role="alert">
-                      {errors.slugEn}
-                    </p>
-                  )}
-                  {!errors.slugEn && slugAvail.en === false && (
-                    <p className="text-[10px] text-red-500 mt-0.5">
-                      Slug already in use
-                    </p>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-2.5 rounded-xl shrink-0"
+                    onClick={genSlug}
+                    title="Generate from title"
+                    aria-label="Generate slug"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
-                <div>
-                  <label className={LABEL_CLS} htmlFor="f-slug-ar">
-                    Slug AR
-                  </label>
-                  <div className="flex gap-1.5">
-                    <div className="relative flex-1">
-                      <Input
-                        id="f-slug-ar"
-                        value={form.slugAr}
-                        onChange={setField("slugAr")}
-                        className={cn(
-                          INPUT_CLS,
-                          "pr-8",
-                          errors.slugAr && "border-red-400",
-                        )}
-                        placeholder="my-post-slug-ar"
-                      />
-                      <SlugStatus avail={slugAvail.ar} />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 px-2.5 rounded-xl shrink-0"
-                      onClick={() => genSlug("ar")}
-                      aria-label="Generate Arabic slug"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                  {slugAvail.ar === false && (
-                    <p className="text-[10px] text-red-500 mt-0.5">
-                      Slug already in use
-                    </p>
-                  )}
-                </div>
+                {errors.slugEn && (
+                  <p className="text-[10px] text-red-500 mt-0.5" role="alert">
+                    {errors.slugEn}
+                  </p>
+                )}
+                {!errors.slugEn && slugAvail === false && (
+                  <p className="text-[10px] text-red-500 mt-0.5">
+                    Slug already in use
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
