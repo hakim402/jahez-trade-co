@@ -31,6 +31,10 @@ export const routing = defineRouting({
     '/dashboard/consulting': '/dashboard/consulting',
     '/dashboard/support': '/dashboard/support',
     '/dashboard/notifications': '/dashboard/notifications',
+    '/dashboard/shipments': '/dashboard/shipments',
+
+    // Shipment tracking (public)
+    '/track': '/track',
   },
 });
 

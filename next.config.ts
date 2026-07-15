@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       { pathname: "/uploads/consulting-services/**", search: "" },
       { pathname: "/uploads/requests/**", search: "" },
       { pathname: "/uploads/products/**", search: "" },
+      { pathname: "/uploads/shipments/**", search: "" },
     ],
 
     remotePatterns: [

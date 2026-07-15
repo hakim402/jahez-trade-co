@@ -65,6 +65,7 @@
   "Sidebar": {
     "dashboard": "لوحة التحكم",
     "myRequests": "طلباتي",
+    "myShipments": "شحناتي",
     "videoBookings": "حجوزات الفيديو",
     "consulting": "استشارات",
     "support": "يدعم",
@@ -98,5 +99,4 @@
     "approachingLimit": "اقتربت من الحد",
     "limitReached": "تم الوصول إلى الحد"
   }
-  
 }

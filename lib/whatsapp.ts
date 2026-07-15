@@ -225,7 +225,68 @@ Please log in to your account to review and approve the quote.
 Thank you 🙏`;
     },
 
-    // 4. Support / general
+    // 5. Invoice ready (manual send from admin)
+    invoiceReady: (params: {
+        customerName: string;
+        invoiceNumber: string;
+        totalAmount: string;
+        trackingCode?: string;
+        trackingUrl?: string;
+        lang?: "ar" | "en";
+    }) => {
+        const { customerName, invoiceNumber, totalAmount, trackingCode, trackingUrl, lang = "ar" } = params;
+        if (lang === "ar") {
+            return `مرحباً ${customerName} 👋
+
+🧾 *فاتورتك جاهزة!*
+
+رقم الفاتورة: \`${invoiceNumber}\`
+الإجمالي: *${totalAmount}*
+${trackingCode ? `\n📦 رمز تتبع الشحنة: \`${trackingCode}\`` : ""}
+${trackingUrl ? `🔗 تتبع شحنتك: ${trackingUrl}` : ""}
+
+شكراً لثقتكم بنا 🙏`;
+        }
+        return `Hello ${customerName} 👋
+
+🧾 *Your invoice is ready!*
+
+Invoice #: \`${invoiceNumber}\`
+Total: *${totalAmount}*
+${trackingCode ? `\n📦 Tracking code: \`${trackingCode}\`` : ""}
+${trackingUrl ? `🔗 Track your shipment: ${trackingUrl}` : ""}
+
+Thank you for your business 🙏`;
+    },
+
+    // 6. Shipment status update
+    shipmentStatusUpdate: (params: {
+        customerName: string;
+        trackingCode: string;
+        statusLabel: string;
+        trackingUrl?: string;
+        lang?: "ar" | "en";
+    }) => {
+        const { customerName, trackingCode, statusLabel, trackingUrl, lang = "ar" } = params;
+        if (lang === "ar") {
+            return `مرحباً ${customerName} 👋
+
+📦 *تحديث على شحنتك*
+
+رمز التتبع: \`${trackingCode}\`
+الحالة: *${statusLabel}*
+${trackingUrl ? `\n🔗 تتبع شحنتك: ${trackingUrl}` : ""}`;
+        }
+        return `Hello ${customerName} 👋
+
+📦 *Shipment update*
+
+Tracking code: \`${trackingCode}\`
+Status: *${statusLabel}*
+${trackingUrl ? `\n🔗 Track your shipment: ${trackingUrl}` : ""}`;
+    },
+
+    // 7. Support / general
     supportWelcome: (lang: "ar" | "en" = "ar") => {
         if (lang === "ar") {
             return `مرحباً! 👋 أنا مساعدك في خدمة العملاء.

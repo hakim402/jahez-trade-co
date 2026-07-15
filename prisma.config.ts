@@ -10,5 +10,6 @@ export default defineConfig({
   datasource: {
     // URL is defined here in v7, NOT in schema.prisma
     url: env('DATABASE_URL'), 
+    shadowDatabaseUrl: env("SHADOW_DATABASE_URL"),
   },
 });

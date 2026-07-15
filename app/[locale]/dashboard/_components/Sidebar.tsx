@@ -13,6 +13,7 @@ import {
   Video,
   BotMessageSquare,
   BriefcaseBusiness,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -50,6 +51,7 @@ export function Sidebar() {
   const mainNavItems: NavItem[] = [
     { icon: LayoutDashboard, labelKey: "dashboard", href: "/dashboard" },
     { icon: PackageSearch, labelKey: "myRequests", href: "/dashboard/requests" },
+    { icon: Package, labelKey: "myShipments", href: "/dashboard/shipments" },
     { icon: Video, labelKey: "videoBookings", href: "/dashboard/bookings" },
     { icon: BriefcaseBusiness, labelKey: "consulting", href: "/dashboard/consulting" },
     { icon: BotMessageSquare, labelKey: "support", href: "/dashboard/support" },

@@ -1,101 +1,102 @@
 {
-    "Header": {
-        "home": "Home",
-        "products": "Products",
-        "service": "Services",
-        "blogs": "Blogs",
-        "about": "About",
-        "contact": "Contact",
-        "profile": "Profile",
-        "login": "Login",
-        "signUp": "Sign Up"
+  "Header": {
+    "home": "Home",
+    "products": "Products",
+    "service": "Services",
+    "blogs": "Blogs",
+    "about": "About",
+    "contact": "Contact",
+    "profile": "Profile",
+    "login": "Login",
+    "signUp": "Sign Up"
+  },
+  "Pricing": {
+    "section": {
+      "subtitle": "Pricing",
+      "title": "Simple",
+      "titleHighlight": "Plans for Serious Buyers",
+      "description": "Choose a plan that fits your sourcing needs and get fast, transparent access to real suppliers in China."
     },
-    "Pricing": {
-        "section": {
-            "subtitle": "Pricing",
-            "title": "Simple",
-            "titleHighlight": "Plans for Serious Buyers",
-            "description": "Choose a plan that fits your sourcing needs and get fast, transparent access to real suppliers in China."
-        },
-        "footer": "All plans include 24-hour quote delivery."
+    "footer": "All plans include 24-hour quote delivery."
+  },
+  "ClientDashboard": {
+    "welcome": "Welcome back, {name}!",
+    "subtitle": "Here's what's happening with your account.",
+    "memberSince": "Member since {date}",
+    "refresh": "Refresh",
+    "updated": "Updated {relative}",
+    "quickActions": {
+      "newRequest": "New Request",
+      "bookCall": "Book a Call",
+      "myQuotes": "My Quotes",
+      "consulting": "Consulting"
     },
-    "ClientDashboard": {
-        "welcome": "Welcome back, {name}!",
-        "subtitle": "Here's what's happening with your account.",
-        "memberSince": "Member since {date}",
-        "refresh": "Refresh",
-        "updated": "Updated {relative}",
-        "quickActions": {
-            "newRequest": "New Request",
-            "bookCall": "Book a Call",
-            "myQuotes": "My Quotes",
-            "consulting": "Consulting"
-        },
-        "tabs": {
-            "requests": "Requests",
-            "videoCalls": "Video Calls",
-            "quotes": "Quotes",
-            "files": "Files"
-        },
-        "viewAll": "View all",
-        "statusBreakdown": {
-            "requestsByStatus": "Requests by Status",
-            "bookingsByStatus": "Bookings by Status",
-            "quotesByStatus": "Quotes by Status",
-            "noData": "No data"
-        },
-        "summary": {
-            "title": "Summary",
-            "totalRequests": "Total Requests",
-            "completedOrders": "Completed Orders",
-            "totalBookings": "Total Bookings",
-            "callsCompleted": "Calls Completed",
-            "totalQuotes": "Total Quotes"
-        },
-        "filesPlaceholder": {
-            "comingSoon": "Files coming soon",
-            "description": "Your shared documents and deliverables will appear here.",
-            "goToRequests": "Go to Requests"
-        },
-        "pendingActions": {
-            "confirm": "Confirm",
-            "review": "Review"
-        }
+    "tabs": {
+      "requests": "Requests",
+      "videoCalls": "Video Calls",
+      "quotes": "Quotes",
+      "files": "Files"
     },
-    "Sidebar": {
-        "dashboard": "Dashboard",
-        "myRequests": "My Requests",
-        "videoBookings": "Video Bookings",
-        "consulting": "Consulting",
-        "support": "Support",
-        "notifications": "Notifications",
-        "settings": "Settings",
-        "help": "Help"
+    "viewAll": "View all",
+    "statusBreakdown": {
+      "requestsByStatus": "Requests by Status",
+      "bookingsByStatus": "Bookings by Status",
+      "quotesByStatus": "Quotes by Status",
+      "noData": "No data"
     },
-    "DashboardStats": {
-        "activeRequests": "Active Requests",
-        "total": "Total",
-        "upcomingCalls": "Upcoming Calls",
-        "completed": "Completed",
-        "pendingQuotes": "Pending Quotes",
-        "totalQuotes": "Total quotes",
-        "notifications": "Notifications",
-        "requestsDone": "Requests done"
+    "summary": {
+      "title": "Summary",
+      "totalRequests": "Total Requests",
+      "completedOrders": "Completed Orders",
+      "totalBookings": "Total Bookings",
+      "callsCompleted": "Calls Completed",
+      "totalQuotes": "Total Quotes"
     },
-    "SubscriptionCard": {
-        "trial": "Trial",
-        "inactive": "Inactive",
-        "freePlan": "Free plan",
-        "price": "{price} / {interval}",
-        "noActive": "No active subscription",
-        "allUnlocked": "All features unlocked",
-        "trialEnds": "Trial ends {date}",
-        "renews": "Renews {date}",
-        "upgrade": "Upgrade",
-        "productRequests": "Product Requests",
-        "videoBookings": "Video Bookings",
-        "unlimited": "∞",
-        "approachingLimit": "Approaching limit",
-        "limitReached": "Limit reached"
+    "filesPlaceholder": {
+      "comingSoon": "Files coming soon",
+      "description": "Your shared documents and deliverables will appear here.",
+      "goToRequests": "Go to Requests"
+    },
+    "pendingActions": {
+      "confirm": "Confirm",
+      "review": "Review"
     }
+  },
+  "Sidebar": {
+    "dashboard": "Dashboard",
+    "myRequests": "My Requests",
+    "myShipments": "My Shipments",
+    "videoBookings": "Video Bookings",
+    "consulting": "Consulting",
+    "support": "Support",
+    "notifications": "Notifications",
+    "settings": "Settings",
+    "help": "Help"
+  },
+  "DashboardStats": {
+    "activeRequests": "Active Requests",
+    "total": "Total",
+    "upcomingCalls": "Upcoming Calls",
+    "completed": "Completed",
+    "pendingQuotes": "Pending Quotes",
+    "totalQuotes": "Total quotes",
+    "notifications": "Notifications",
+    "requestsDone": "Requests done"
+  },
+  "SubscriptionCard": {
+    "trial": "Trial",
+    "inactive": "Inactive",
+    "freePlan": "Free plan",
+    "price": "{price} / {interval}",
+    "noActive": "No active subscription",
+    "allUnlocked": "All features unlocked",
+    "trialEnds": "Trial ends {date}",
+    "renews": "Renews {date}",
+    "upgrade": "Upgrade",
+    "productRequests": "Product Requests",
+    "videoBookings": "Video Bookings",
+    "unlimited": "∞",
+    "approachingLimit": "Approaching limit",
+    "limitReached": "Limit reached"
+  }
 }

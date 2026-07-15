@@ -20,6 +20,8 @@ import {
   BriefcaseBusiness,
   Megaphone,
   Ship,
+  Truck,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -60,6 +62,11 @@ export function Sidebar() {
       badge: badgeCounts.productRequests,
     },
     {
+      icon: Truck,
+      label: "Shipments & Tracking",
+      href: "/admin/shipments",
+    },
+    {
       icon: Video,
       label: "Video Request",
       href: "/admin/bookings",
@@ -96,6 +103,7 @@ export function Sidebar() {
       href: "/admin/notifications",
       badge: badgeCounts.notifications,
     },
+    { icon: KeyRound, label: "Integrations", href: "/admin/integrations" },
     { icon: Settings, label: "Settings", href: "/admin/settings" },
   ];
 
