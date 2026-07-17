@@ -1,3 +1,5 @@
+// app/[locale]/admin/(routes)/shipments/_components/types.ts
+
 export type ShipmentStatusValue =
   | "BOOKED"
   | "PICKED_UP"

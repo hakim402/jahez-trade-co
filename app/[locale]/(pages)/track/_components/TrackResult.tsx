@@ -2,8 +2,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { motion } from "motion/react";
 import { format } from "date-fns";
-import { Ship, Plane, Truck, Zap, Package, MapPin } from "lucide-react";
+import { Ship, Plane, Truck, Zap, Package, MapPin, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PublicShipmentView } from "../actions";
 
@@ -45,7 +47,12 @@ export function TrackResult({ shipment, locale }: { shipment: PublicShipmentView
         : Math.round(((idx + 1) / STATUS_ORDER.length) * 100);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-16">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="mx-auto max-w-3xl space-y-6 px-4 py-16"
+    >
       {/* ── Header card ─────────────────────────── */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="bg-gradient-to-br from-[#7b57fc] to-[#2b1cff] p-6 text-white">
@@ -167,6 +174,16 @@ export function TrackResult({ shipment, locale }: { shipment: PublicShipmentView
           </div>
         </div>
       )}
-    </div>
+
+      <div className="flex justify-center pt-2">
+        <Link
+          href={`/${locale}/track`}
+          className="flex items-center gap-1.5 text-sm font-medium text-[#7b57fc] hover:underline"
+        >
+          <Search className="h-3.5 w-3.5" />
+          {isAr ? "تتبع شحنة أخرى" : "Track another shipment"}
+        </Link>
+      </div>
+    </motion.div>
   );
 }

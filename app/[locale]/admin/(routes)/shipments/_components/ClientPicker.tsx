@@ -1,7 +1,8 @@
+// app/[locale]/admin/(routes)/shipments/_components/ClientPicker.tsx
 "use client";
 
 import { useState, useTransition, useEffect, useRef } from "react";
-import { Search, User, UserPlus, X, Loader2, Check, AlertCircle } from "lucide-react";
+import { Search, User, UserPlus, X, Loader2, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,6 @@ export function ClientPicker({
   const [results, setResults] = useState<SelectedClient[]>([]);
   const [isSearching, startSearch] = useTransition();
   const [isCreating, startCreate] = useTransition();
-  const [createError, setCreateError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [newGuest, setNewGuest] = useState<GuestClientInput>({
@@ -45,11 +45,11 @@ export function ClientPicker({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
     debounceRef.current = setTimeout(() => {
+      if (query.trim().length < 2) {
+        setResults([]);
+        return;
+      }
       startSearch(async () => {
         if (tab === "existing") {
           const res = await searchClients(query);
@@ -87,7 +87,6 @@ export function ClientPicker({
 
   async function handleCreateGuest() {
     if (!newGuest.fullName.trim()) return;
-    setCreateError(null);
     startCreate(async () => {
       const res = await createGuestClient(newGuest);
       if (res.success) {
@@ -99,9 +98,6 @@ export function ClientPicker({
           phone: newGuest.phone || null,
         });
         setNewGuest({ fullName: "", email: "", phone: "", whatsappPhone: "", company: "", country: "", notes: "" });
-        setCreateError(null);
-      } else {
-        setCreateError(res.error || "Failed to create guest client");
       }
     });
   }
@@ -130,7 +126,7 @@ export function ClientPicker({
 
   return (
     <div className="space-y-3">
-      <Tabs value={tab} onValueChange={(v) => { setTab(v as any); setResults([]); setQuery(""); setCreateError(null); }}>
+      <Tabs value={tab} onValueChange={(v) => { setTab(v as "existing" | "guest" | "new"); setResults([]); setQuery(""); }}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="existing">Registered</TabsTrigger>
           <TabsTrigger value="guest">Guest Clients</TabsTrigger>
@@ -170,12 +166,6 @@ export function ClientPicker({
             Register a client who doesn&apos;t have a JAHEZ account yet. They&apos;ll receive their invoice and
             tracking link by email/WhatsApp directly.
           </p>
-          {createError && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              <AlertCircle className="h-4 w-4" />
-              <span>{createError}</span>
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label>Full Name *</Label>

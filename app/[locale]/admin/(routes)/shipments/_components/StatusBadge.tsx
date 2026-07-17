@@ -1,3 +1,4 @@
+// app/[locale]/admin/(routes)/shipments/_components/StatusBadge.tsx
 "use client";
 
 import { cn } from "@/lib/utils";

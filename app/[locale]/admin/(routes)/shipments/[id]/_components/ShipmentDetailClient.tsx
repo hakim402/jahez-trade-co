@@ -1,3 +1,4 @@
+// app/[locale]/admin/(routes)/shipments/[id]/_components/ShipmentDetailClient.tsx
 "use client";
 
 import { useState, useTransition } from "react";
@@ -33,15 +34,6 @@ import type { ShipmentRow } from "../../_components/types";
 const FREIGHT_ICONS: Record<string, any> = { SEA: Ship, AIR: Plane, LAND: TruckIcon, EXPRESS: Zap };
 
 export function ShipmentDetailClient({ shipment: initial }: { shipment: ShipmentRow }) {
-  // Guard against undefined shipment
-  if (!initial) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-muted-foreground">Shipment data is unavailable.</p>
-      </div>
-    );
-  }
-
   const [shipment, setShipment] = useState<ShipmentRow>(initial);
   const [editOpen, setEditOpen] = useState(false);
   const [, startRefresh] = useTransition();
@@ -50,7 +42,11 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
   function refresh() {
     startRefresh(async () => {
       const res = await getShipmentById(shipment.id);
-      if (res.success) setShipment(res.data);
+      if (res.success) {
+        setShipment(res.data);
+      } else {
+        toast.error(res.error);
+      }
       router.refresh();
     });
   }
@@ -69,7 +65,7 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
   const clientPhone = shipment.client?.phone ?? shipment.guestClient?.phone;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/admin/shipments" className="mb-2 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -94,7 +90,7 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* ── Left column: overview ─────────────── */}
         <div className="space-y-6 lg:col-span-1">
-          <Card className="space-y-3 p-5">
+          <Card className="rounded-2xl border-border/50 space-y-3 p-5">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold"><User className="h-4 w-4" /> Client</h3>
             <p className="text-sm font-medium">{clientName}</p>
             <p className="text-xs text-muted-foreground">{shipment.guestClient ? "Guest client (no account)" : "Registered client"}</p>
@@ -105,7 +101,7 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
             )}
           </Card>
 
-          <Card className="space-y-3 p-5">
+          <Card className="rounded-2xl border-border/50 space-y-3 p-5">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold"><FreightIcon className="h-4 w-4" /> Route &amp; Method</h3>
             <p className="text-sm">{shipment.originCountry} → {shipment.destinationCountry}</p>
             <p className="text-xs text-muted-foreground">{shipment.freightType} freight{shipment.carrierName ? ` · ${shipment.carrierName}` : ""}</p>
@@ -119,7 +115,7 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
             {shipment.volumeCbm && <p className="text-xs text-muted-foreground">Volume: {shipment.volumeCbm} CBM</p>}
           </Card>
 
-          <Card className="space-y-3 p-5">
+          <Card className="rounded-2xl border-border/50 space-y-3 p-5">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold"><Package className="h-4 w-4" /> Product</h3>
             <p className="text-sm">{shipment.productDescription}</p>
             {shipment.productLink && (
@@ -130,7 +126,7 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
             <p className="text-xs text-muted-foreground">Quantity: {shipment.quantity ?? 1}</p>
           </Card>
 
-          <Card className="space-y-2 p-5">
+          <Card className="rounded-2xl border-border/50 space-y-2 p-5">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold"><DollarSign className="h-4 w-4" /> Cost Breakdown</h3>
             <CostRow label="Product" value={shipment.productCost} currency={shipment.currency} />
             <CostRow label="Shipping" value={shipment.shippingCost} currency={shipment.currency} />

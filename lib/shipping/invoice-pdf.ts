@@ -15,7 +15,7 @@ export interface InvoicePdfItem {
   description: string;
   quantity: number;
   unitPrice: number;
-  lineTotal: number;
+  lineTotal?: number;
 }
 
 export interface InvoicePdfData {
@@ -50,8 +50,9 @@ export interface InvoicePdfData {
   companyPhone?: string;
 }
 
-function money(n: number, currency: string) {
-  return `${n.toFixed(2)} ${currency}`;
+function money(n: number | null | undefined, currency: string) {
+  const safe = typeof n === "number" && Number.isFinite(n) ? n : 0;
+  return `${safe.toFixed(2)} ${currency}`;
 }
 
 export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
@@ -204,7 +205,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
       .text(item.description, col.desc + 10, rowY + 7, { width: 270 })
       .text(String(item.quantity), col.qty, rowY + 7)
       .text(money(item.unitPrice, data.currency), col.price, rowY + 7)
-      .text(money(item.lineTotal, data.currency), col.total, rowY + 7, {
+      .text(money(item.lineTotal ?? item.quantity * item.unitPrice, data.currency), col.total, rowY + 7, {
         width: 80,
         align: "right",
       });

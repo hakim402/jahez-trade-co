@@ -42,7 +42,7 @@ export function ShipmentImages({
   }
 
   return (
-    <Card className="p-5">
+    <Card className="rounded-2xl border-border/50 p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Product Photos</h3>
         <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />

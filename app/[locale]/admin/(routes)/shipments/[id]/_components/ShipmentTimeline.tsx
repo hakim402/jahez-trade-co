@@ -90,7 +90,7 @@ export function ShipmentTimeline({
   }
 
   return (
-    <Card className="p-5">
+    <Card className="rounded-2xl border-border/50 p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Tracking Timeline</h3>
         <div className="flex gap-2">

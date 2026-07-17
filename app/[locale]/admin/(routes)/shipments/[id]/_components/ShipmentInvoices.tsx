@@ -11,6 +11,7 @@ import {
   Mail,
   MessageCircle,
   Download,
+  Printer,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,30 @@ import { createInvoice, resendInvoiceEmail, sendInvoiceWhatsApp } from "../../in
 import type { InvoiceRow } from "../../_components/types";
 
 interface LineItem { description: string; quantity: number; unitPrice: number }
+
+/** Prints a same-origin PDF via a hidden iframe — no new tab, goes straight to the print dialog. */
+function printPdf(pdfUrl: string) {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  iframe.src = pdfUrl;
+  document.body.appendChild(iframe);
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // Fallback: some browsers block same-origin PDF printing via iframe — open it instead.
+      window.open(pdfUrl, "_blank");
+    } finally {
+      setTimeout(() => document.body.removeChild(iframe), 60_000);
+    }
+  };
+}
 
 export function ShipmentInvoices({
   shipmentId,
@@ -115,7 +140,7 @@ export function ShipmentInvoices({
   }
 
   return (
-    <Card className="p-5">
+    <Card className="rounded-2xl border-border/50 p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Invoices</h3>
         <Button size="sm" onClick={() => setOpen(true)} className="bg-[#7b57fc] hover:bg-[#6845e8]">
@@ -144,9 +169,14 @@ export function ShipmentInvoices({
               </p>
               <div className="flex flex-wrap gap-2">
                 {inv.pdfUrl && (
-                  <a href={inv.pdfUrl} target="_blank" rel="noreferrer">
-                    <Button size="sm" variant="outline"><Download className="mr-1.5 h-3.5 w-3.5" /> PDF</Button>
-                  </a>
+                  <>
+                    <a href={inv.pdfUrl} download={`${inv.invoiceNumber}.pdf`}>
+                      <Button size="sm" variant="outline"><Download className="mr-1.5 h-3.5 w-3.5" /> Download PDF</Button>
+                    </a>
+                    <Button size="sm" variant="outline" onClick={() => printPdf(inv.pdfUrl as string)}>
+                      <Printer className="mr-1.5 h-3.5 w-3.5" /> Print
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="outline" disabled={sendingId === inv.id} onClick={() => handleResendEmail(inv.id)}>
                   {sendingId === inv.id ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1.5 h-3.5 w-3.5" />}

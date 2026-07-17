@@ -27,7 +27,7 @@ interface Settings {
   enabled: boolean;
 }
 
-export function IntegrationsClient({ settings }: { settings: Settings }) {
+export function IntegrationsClient({ settings, loadError }: { settings: Settings; loadError?: string | null }) {
   const [apiKey, setApiKey] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [enabled, setEnabled] = useState(settings.enabled);
@@ -61,7 +61,7 @@ export function IntegrationsClient({ settings }: { settings: Settings }) {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div>
         <Link href="/admin/shipments" className="mb-2 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Shipments
@@ -72,7 +72,13 @@ export function IntegrationsClient({ settings }: { settings: Settings }) {
         </p>
       </div>
 
-      <Card className="max-w-xl space-y-5 p-6">
+      {loadError && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+
+      <Card className="rounded-2xl border-border/50 max-w-xl space-y-5 p-6">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#7b57fc]/10">
             <KeyRound className="h-4.5 w-4.5 text-[#7b57fc]" />
