@@ -74,7 +74,7 @@ function iso(v: any): string | null {
   return v instanceof Date ? v.toISOString() : v
 }
 
-export function serializeShipment(s: any): any {
+export async function serializeShipment(s: any): Promise<any> {
   return {
     ...s,
     weightKg: num(s.weightKg),

@@ -1,9 +1,4 @@
 // app/api/shipments/barcode/[code]/route.ts
-//
-// Serves a Code128 barcode PNG for a given tracking code, so the public
-// tracking page (and printable labels) can just use <img src="/api/...">.
-// Only renders codes that correspond to a real, non-deleted shipment.
-
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generateBarcodePng } from "@/lib/shipping/barcode"
@@ -25,7 +20,9 @@ export async function GET(
 
   try {
     const png = await generateBarcodePng(trackingCode)
-    return new NextResponse(png, {
+    // Convert Buffer to Uint8Array to satisfy the TypeScript type
+    const imageData = Buffer.isBuffer(png) ? new Uint8Array(png) : png
+    return new NextResponse(imageData, {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "public, max-age=3600",

@@ -179,7 +179,23 @@ export function ShipmentTimeline({
 }
 
 function SourceIcon({ source }: { source: "MANUAL" | "API" | "SYSTEM" }) {
-  if (source === "API") return <Bot className="h-3 w-3 text-[#7b57fc]" title="Synced from carrier API" />;
-  if (source === "SYSTEM") return <Cog className="h-3 w-3 text-muted-foreground" title="System generated" />;
-  return <User className="h-3 w-3 text-muted-foreground" title="Added manually" />;
+  if (source === "API") {
+    return (
+      <span title="Synced from carrier API">
+        <Bot className="h-3 w-3 text-[#7b57fc]" />
+      </span>
+    );
+  }
+  if (source === "SYSTEM") {
+    return (
+      <span title="System generated">
+        <Cog className="h-3 w-3 text-muted-foreground" />
+      </span>
+    );
+  }
+  return (
+    <span title="Added manually">
+      <User className="h-3 w-3 text-muted-foreground" />
+    </span>
+  );
 }
