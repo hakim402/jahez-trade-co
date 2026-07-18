@@ -3,7 +3,7 @@ export const organizationData = {
   '@type': 'Organization',
   name: 'JAHEZ TRADE CO',
   url: 'https://jahez.online',
-  logo: 'https://jahez.online/logo.png',
+  logo: 'https://jahez.online/logo/jahez.png',
   description:
     'China product sourcing, import services, and business consulting for USA, UAE, Dubai, and Yemen.',
   address: {

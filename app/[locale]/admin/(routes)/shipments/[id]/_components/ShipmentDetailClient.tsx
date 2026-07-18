@@ -53,7 +53,14 @@ export function ShipmentDetailClient({ shipment: initial }: { shipment: Shipment
 
   const totalCost = shipment.productCost + shipment.shippingCost + shipment.customsFees + shipment.otherFees;
   const FreightIcon = FREIGHT_ICONS[shipment.freightType] ?? Package;
-  const trackingUrl = typeof window !== "undefined" ? `${window.location.origin}/track/${shipment.trackingCode}` : `/track/${shipment.trackingCode}`;
+
+  // Extract locale from the current URL (admin is always under /en or /ar)
+  const pathLocale = typeof window !== "undefined"
+    ? window.location.pathname.match(/^\/(en|ar)\//)?.[1] ?? "ar"
+    : "ar";
+  const trackingUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/${pathLocale}/track/${shipment.trackingCode}`
+    : `/${pathLocale}/track/${shipment.trackingCode}`;
 
   function copyTrackingLink() {
     navigator.clipboard.writeText(trackingUrl);

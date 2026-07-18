@@ -1,6 +1,6 @@
 'use client'
 
-import { Variants } from "framer-motion";
+import { Variants } from "motion/react";
 
 
 // ======================================

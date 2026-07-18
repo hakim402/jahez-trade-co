@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, Variants } from "framer-motion";
+import { motion, Variants } from "motion/react";
 import { useClerk } from "@clerk/nextjs";
 import { useSidebar } from "@/context/sidebar-context";
 import { useBadgeCounts } from "@/context/admin-badge-counts-context"; // <-- import

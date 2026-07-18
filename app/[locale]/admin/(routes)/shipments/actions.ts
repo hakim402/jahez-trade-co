@@ -76,13 +76,15 @@ function iso(v: any): string | null {
 
 export async function serializeShipment(s: any): Promise<any> {
   return {
+    id: s.id,
+    trackingCode: s.trackingCode,
     ...s,
     weightKg: num(s.weightKg),
     volumeCbm: num(s.volumeCbm),
-    productCost: num(s.productCost),
-    shippingCost: num(s.shippingCost),
-    customsFees: num(s.customsFees),
-    otherFees: num(s.otherFees),
+    productCost: num(s.productCost) ?? 0,
+    shippingCost: num(s.shippingCost) ?? 0,
+    customsFees: num(s.customsFees) ?? 0,
+    otherFees: num(s.otherFees) ?? 0,
     estimatedDelivery: iso(s.estimatedDelivery),
     actualDelivery: iso(s.actualDelivery),
     lastSyncedAt: iso(s.lastSyncedAt),
@@ -498,7 +500,7 @@ export async function getShipments(
     return {
       success: true,
       data: {
-        shipments: shipments.map(serializeShipment),
+        shipments: await Promise.all(shipments.map(serializeShipment)),
         pagination: { page, pageSize, totalCount, totalPages: Math.max(1, Math.ceil(totalCount / pageSize)) },
       },
     }
@@ -513,7 +515,7 @@ export async function getShipmentById(id: string): Promise<ActionResult<any>> {
     await requireAdmin()
     const shipment = await prisma.shipment.findUnique({ where: { id }, include: SHIPMENT_DETAIL_INCLUDE })
     if (!shipment) return { success: false, error: "Shipment not found" }
-    return { success: true, data: serializeShipment(shipment) }
+    return { success: true, data: await serializeShipment(shipment) }
   } catch (err) {
     console.error("[getShipmentById]", err)
     return { success: false, error: err instanceof Error ? err.message : "Failed to load shipment" }

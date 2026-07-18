@@ -29,7 +29,10 @@ export default async function TrackResultPage({ params }: PageProps) {
 
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">
+      <div className="mb-28">
+
       <Header />
+      </div>
       {result.success ? (
         <TrackResult shipment={result.data} locale={locale} />
       ) : (

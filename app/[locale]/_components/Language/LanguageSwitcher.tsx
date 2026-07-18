@@ -5,7 +5,7 @@
 import { useLocale } from "next-intl";
 import { usePathname } from "@/i18n/routing";
 import { useState, useRef, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import GB from "country-flag-icons/react/3x2/GB";

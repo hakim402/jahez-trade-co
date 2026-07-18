@@ -1389,6 +1389,7 @@ model Invoice {
   dueDate DateTime?
   paidAt  DateTime?
   notes   String?       @db.Text
+  lang    String        @default("en") // "en" or "ar"
 
   pdfUrl         String?
   emailSentAt    DateTime?

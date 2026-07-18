@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useClerk } from "@clerk/nextjs"; // <-- import useClerk
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

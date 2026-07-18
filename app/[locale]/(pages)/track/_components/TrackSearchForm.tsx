@@ -31,7 +31,7 @@ export function TrackSearchForm({ locale }: { locale: string }) {
     <form onSubmit={handleSubmit} className="flex w-full max-w-md flex-col gap-3">
       <div className="flex w-full flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
-          <ScanBarcode className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <ScanBarcode className="absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={code}
             onChange={(e) => { setCode(e.target.value); setError(null); }}

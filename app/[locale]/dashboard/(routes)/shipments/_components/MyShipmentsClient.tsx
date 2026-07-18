@@ -5,26 +5,10 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { Package, Ship, Plane, Truck, Zap, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { SHIPMENT_STATUS_LABELS } from "@/lib/shipping/status-map";
 import type { MyShipmentRow } from "../actions";
 
 const FREIGHT_ICONS: Record<string, any> = { SEA: Ship, AIR: Plane, LAND: Truck, EXPRESS: Zap };
-
-const STATUS_LABELS: Record<string, { en: string; ar: string; color: string }> = {
-  BOOKED: { en: "Booked", ar: "تم الحجز", color: "#8b8b9a" },
-  PICKED_UP: { en: "Picked Up", ar: "تم الاستلام", color: "#5b8def" },
-  IN_TRANSIT: { en: "In Transit", ar: "قيد الشحن", color: "#7b57fc" },
-  ARRIVED_ORIGIN_PORT: { en: "Arrived Origin Port", ar: "وصلت لميناء المنشأ", color: "#7b57fc" },
-  CUSTOMS_ORIGIN: { en: "Customs (Origin)", ar: "التخليص الجمركي (المنشأ)", color: "#e2a03f" },
-  DEPARTED: { en: "Departed", ar: "تم المغادرة", color: "#5b8def" },
-  ARRIVED_DESTINATION: { en: "Arrived Destination", ar: "وصلت للوجهة", color: "#5b8def" },
-  CUSTOMS_DESTINATION: { en: "Customs (Destination)", ar: "التخليص الجمركي (الوجهة)", color: "#e2a03f" },
-  OUT_FOR_DELIVERY: { en: "Out for Delivery", ar: "خارج للتسليم", color: "#22b07d" },
-  DELIVERED: { en: "Delivered", ar: "تم التسليم", color: "#1fa971" },
-  DELAYED: { en: "Delayed", ar: "متأخر", color: "#e2a03f" },
-  EXCEPTION: { en: "Exception", ar: "مشكلة", color: "#e15c5c" },
-  CANCELED: { en: "Canceled", ar: "ملغى", color: "#8b8b9a" },
-  RETURNED: { en: "Returned", ar: "تم الإرجاع", color: "#e15c5c" },
-};
 
 export function MyShipmentsClient({
   shipments,
@@ -54,7 +38,7 @@ export function MyShipmentsClient({
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {shipments.map((s) => {
-            const meta = STATUS_LABELS[s.status] ?? { en: s.status, ar: s.status, color: "#8b8b9a" };
+            const meta = SHIPMENT_STATUS_LABELS[s.status as keyof typeof SHIPMENT_STATUS_LABELS] ?? { en: s.status, ar: s.status, color: "#8b8b9a" };
             const FreightIcon = FREIGHT_ICONS[s.freightType] ?? Package;
             return (
               <Link key={s.id} href={`/${locale}/track/${s.trackingCode}`}>

@@ -1,0 +1,36 @@
+version: 1
+scope:
+  include: []
+  exclude:
+    - "node_modules/**"
+    - ".next/**"
+    - "public/flags/**"
+    - "public/uploads/**"
+repowiki:
+  template: "architecture"
+  notes:
+    - text: "Next.js 16 uses proxy.ts (not middleware.ts) for route interception. The proxy.ts file handles Clerk auth, i18n locale routing, admin role checks, and API route bypass."
+    - text: "ShipmentStatus enum order in STATUS_ORDER array (status-map.ts) places IN_TRANSIT after DEPARTED, which may not reflect real-world logistics flow. Review with the team."
+    - text: "Status labels (SHIPMENT_STATUS_LABELS) are duplicated in 3 files (TrackResult.tsx, MyShipmentsClient.tsx, status-map.ts). The canonical source is lib/shipping/status-map.ts."
+    - text: "The admin panel is forced to English locale via proxy.ts redirect. All admin UI strings are English-only."
+    - text: "17TRACK API integration uses getSetting() which prefers DB-stored keys (admin-editable) over .env fallbacks."
+  documents:
+    - title: "Shipping & Tracking System"
+      goal: "Document the full shipping lifecycle from admin creation through client tracking to public tracking page"
+      parent: ""
+    - title: "Admin Shipment Management"
+      goal: "Cover shipment CRUD, client picker (user/guest), image uploads, manual events, 17TRACK sync, and invoice generation in the admin panel"
+      parent: "Shipping & Tracking System"
+    - title: "Client Dashboard Shipments"
+      goal: "Document how clients view their shipments and link to the public tracking page"
+      parent: "Shipping & Tracking System"
+    - title: "Public Tracking Page"
+      goal: "Document the /track and /track/[code] pages — public-facing, no auth required, bilingual"
+      parent: "Shipping & Tracking System"
+    - title: "17TRACK Integration"
+      goal: "Cover API client, webhook handler, cron sync, status mapping, and settings management"
+      parent: "Shipping & Tracking System"
+knowledgecard:
+  notes:
+    - text: "The shipping module spans admin/(routes)/shipments, dashboard/(routes)/shipments, (pages)/track, lib/shipping/*, and API routes for webhooks/cron/barcode."
+    - text: "Invoice generation uses PDFKit (invoice-pdf.ts), Nodemailer (invoice-email.ts), and optional WhatsApp delivery via Twilio."

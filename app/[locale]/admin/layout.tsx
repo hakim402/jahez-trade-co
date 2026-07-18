@@ -13,7 +13,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const { userId } = await auth();
-  if (!userId) redirect("/auth/sign-in");
+  if (!userId) redirect("/sign-in");
 
   // Fetch user + badge counts in parallel
   const [user, badgeCounts] = await Promise.all([

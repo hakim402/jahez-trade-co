@@ -78,6 +78,7 @@ const createInvoiceSchema = z.object({
   dueDate: z.string().optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   sendEmailNow: z.boolean().default(true),
+  lang: z.enum(["en", "ar"]).default("en"),
 })
 
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>
@@ -150,6 +151,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<ActionRe
         currency: d.currency,
         dueDate: d.dueDate ? new Date(d.dueDate) : null,
         notes: d.notes?.trim() || null,
+        lang: d.lang,
         status: "SENT",
         createdById: adminId,
         items: {
@@ -169,9 +171,22 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<ActionRe
     const shipment = d.shipmentId
       ? await prisma.shipment.findUnique({
           where: { id: d.shipmentId },
-          select: { trackingCode: true, originCountry: true, destinationCountry: true, freightType: true, carrierName: true, carrierTrackingNumber: true },
+          select: {
+            trackingCode: true,
+            originCountry: true,
+            destinationCountry: true,
+            freightType: true,
+            carrierName: true,
+            carrierTrackingNumber: true,
+            status: true,
+            images: { orderBy: { sortOrder: "asc" }, select: { url: true, isPrimary: true } },
+          },
         })
       : null
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://jahez.online"
+    const trackingUrl = shipment?.trackingCode ? `${appUrl}/en/track/${shipment.trackingCode}` : null
+    const shipmentImages = shipment?.images?.map((img) => img.url) ?? []
 
     const pdfBuffer = await generateInvoicePdf({
       invoiceNumber,
@@ -193,14 +208,18 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<ActionRe
       freightType: shipment?.freightType,
       carrierName: shipment?.carrierName,
       carrierTrackingNumber: shipment?.carrierTrackingNumber,
-      companyName: "JAHEZ Trade Co.",
+      shipmentStatus: shipment?.status,
+      shipmentImages,
+      trackingUrl,
+      companyName: "JAHEZ TRADE CO.",
       companyEmail: process.env.GMAIL_USER,
+      lang: d.lang,
     })
 
     if (!existsSync(INVOICE_DIR)) await mkdir(INVOICE_DIR, { recursive: true })
     const pdfFilename = `${invoiceNumber}.pdf`
     await writeFile(path.join(INVOICE_DIR, pdfFilename), pdfBuffer)
-    const pdfUrl = `/uploads/invoices/${pdfFilename}`
+    const pdfUrl = `/api/invoices/${pdfFilename}`
     await prisma.invoice.update({ where: { id: invoice.id }, data: { pdfUrl } })
 
     let emailSent = false
@@ -257,7 +276,9 @@ export async function resendInvoiceEmail(invoiceId: string): Promise<ActionResul
     if (!email) return { success: false, error: "This client has no email on file" }
     if (!invoice.pdfUrl) return { success: false, error: "No PDF found for this invoice" }
 
-    const pdfPath = path.join(process.cwd(), "public", invoice.pdfUrl.replace(/^\//, ""))
+    // Derive the disk path from the invoice number (works for both old and new URL formats)
+    const pdfFilename = `${invoice.invoiceNumber}.pdf`
+    const pdfPath = path.join(INVOICE_DIR, pdfFilename)
     if (!existsSync(pdfPath)) return { success: false, error: "Invoice PDF file is missing on disk" }
     const pdfBuffer = await import("fs/promises").then((fs) => fs.readFile(pdfPath))
 
@@ -345,5 +366,90 @@ export async function getInvoiceById(id: string): Promise<ActionResult<any>> {
   } catch (err) {
     console.error("[getInvoiceById]", err)
     return { success: false, error: "Failed to load invoice" }
+  }
+}
+
+/**
+ * Re-generate the invoice PDF (useful when the original file is missing or you want a fresh copy).
+ */
+export async function regenerateInvoicePdf(invoiceId: string): Promise<ActionResult<{ pdfUrl: string }>> {
+  try {
+    await requireAdmin()
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        items: { orderBy: { sortOrder: "asc" } },
+        client: true,
+        guestClient: true,
+        shipment: {
+          select: {
+            trackingCode: true,
+            originCountry: true,
+            destinationCountry: true,
+            freightType: true,
+            carrierName: true,
+            carrierTrackingNumber: true,
+            status: true,
+            images: { orderBy: { sortOrder: "asc" }, select: { url: true, isPrimary: true } },
+          },
+        },
+      },
+    })
+    if (!invoice) return { success: false, error: "Invoice not found" }
+
+    const recipientName = invoice.client?.fullName ?? invoice.guestClient?.fullName ?? "Client"
+    const recipientEmail = invoice.client?.email ?? invoice.guestClient?.email ?? null
+    const recipientPhone = invoice.client?.phone ?? invoice.guestClient?.whatsappPhone ?? invoice.guestClient?.phone ?? null
+
+    const items = invoice.items.map((it) => ({
+      description: it.description,
+      quantity: it.quantity,
+      unitPrice: Number(it.unitPrice),
+      lineTotal: Number(it.lineTotal),
+    }))
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://jaheztrade.com"
+    const trackingUrl = invoice.shipment?.trackingCode ? `${appUrl}/en/track/${invoice.shipment.trackingCode}` : null
+    const shipmentImages = invoice.shipment?.images?.map((img) => img.url) ?? []
+
+    const pdfBuffer = await generateInvoicePdf({
+      invoiceNumber: invoice.invoiceNumber,
+      issuedAt: invoice.createdAt,
+      dueDate: invoice.dueDate,
+      currency: invoice.currency,
+      clientName: recipientName,
+      clientEmail: recipientEmail,
+      clientPhone: recipientPhone,
+      items,
+      subtotal: Number(invoice.subtotal),
+      taxAmount: Number(invoice.taxAmount),
+      discount: Number(invoice.discount),
+      totalAmount: Number(invoice.totalAmount),
+      notes: invoice.notes,
+      trackingCode: invoice.shipment?.trackingCode,
+      originCountry: invoice.shipment?.originCountry,
+      destinationCountry: invoice.shipment?.destinationCountry,
+      freightType: invoice.shipment?.freightType,
+      carrierName: invoice.shipment?.carrierName,
+      carrierTrackingNumber: invoice.shipment?.carrierTrackingNumber,
+      shipmentStatus: invoice.shipment?.status,
+      shipmentImages,
+      trackingUrl,
+      companyName: "JAHEZ TRADE CO.",
+      companyEmail: process.env.GMAIL_USER,
+      lang: (invoice.lang === "ar" ? "ar" : "en") as "en" | "ar",
+    })
+
+    if (!existsSync(INVOICE_DIR)) await mkdir(INVOICE_DIR, { recursive: true })
+    const pdfFilename = `${invoice.invoiceNumber}.pdf`
+    await writeFile(path.join(INVOICE_DIR, pdfFilename), pdfBuffer)
+    const pdfUrl = `/api/invoices/${pdfFilename}`
+    await prisma.invoice.update({ where: { id: invoice.id }, data: { pdfUrl } })
+
+    revalidatePath("/admin/shipments")
+    return { success: true, data: { pdfUrl } }
+  } catch (err) {
+    console.error("[regenerateInvoicePdf]", err)
+    return { success: false, error: "Failed to regenerate invoice PDF" }
   }
 }

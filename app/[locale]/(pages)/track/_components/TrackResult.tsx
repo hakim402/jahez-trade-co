@@ -7,44 +7,16 @@ import { motion } from "motion/react";
 import { format } from "date-fns";
 import { Ship, Plane, Truck, Zap, Package, MapPin, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_ORDER, statusProgress } from "@/lib/shipping/status-map";
 import type { PublicShipmentView } from "../actions";
 
 const FREIGHT_ICONS: Record<string, any> = { SEA: Ship, AIR: Plane, LAND: Truck, EXPRESS: Zap };
 
-const STATUS_LABELS: Record<string, { en: string; ar: string; color: string }> = {
-  BOOKED: { en: "Booked", ar: "تم الحجز", color: "#8b8b9a" },
-  PICKED_UP: { en: "Picked Up", ar: "تم الاستلام", color: "#5b8def" },
-  IN_TRANSIT: { en: "In Transit", ar: "قيد الشحن", color: "#7b57fc" },
-  ARRIVED_ORIGIN_PORT: { en: "Arrived at Origin Port", ar: "وصلت لميناء المنشأ", color: "#7b57fc" },
-  CUSTOMS_ORIGIN: { en: "Customs Clearance (Origin)", ar: "التخليص الجمركي (المنشأ)", color: "#e2a03f" },
-  DEPARTED: { en: "Departed", ar: "تم المغادرة", color: "#5b8def" },
-  ARRIVED_DESTINATION: { en: "Arrived at Destination", ar: "وصلت للوجهة", color: "#5b8def" },
-  CUSTOMS_DESTINATION: { en: "Customs Clearance (Destination)", ar: "التخليص الجمركي (الوجهة)", color: "#e2a03f" },
-  OUT_FOR_DELIVERY: { en: "Out for Delivery", ar: "خارج للتسليم", color: "#22b07d" },
-  DELIVERED: { en: "Delivered", ar: "تم التسليم", color: "#1fa971" },
-  DELAYED: { en: "Delayed", ar: "متأخر", color: "#e2a03f" },
-  EXCEPTION: { en: "Exception", ar: "مشكلة في الشحنة", color: "#e15c5c" },
-  CANCELED: { en: "Canceled", ar: "ملغى", color: "#8b8b9a" },
-  RETURNED: { en: "Returned", ar: "تم الإرجاع", color: "#e15c5c" },
-};
-
-const STATUS_ORDER = [
-  "BOOKED", "PICKED_UP", "ARRIVED_ORIGIN_PORT", "CUSTOMS_ORIGIN", "DEPARTED",
-  "IN_TRANSIT", "ARRIVED_DESTINATION", "CUSTOMS_DESTINATION", "OUT_FOR_DELIVERY", "DELIVERED",
-];
-
 export function TrackResult({ shipment, locale }: { shipment: PublicShipmentView; locale: string }) {
   const isAr = locale === "ar";
   const FreightIcon = FREIGHT_ICONS[shipment.freightType] ?? Package;
-  const statusMeta = STATUS_LABELS[shipment.status] ?? { en: shipment.status, ar: shipment.status, color: "#8b8b9a" };
-
-  const idx = STATUS_ORDER.indexOf(shipment.status);
-  const progress =
-    shipment.status === "DELIVERED"
-      ? 100
-      : idx === -1
-        ? 50
-        : Math.round(((idx + 1) / STATUS_ORDER.length) * 100);
+  const statusMeta = SHIPMENT_STATUS_LABELS[shipment.status as keyof typeof SHIPMENT_STATUS_LABELS] ?? { en: shipment.status, ar: shipment.status, color: "#8b8b9a" };
+  const progress = statusProgress(shipment.status as any);
 
   return (
     <motion.div
@@ -55,7 +27,7 @@ export function TrackResult({ shipment, locale }: { shipment: PublicShipmentView
     >
       {/* ── Header card ─────────────────────────── */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="bg-gradient-to-br from-[#7b57fc] to-[#2b1cff] p-6 text-white">
+        <div className="bg-[#7b57fc] p-6 text-white">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-white/70">{isAr ? "رمز التتبع" : "Tracking Code"}</p>
@@ -137,11 +109,11 @@ export function TrackResult({ shipment, locale }: { shipment: PublicShipmentView
         ) : (
           <ol className={cn("space-y-4 border-dashed pl-4", isAr ? "border-r-2 pr-4 pl-0" : "border-l-2")}>
             {shipment.events.map((e, i) => {
-              const meta = STATUS_LABELS[e.status] ?? { en: e.status, ar: e.status, color: "#8b8b9a" };
+              const meta = SHIPMENT_STATUS_LABELS[e.status as keyof typeof SHIPMENT_STATUS_LABELS] ?? { en: e.status, ar: e.status, color: "#8b8b9a" };
               return (
                 <li key={i} className="relative">
                   <span
-                    className={cn("absolute top-1 h-2.5 w-2.5 rounded-full", isAr ? "-right-[21px]" : "-left-[21px]")}
+                    className={cn("absolute top-1 h-2.5 w-2.5 rounded-full", isAr ? "-right-5.25" : "-left-5.25")}
                     style={{ backgroundColor: meta.color }}
                   />
                   <p className="text-xs font-semibold" style={{ color: meta.color }}>

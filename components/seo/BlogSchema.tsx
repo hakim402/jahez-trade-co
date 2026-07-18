@@ -39,7 +39,7 @@ export default function BlogSchema({
       name: locale === 'ar' ? 'جاهز' : 'JAHEZ TRADE CO',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://jahez.online/logo.png',
+        url: 'https://jahez.online/logo/jahez.png',
       },
     },
     description: description,

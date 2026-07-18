@@ -194,7 +194,7 @@ export function ShipmentsPageClient({
       )}
 
       <div className="flex flex-wrap gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative min-w-[240px] flex-1">
+        <form onSubmit={handleSearchSubmit} className="relative min-w-60 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by tracking code, client, or product…"
@@ -207,16 +207,23 @@ export function ShipmentsPageClient({
           value={filters.status ?? "ALL"}
           onValueChange={(v) => applyFilters({ status: v === "ALL" ? undefined : v, page: "1" })}
         >
-          <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-50"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">All statuses</SelectItem>
             <SelectItem value="BOOKED">Booked</SelectItem>
+            <SelectItem value="PICKED_UP">Picked Up</SelectItem>
             <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
+            <SelectItem value="ARRIVED_ORIGIN_PORT">Arrived Origin Port</SelectItem>
+            <SelectItem value="CUSTOMS_ORIGIN">Customs (Origin)</SelectItem>
+            <SelectItem value="DEPARTED">Departed</SelectItem>
+            <SelectItem value="ARRIVED_DESTINATION">Arrived Destination</SelectItem>
             <SelectItem value="CUSTOMS_DESTINATION">Customs (Destination)</SelectItem>
             <SelectItem value="OUT_FOR_DELIVERY">Out for Delivery</SelectItem>
             <SelectItem value="DELIVERED">Delivered</SelectItem>
             <SelectItem value="DELAYED">Delayed</SelectItem>
             <SelectItem value="EXCEPTION">Exception</SelectItem>
+            <SelectItem value="CANCELED">Canceled</SelectItem>
+            <SelectItem value="RETURNED">Returned</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -262,7 +269,7 @@ export function ShipmentsPageClient({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">{s.originCountry} → {s.destinationCountry}</TableCell>
-                  <TableCell className="max-w-[220px] truncate text-sm">{s.productDescription}</TableCell>
+                  <TableCell className="min-w-60 truncate text-sm">{s.productDescription}</TableCell>
                   <TableCell><StatusBadge status={s.status} /></TableCell>
                   <TableCell className="text-sm font-medium tabular-nums">{totalCost.toFixed(2)} {s.currency}</TableCell>
                   <TableCell>

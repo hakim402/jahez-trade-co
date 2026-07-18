@@ -15,14 +15,13 @@ export async function notifyShipmentStatusChange(params: {
   status: ShipmentStatus;
 }) {
   if (!params.userId) return;
+  const enLabel = statusLabel(params.status, "en");
+  const arLabel = statusLabel(params.status, "ar");
   await prisma.notification.create({
     data: {
       userId: params.userId,
-      title: "Shipment Update",
-      message: `Your shipment ${params.trackingCode} is now: ${statusLabel(
-        params.status,
-        "en",
-      )}.`,
+      title: "Shipment Update / تحديث الشحنة",
+      message: `Your shipment ${params.trackingCode} is now: ${enLabel}.\nشحنتك ${params.trackingCode} حالتها الآن: ${arLabel}.`,
       type: "SHIPMENT_STATUS",
       shipmentId: params.shipmentId,
       metadata: { trackingCode: params.trackingCode, status: params.status },
@@ -40,8 +39,8 @@ export async function notifyInvoiceReady(params: {
   await prisma.notification.create({
     data: {
       userId: params.userId,
-      title: "Invoice Ready",
-      message: `Invoice ${params.invoiceNumber} (${params.totalAmount}) has been issued.`,
+      title: "Invoice Ready / الفاتورة جاهزة",
+      message: `Invoice ${params.invoiceNumber} (${params.totalAmount}) has been issued.\nتم إصدار الفاتورة ${params.invoiceNumber} (${params.totalAmount}).`,
       type: "INVOICE_READY",
       invoiceId: params.invoiceId,
       metadata: { invoiceNumber: params.invoiceNumber },

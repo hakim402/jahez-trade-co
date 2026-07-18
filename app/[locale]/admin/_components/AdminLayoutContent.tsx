@@ -2,7 +2,7 @@
 
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { SidebarProvider, useSidebar } from "@/context/sidebar-context";
 import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";

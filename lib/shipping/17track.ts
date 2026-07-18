@@ -141,6 +141,8 @@ export function mapTrack17Status(status: string): ShipmentStatus {
       return ShipmentStatus.EXCEPTION;
     case "Expired":
       return ShipmentStatus.DELAYED;
+    case "NotFound":
+      return ShipmentStatus.BOOKED;
     default:
       return ShipmentStatus.IN_TRANSIT;
   }
