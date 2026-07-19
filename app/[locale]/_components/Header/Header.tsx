@@ -91,6 +91,7 @@ export const Header = () => {
       ],
     },
     { name: t("track"), href: "/track" },
+    { name: t("bookings"), href: "/bookings" },
     { name: t("blogs"), href: "/blogs" },
     { name: t("about"), href: "/about" },
     { name: t("contact"), href: "/contact" },
