@@ -366,8 +366,13 @@ model Plan {
 model VideoBooking {
   id String @id @default(cuid())
 
-  clientId String
-  client   User   @relation("ClientBookings", fields: [clientId], references: [id])
+  clientId String?
+  client   User?  @relation("ClientBookings", fields: [clientId], references: [id])
+
+  // Guest contact info (when clientId is null)
+  guestFullName String?
+  guestEmail    String?
+  guestPhone    String?
 
   type            BookingType
   requestNotes    String?       @db.Text
@@ -451,12 +456,17 @@ model AvailabilitySlot {
 model ProductRequest {
   id String @id @default(cuid())
 
-  clientId String
-  client   User   @relation(fields: [clientId], references: [id])
+  clientId String?
+  client   User?  @relation(fields: [clientId], references: [id])
+
+  // Guest contact info (when clientId is null)
+  guestFullName String?
+  guestEmail    String?
+  guestPhone    String?
 
   productLink     String?
   description     String? @db.Text
-  quantity        Int
+  quantity        Int     @default(1)
   shippingCountry String
   customNotes     String? @db.Text
 

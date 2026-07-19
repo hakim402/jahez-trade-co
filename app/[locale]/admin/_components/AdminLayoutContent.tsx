@@ -17,7 +17,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         className={cn(
           "min-h-screen transition-all duration-300 bg-background backdrop-blur-sm",
           "lg:ml-0",
-          collapsed ? "lg:ml-20" : "lg:ml-64",
+          collapsed ? "lg:ml-[4.5rem]" : "lg:ml-64",
           // No margin on mobile
         )}
         initial={{ opacity: 0 }}

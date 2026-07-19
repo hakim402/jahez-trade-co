@@ -7,13 +7,30 @@
 
 import { prisma } from "@/lib/prisma";
 
-export type ProviderKey = "17TRACK" | "SHIP24" | "AFTERSHIP" | "WHATSAPP";
+export type ProviderKey = "17TRACK" | "SHIP24" | "AFTERSHIP" | "WHATSAPP" | "TWILIO" | "EMAIL";
 
 // Maps a DB (provider, key) pair to a fallback env var name.
 const ENV_FALLBACKS: Record<string, string> = {
+  // ── 17TRACK ───────────────────────────────────
   "17TRACK.API_KEY": "TRACK17_API_KEY",
   "17TRACK.WEBHOOK_SECRET": "TRACK17_WEBHOOK_SECRET",
   "17TRACK.ENABLED": "TRACK17_ENABLED",
+
+  // ── TWILIO / WhatsApp ─────────────────────────
+  "TWILIO.ACCOUNT_SID": "TWILIO_ACCOUNT_SID",
+  "TWILIO.AUTH_TOKEN": "TWILIO_AUTH_TOKEN",
+  "TWILIO.WHATSAPP_FROM": "TWILIO_WHATSAPP_FROM",
+  "TWILIO.ENABLED": "TWILIO_ENABLED",
+
+  // ── EMAIL ─────────────────────────────────────
+  "EMAIL.PROVIDER": "EMAIL_PROVIDER",        // "gmail" | "smtp" | "none"
+  "EMAIL.HOST": "EMAIL_HOST",
+  "EMAIL.PORT": "EMAIL_PORT",
+  "EMAIL.USER": "EMAIL_USER",
+  "EMAIL.PASS": "EMAIL_PASS",
+  "EMAIL.FROM_NAME": "EMAIL_FROM_NAME",
+  "EMAIL.FROM_ADDRESS": "EMAIL_FROM_ADDRESS",
+  "EMAIL.ENABLED": "EMAIL_ENABLED",
 };
 
 /**
@@ -89,6 +106,28 @@ export async function isTrack17Enabled(): Promise<boolean> {
     getSetting("17TRACK", "ENABLED"),
   ]);
   if (!apiKey) return false;
+  if (enabledFlag === "false") return false;
+  return true;
+}
+
+/** True if the DB-stored ENABLED flag is set and credentials exist. */
+export async function isTwilioEnabled(): Promise<boolean> {
+  const [sid, enabledFlag] = await Promise.all([
+    getSetting("TWILIO", "ACCOUNT_SID"),
+    getSetting("TWILIO", "ENABLED"),
+  ]);
+  if (!sid) return false;
+  if (enabledFlag === "false") return false;
+  return true;
+}
+
+/** True if the DB-stored EMAIL.ENABLED flag is not "false" and a provider is set. */
+export async function isEmailEnabled(): Promise<boolean> {
+  const [provider, enabledFlag] = await Promise.all([
+    getSetting("EMAIL", "PROVIDER"),
+    getSetting("EMAIL", "ENABLED"),
+  ]);
+  if (!provider || provider === "none") return false;
   if (enabledFlag === "false") return false;
   return true;
 }

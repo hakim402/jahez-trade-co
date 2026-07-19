@@ -16,8 +16,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/about", priority: 0.8, changeFrequency: "monthly" as const },
     { path: "/contact", priority: 0.8, changeFrequency: "monthly" as const },
     { path: "/products", priority: 0.9, changeFrequency: "weekly" as const },
+    { path: "/products/request", priority: 0.8, changeFrequency: "monthly" as const },
     { path: "/services", priority: 0.9, changeFrequency: "weekly" as const },
+    { path: "/services/request", priority: 0.8, changeFrequency: "monthly" as const },
     { path: "/blogs", priority: 0.9, changeFrequency: "weekly" as const },
+    { path: "/bookings", priority: 0.8, changeFrequency: "monthly" as const },
+    { path: "/track", priority: 0.7, changeFrequency: "monthly" as const },
   ];
 
   const entries: MetadataRoute.Sitemap = [];
@@ -68,6 +72,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           lastModified: service.updatedAt ?? new Date(),
           changeFrequency: "weekly",
           priority: 0.8,
+        });
+        // Service-specific request pages — high-value lead gen URLs
+        entries.push({
+          url: `${baseUrl}/${locale}/services/${service.id}/request`,
+          lastModified: service.updatedAt ?? new Date(),
+          changeFrequency: "monthly",
+          priority: 0.7,
         });
       });
     });

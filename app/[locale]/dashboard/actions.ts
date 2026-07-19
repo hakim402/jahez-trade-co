@@ -15,6 +15,7 @@ import type {
   RecentRequestItem,
   RecentBookingItem,
   RecentQuoteItem,
+  UnifiedTask,
 } from './_components/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -722,5 +723,129 @@ export async function searchDashboard(
     console.error('[searchDashboard]', err)
     if (err instanceof z.ZodError) return { success: false, error: err.issues[0].message }
     return { success: false, error: 'Search failed' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── 6. getUnifiedClientTasks ──────────────────────────────────────────────────
+//    Merges recent items from ALL categories into a single sorted feed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getUnifiedClientTasks(): Promise<ActionResult<UnifiedTask[]>> {
+  try {
+    const user = await requireClient()
+
+    const [requests, bookings, consulting, shipments] = await Promise.all([
+      prisma.productRequest.findMany({
+        where:   { clientId: user.id, isDeleted: false },
+        orderBy: { updatedAt: 'desc' },
+        take:    5,
+        select: {
+          id: true, status: true, description: true, quantity: true,
+          shippingCountry: true, createdAt: true, updatedAt: true,
+          quotes: { where: { isDeleted: false }, orderBy: { createdAt: 'desc' }, take: 1,
+            select: { price: true, currency: true, status: true } },
+        },
+      }),
+
+      prisma.videoBooking.findMany({
+        where:   { clientId: user.id, isDeleted: false },
+        orderBy: { updatedAt: 'desc' },
+        take:    5,
+        select: {
+          id: true, type: true, status: true, scheduledAt: true,
+          requestNotes: true, meetingLink: true, createdAt: true, updatedAt: true,
+        },
+      }),
+
+      prisma.consultingRequest.findMany({
+        where:   { userId: user.id, isDeleted: false },
+        orderBy: { updatedAt: 'desc' },
+        take:    5,
+        select: {
+          id: true, topic: true, status: true, description: true,
+          createdAt: true, updatedAt: true,
+        },
+      }),
+
+      prisma.shipment.findMany({
+        where:   { clientId: user.id, isDeleted: false },
+        orderBy: { updatedAt: 'desc' },
+        take:    5,
+        select: {
+          id: true, trackingCode: true, status: true,
+          productDescription: true, destinationCountry: true,
+          createdAt: true, updatedAt: true,
+        },
+      }),
+    ])
+
+    const unified: UnifiedTask[] = [
+      ...requests.map((r): UnifiedTask => ({
+        id:          r.id,
+        type:        'REQUEST',
+        title:       r.description?.slice(0, 60) ?? 'Product Request',
+        description: `Quantity: ${r.quantity ?? 1} | ${r.shippingCountry || 'N/A'}`,
+        status:      r.status,
+        createdAt:   r.createdAt,
+        updatedAt:   r.updatedAt,
+        route:       '/dashboard/requests',
+        meta: {
+          price: r.quotes[0]?.price?.toString(),
+          currency: r.quotes[0]?.currency,
+          quantity: r.quantity,
+          shippingCountry: r.shippingCountry,
+        },
+      })),
+
+      ...bookings.map((b): UnifiedTask => ({
+        id:          b.id,
+        type:        'BOOKING',
+        title:       `${b.type.charAt(0) + b.type.slice(1).toLowerCase().replace(/_/g, ' ')} Video Call`,
+        description: b.requestNotes?.slice(0, 60) ?? (b.scheduledAt ? `Scheduled: ${new Date(b.scheduledAt).toLocaleDateString()}` : 'Pending schedule'),
+        status:      b.status,
+        createdAt:   b.createdAt,
+        updatedAt:   b.updatedAt,
+        route:       '/dashboard/video-bookings',
+        meta: {
+          scheduledAt: b.scheduledAt,
+          meetingLink: b.meetingLink,
+        },
+      })),
+
+      ...consulting.map((c): UnifiedTask => ({
+        id:          c.id,
+        type:        'CONSULTING',
+        title:       c.topic,
+        description: c.description?.slice(0, 60) ?? '',
+        status:      c.status,
+        createdAt:   c.createdAt,
+        updatedAt:   c.updatedAt,
+        route:       '/dashboard/consulting',
+      })),
+
+      ...shipments.map((s): UnifiedTask => ({
+        id:          s.id,
+        type:        'SHIPMENT',
+        title:       s.productDescription.slice(0, 60),
+        description: `Tracking: ${s.trackingCode} | ${s.destinationCountry}`,
+        status:      s.status,
+        createdAt:   s.createdAt,
+        updatedAt:   s.updatedAt,
+        route:       '/dashboard/shipments',
+        meta: {
+          trackingCode: s.trackingCode,
+          shippingCountry: s.destinationCountry,
+        },
+      })),
+    ]
+
+    // Sort by updatedAt desc, limit to 15
+    unified.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+
+    return { success: true, data: unified.slice(0, 15) }
+  } catch (err) {
+    console.error('[getUnifiedClientTasks]', err)
+    return { success: false, error: 'Failed to load unified tasks' }
   }
 }

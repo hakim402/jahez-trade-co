@@ -52,9 +52,11 @@ export function RecentRequestsTable({ requests, total }: RecentRequestsTableProp
           >
             {requests.map((r) => {
               const cfg = getRequestStatus(r.status)
-              const initials = r.client.fullName
-                ? r.client.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-                : r.client.email.slice(0, 2).toUpperCase()
+              const initials = r.client
+                ? r.client.fullName
+                  ? r.client.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                  : r.client.email.slice(0, 2).toUpperCase()
+                : 'GU'
 
               return (
                 <motion.div
@@ -74,7 +76,7 @@ export function RecentRequestsTable({ requests, total }: RecentRequestsTableProp
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 justify-between">
                       <p className="text-sm font-medium text-foreground truncate max-w-48">
-                        {r.client.fullName ?? r.client.email}
+                        {r.client ? (r.client.fullName ?? r.client.email) : 'Guest'}
                       </p>
                       <Badge
                         className={cn(

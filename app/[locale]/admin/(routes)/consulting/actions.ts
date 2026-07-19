@@ -10,6 +10,7 @@ import { Prisma, ConsultingServiceTopic, ConsultingDeliveryFormat } from "@prism
 import { writeFile, mkdir, unlink } from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
+import { notifyClientOnAdminAction } from "@/lib/notifications/notify"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared
@@ -188,6 +189,12 @@ export async function updateConsultingStatus(
   try {
     const adminId = await requireAdmin()
 
+    // Fetch before update to get email for notification
+    const request = await prisma.consultingRequest.findUnique({
+      where: { id },
+      select: { id: true, status: true, email: true, phone: true, fullName: true, userId: true, topic: true },
+    })
+
     await prisma.consultingRequest.update({ where: { id }, data: { status } })
 
     await prisma.auditLog.create({
@@ -199,6 +206,20 @@ export async function updateConsultingStatus(
         changes: { status } satisfies Prisma.InputJsonValue,
       },
     })
+
+    // Notify client when status changes from NEW
+    if (request && request.status === "NEW" && status !== "NEW") {
+      notifyClientOnAdminAction({
+        type: "consulting_update",
+        recipientEmail: request.email,
+        recipientPhone: request.phone,
+        userId: request.userId,
+        locale: "en",
+        customerName: request.fullName,
+        serviceTitle: request.topic,
+        status: status,
+      }).catch(() => {});
+    }
 
     revalidatePath("/admin/consulting")
     return { success: true, data: { status } }
@@ -283,7 +304,7 @@ export async function replyToConsultingRequest(
 
     const request = await prisma.consultingRequest.findUnique({
       where: { id },
-      select: { userId: true, fullName: true, email: true },
+      select: { userId: true, fullName: true, email: true, phone: true, topic: true, status: true },
     })
     if (!request) return { success: false, error: "Request not found" }
 
@@ -298,6 +319,19 @@ export async function replyToConsultingRequest(
         },
       })
     }
+
+    // Fire-and-forget: notify client via email + WhatsApp
+    notifyClientOnAdminAction({
+      type: "consulting_update",
+      recipientEmail: request.email,
+      recipientPhone: request.phone,
+      userId: request.userId,
+      locale: "en",
+      customerName: request.fullName,
+      serviceTitle: request.topic,
+      status: request.status,
+      adminNotes: message.trim(),
+    }).catch(() => {});
 
     await prisma.auditLog.create({
       data: {

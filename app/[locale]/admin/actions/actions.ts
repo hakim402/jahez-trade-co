@@ -60,7 +60,7 @@ export type DashboardStats = {
       quantity: number
       shippingCountry: string
       createdAt: Date
-      client: { fullName: string | null; email: string }
+      client: { fullName: string | null; email: string } | null
     }>
   }
 
@@ -76,7 +76,7 @@ export type DashboardStats = {
       durationMinutes: number
       meetingProvider: MeetingProvider | null
       createdAt: Date
-      client: { fullName: string | null; email: string }
+      client: { fullName: string | null; email: string } | null
       handledBy: { fullName: string | null; email: string } | null
     }>
   }

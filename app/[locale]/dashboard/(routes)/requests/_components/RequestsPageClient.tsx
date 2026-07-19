@@ -58,6 +58,7 @@ import {
   Truck,
   Star,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RequestStatus, QuoteStatus } from "@prisma/client";
@@ -196,6 +197,7 @@ const T = {
     noQuotes: "No quotes yet",
     noQuotesSub: "Our team will send you a quote soon",
     refresh: "Refresh",
+    searchPlaceholder: "Search your requests…",
   },
   ar: {
     newRequest: "طلب جديد",
@@ -261,6 +263,7 @@ const T = {
     noQuotes: "لا توجد عروض أسعار بعد",
     noQuotesSub: "سيرسل فريقنا عرض سعر قريبًا",
     refresh: "تحديث",
+    searchPlaceholder: "ابحث في طلباتك…",
   },
 } as const;
 
@@ -1751,6 +1754,51 @@ function RequestCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Search input (debounced)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SearchInput({
+  t,
+  isAr,
+  onSearch,
+}: {
+  t: typeof T.en;
+  isAr: boolean;
+  onSearch: (v: string) => void;
+}) {
+  const [val, setVal] = useState("");
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleChange = (v: string) => {
+    setVal(v);
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = setTimeout(() => onSearch(v || ""), 350);
+  };
+
+  return (
+    <div className="relative hidden sm:block">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+      <Input
+        value={val}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder={t.searchPlaceholder}
+        className="pl-8 h-8 rounded-xl text-xs border-border/60 w-48 lg:w-56"
+      />
+      {val && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-0.5 top-1/2 -translate-y-1/2 h-6 w-6"
+          onClick={() => handleChange("")}
+        >
+          <X className="w-3 h-3" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main export
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1864,58 +1912,68 @@ export function RequestsPageClient({
       {/* Plan bar */}
       <PlanBar plan={plan} t={t} isAr={isAr} />
 
-      {/* Status filter + New request button */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5 flex-1">
-          {statusTabs.map(({ status, label, count }) => {
-            const isActive = filterStatus === status;
-            return (
-              <button
-                key={status ?? "all"}
-                onClick={() =>
-                  applyFilter({ status: status ?? undefined, page: "1" })
-                }
-                className={cn(
-                  "flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold border transition-all",
-                  isActive
-                    ? "bg-[#7b57fc] text-white border-[#7b57fc] shadow-md shadow-[#7b57fc]/20"
-                    : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border/80 bg-card",
-                )}
-              >
-                {status && (
-                  <span
-                    className={cn(
-                      "w-2 h-2 rounded-full shrink-0",
-                      STATUS_CFG[status].dot,
-                    )}
-                  />
-                )}
-                {label}
-                {count > 0 && (
-                  <span
-                    className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : "bg-muted/60 text-muted-foreground",
-                    )}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* Status tabs — animated underline */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center overflow-x-auto scrollbar-none -mx-1 px-1">
+          <div className="flex items-center gap-0.5 border-b border-border/40">
+            {statusTabs.map(({ status, label, count }) => {
+              const isActive = filterStatus === status;
+              return (
+                <button
+                  key={status ?? "all"}
+                  onClick={() =>
+                    applyFilter({ status: status ?? undefined, page: "1" })
+                  }
+                  className={cn(
+                    "relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap border-b-2 -mb-px",
+                    isActive
+                      ? "border-[#7b57fc] text-[#7b57fc]"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border/80",
+                  )}
+                >
+                  {status && (
+                    <span
+                      className={cn(
+                        "w-2 h-2 rounded-full shrink-0",
+                        STATUS_CFG[status].dot,
+                      )}
+                    />
+                  )}
+                  {label}
+                  {count > 0 && (
+                    <span
+                      className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                        isActive
+                          ? "bg-[#7b57fc]/10 text-[#7b57fc]"
+                          : "bg-muted/60 text-muted-foreground",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <Button
-          size="sm"
-          className="h-8 px-4 rounded-xl gap-1.5 text-xs bg-[#7b57fc] hover:bg-[#6a48eb] text-white border-0 shadow-md shadow-[#7b57fc]/20 shrink-0"
-          onClick={() => setFormOpen(true)}
-          disabled={!plan.hasAccess}
-        >
-          <Plus className="w-3.5 h-3.5" /> {t.newRequest}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Search */}
+          <SearchInput
+            t={t}
+            isAr={isAr}
+            onSearch={(v) => applyFilter({ search: v || undefined, page: "1" })}
+          />
+          <Button
+            size="sm"
+            className="h-8 px-4 rounded-xl gap-1.5 text-xs bg-[#7b57fc] hover:bg-[#6a48eb] text-white border-0 shadow-md shadow-[#7b57fc]/20 shrink-0"
+            onClick={() => setFormOpen(true)}
+            disabled={!plan.hasAccess}
+          >
+            <Plus className="w-3.5 h-3.5" /> {t.newRequest}
+          </Button>
+        </div>
       </div>
 
       {/* Request list */}

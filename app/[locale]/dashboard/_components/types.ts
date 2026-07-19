@@ -186,6 +186,32 @@ export function getQuoteStatusConfig(status: string): StatusConfig {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// UNIFIED TASK FEED (Part E)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type UnifiedTaskType = 'REQUEST' | 'BOOKING' | 'CONSULTING' | 'SHIPMENT'
+
+export type UnifiedTask = {
+  id: string
+  type: UnifiedTaskType
+  title: string
+  description: string
+  status: string
+  createdAt: Date
+  updatedAt: Date
+  route: string
+  meta?: {
+    price?: string
+    currency?: string
+    scheduledAt?: Date | null
+    trackingCode?: string
+    quantity?: number
+    shippingCountry?: string
+    meetingLink?: string | null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // UTILITY
 // ─────────────────────────────────────────────────────────────────────────────
 

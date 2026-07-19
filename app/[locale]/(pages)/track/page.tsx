@@ -6,28 +6,51 @@ import { FooterHero } from "../../_components/Footer/FooterHero";
 import { FooterSection } from "../../_components/Footer/FooterSection";
 import { TrackSearchForm } from "./_components/TrackSearchForm";
 
+// ─── SEO IMPORTS ─────────────────────────────
+import { generatePageMetadata } from "@/lib/seo/metadata";
+import BreadcrumbSchema from "@/components/seo/BreadcrumbSchema";
+import FAQSchema from "@/components/seo/FAQSchema";
+
 interface PageProps {
   params: Promise<{ locale: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
-  const isAr = locale === "ar";
-  return {
-    title: isAr ? "تتبع شحنتك | جاهز" : "Track Your Shipment | JAHEZ Trade Co.",
-    description: isAr
-      ? "أدخل رمز التتبع لمعرفة حالة شحنتك من الصين إلى اليمن أو الإمارات أو أمريكا."
-      : "Enter your tracking code to see the live status of your shipment from China to Yemen, UAE, or the USA.",
-  };
+  return generatePageMetadata({
+    pageType: "track",
+    locale: locale as "en" | "ar",
+    country: "GLOBAL",
+    pathSegment: "track",
+  });
 }
 
 export default async function TrackPage({ params }: PageProps) {
   const { locale } = await params;
   const isAr = locale === "ar";
 
+  const breadcrumbItems = [
+    { name: isAr ? "الرئيسية" : "Home", url: `/${locale}` },
+    { name: isAr ? "تتبع الشحنات" : "Track Shipment", url: "" },
+  ];
+
+  const faqs = isAr
+    ? [
+        { q: "كيف أتتبع شحنتي؟", a: "أدخل رمز التتبع المرسل إليك عبر البريد أو الواتساب في الحقل أعلاه." },
+        { q: "كم مرة يتم تحديث حالة الشحنة؟", a: "يتم تحديث الحالة فور حدوث أي تغيير في مسار الشحنة." },
+      ]
+    : [
+        { q: "How do I track my shipment?", a: "Enter the tracking code sent to you via email or WhatsApp in the field above." },
+        { q: "How often is the status updated?", a: "The status updates in real time whenever there's a change in your shipment's journey." },
+      ];
+
   return (
     <main className="min-h-screen bg-background overflow-x-hidden">
       <Header />
+
+      {/* ─── SCHEMA MARKUP ─────────────────────── */}
+      <BreadcrumbSchema items={breadcrumbItems} />
+      <FAQSchema faqs={faqs} />
       <section className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-4 py-24 text-center">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#7b57fc]/10 px-4 py-1.5 text-sm font-medium text-[#7b57fc]">
           {isAr ? "تتبع الشحنات" : "Shipment Tracking"}

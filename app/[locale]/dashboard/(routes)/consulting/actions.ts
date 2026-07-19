@@ -7,6 +7,7 @@ import { prisma }         from "@/lib/prisma"
 import { z }              from "zod"
 import { Prisma, ConsultingServiceTopic } from "@prisma/client"
 import { revalidatePath } from "next/cache"
+import { notifyAdminsOnNewSubmission } from "@/lib/notifications/notify"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -111,25 +112,6 @@ function authError(err: unknown): ActionResult<never> {
   if (msg === "USER_NOT_FOUND") return { success: false, error: "Account not found." }
   if (msg === "FORBIDDEN")      return { success: false, error: "Only client accounts can perform this action." }
   return { success: false, error: "An unexpected error occurred." }
-}
-
-async function notifyAdmins(title: string, message: string): Promise<void> {
-  try {
-    const admins = await prisma.user.findMany({
-      where:  { role: "ADMIN", isActive: true, isDeleted: false },
-      select: { id: true },
-    })
-    if (admins.length === 0) return
-    await prisma.notification.createMany({
-      data: admins.map((a) => ({
-        userId:  a.id,
-        title,
-        message,
-        type:    "CONSULTING",
-        isRead:  false,
-      })),
-    })
-  } catch { /* non-fatal */ }
 }
 
 function serializeRequest(r: any): SerializedConsultingRequest {
@@ -310,10 +292,24 @@ export async function submitConsultingRequest(
       },
     })
 
-    await notifyAdmins(
-      "New Consulting Request",
-      `${validated.fullName} submitted a consulting request: ${validated.topic}`,
-    )
+    // Fire-and-forget: notify admins via email + WhatsApp + in-app
+    notifyAdminsOnNewSubmission(
+      "consulting",
+      {
+        guestName: validated.fullName,
+        guestEmail: validated.email,
+        details: [
+          `Topic: ${validated.topic}`,
+          validated.company ? `Company: ${validated.company}` : "",
+          validated.budget ? `Budget: ${validated.budget}` : "",
+          `Description: ${validated.description.slice(0, 150)}`,
+        ].filter(Boolean).join(" | "),
+        adminUrl: "/admin/consulting",
+        serviceTitle: validated.topic,
+        notes: validated.description,
+      },
+      "en",
+    ).catch(() => {});
 
     revalidatePath("/dashboard/consulting")
     return { success: true, data: { id: req.id } }
@@ -412,10 +408,24 @@ export async function requestConsultingService(
       return [cr, sr]
     })
 
-    await notifyAdmins(
-      `Service Request: ${service.title}`,
-      `${validated.fullName} requested the "${service.title}" consulting service.`,
-    )
+    // Fire-and-forget: notify admins via email + WhatsApp + in-app
+    notifyAdminsOnNewSubmission(
+      "consulting",
+      {
+        guestName: validated.fullName,
+        guestEmail: validated.email,
+        details: [
+          `Service: ${service.title}`,
+          validated.company ? `Company: ${validated.company}` : "",
+          validated.budget ? `Budget: ${validated.budget}` : "",
+          `Description: ${validated.description.slice(0, 150)}`,
+        ].filter(Boolean).join(" | "),
+        adminUrl: "/admin/consulting",
+        serviceTitle: service.title,
+        notes: validated.description,
+      },
+      "en",
+    ).catch(() => {});
 
     revalidatePath("/dashboard/consulting")
     return {

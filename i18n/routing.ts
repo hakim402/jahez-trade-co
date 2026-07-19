@@ -16,7 +16,9 @@ export const routing = defineRouting({
 
     // Public pages
     '/products': '/products',
+    '/products/request': '/products/request',
     '/services': '/services',
+    '/services/request': '/services/request',
     '/blogs': '/blogs',
     '/about': '/about',
     '/contact': '/contact',
@@ -35,6 +37,9 @@ export const routing = defineRouting({
 
     // Shipment tracking (public)
     '/track': '/track',
+
+    // Public booking page
+    '/bookings': '/bookings',
   },
 });
 

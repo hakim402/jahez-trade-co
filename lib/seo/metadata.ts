@@ -68,6 +68,18 @@ const pageKeywords: Record<string, Record<Locale, string[]>> = {
     en: ['contact sourcing agent', 'get import quote'],
     ar: ['اتصل بوكيل التوريد', 'احصل على عرض سعر'],
   },
+  bookings: {
+    en: ['video consultation China', 'live factory tour', 'virtual sourcing session', 'book sourcing expert'],
+    ar: ['استشارة فيديو الصين', 'جولة مصنع مباشرة', 'جلسة توريد افتراضية', 'احجز خبير توريد'],
+  },
+  track: {
+    en: ['shipment tracking', 'cargo tracking China', 'track shipping status', 'real-time shipment'],
+    ar: ['تتبع الشحنات', 'تتبع البضائع من الصين', 'حالة الشحنة', 'تتبع مباشر'],
+  },
+  request: {
+    en: ['request product from China', ' sourcing request', 'import consultation request', 'get import quote', 'China product inquiry'],
+    ar: ['طلب منتج من الصين', 'طلب توريد', 'طلب استشارة استيراد', 'احصل على عرض سعر', 'استفسار منتج صيني'],
+  },
 };
 
 // ─── BILINGUAL TITLES & DESCRIPTIONS ──────────────────────────
@@ -145,6 +157,42 @@ const localizedMeta: Record<
       title: 'اتصل بنا | احصل على عرض سعر للتوريد من الصين',
       description:
         'تواصل مع خبراء التوريد لدينا في الصين للحصول على استشارة مجانية لمشروع الاستيراد القادم.',
+    },
+  },
+  bookings: {
+    en: {
+      title: 'Book a Video Session | Live Sourcing from China',
+      description:
+        'Book a live video session with our China-based sourcing experts. Virtual market tours, factory visits, and personalized trade consultations.',
+    },
+    ar: {
+      title: 'احجز جلسة فيديو | توريد مباشر من الصين',
+      description:
+        'احجز جلسة فيديو مباشرة مع خبراء التوريد في الصين. جولات سوق افتراضية، زيارات مصانع، واستشارات تجارية مخصصة.',
+    },
+  },
+  track: {
+    en: {
+      title: 'Track Your Shipment | Real-Time Cargo Tracking',
+      description:
+        'Track your shipment from China in real time. Enter your tracking code to see live status updates for cargo headed to Yemen, UAE, or the USA.',
+    },
+    ar: {
+      title: 'تتبع شحنتك | تتبع البضائع من الصين مباشرة',
+      description:
+        'تتبع شحنتك من الصين مباشرة. أدخل رمز التتبع لمعرفة آخر تحديثات البضائع المتجهة إلى اليمن والإمارات وأمريكا.',
+    },
+  },
+  request: {
+    en: {
+      title: 'Request a Product or Consultation | JAHEZ TRADE CO',
+      description:
+        'Submit a sourcing request for any product from China. Get a quote within 24 hours. Expert procurement, quality control, and door-to-door shipping.',
+    },
+    ar: {
+      title: 'اطلب منتجاً أو استشارة | جاهز للتجارة',
+      description:
+        'أرسل طلب توريد لأي منتج من الصين. احصل على عرض سعر خلال ٢٤ ساعة. خدمات مصادر، مراقبة جودة، وشحن من الباب إلى الباب.',
     },
   },
 };

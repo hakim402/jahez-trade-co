@@ -198,7 +198,8 @@ function Avatar({
 }: {
   client: { email: string; fullName: string | null };
 }) {
-  const initials = (client.fullName ?? client.email)
+  const safeClient = client ?? { email: "GU", fullName: "Guest" };
+  const initials = (safeClient.fullName ?? safeClient.email)
     .split(" ")
     .slice(0, 2)
     .map((w: string) => w[0])
@@ -691,7 +692,7 @@ function ScheduleDialog({
                   : "Reschedule Session"}
               </DialogTitle>
               <p className="text-[10px] text-muted-foreground">
-                {booking.client.fullName ?? booking.client.email}
+                {booking.client?.fullName ?? booking.client?.email ?? "Guest"}
               </p>
             </div>
           </div>
@@ -718,7 +719,7 @@ function ScheduleDialog({
             <Avatar client={booking.client} />
             <div>
               <p className="text-sm font-semibold text-foreground">
-                {booking.client.fullName ?? booking.client.email}
+                {booking.client?.fullName ?? booking.client?.email ?? "Guest"}
               </p>
               <p className="text-[11px] text-muted-foreground">
                 {booking.type} · {booking.durationMinutes} min
@@ -947,7 +948,7 @@ function CompleteDialog({
                 Complete Session
               </DialogTitle>
               <p className="text-[10px] text-muted-foreground">
-                {booking.client.fullName ?? booking.client.email}
+                {booking.client?.fullName ?? booking.client?.email ?? "Guest"}
               </p>
             </div>
           </div>
@@ -1126,9 +1127,9 @@ function BookingDetailDialog({
   const labelCls =
     "text-[10px] font-bold text-muted-foreground uppercase tracking-wide";
 
-  const titleText = booking.client.fullName
-    ? `${booking.client.fullName} — ${STATUS_CFG[booking.status].label}`
-    : `${booking.client.email} — ${STATUS_CFG[booking.status].label}`;
+  const titleText = booking.client?.fullName
+    ? `${booking.client?.fullName} — ${STATUS_CFG[booking.status].label}`
+    : `${booking.client?.email ?? "Guest"} — ${STATUS_CFG[booking.status].label}`;
 
   return (
     <Dialog

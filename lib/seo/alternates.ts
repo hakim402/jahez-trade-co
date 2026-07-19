@@ -15,7 +15,7 @@ export function getAlternates({
     languages: {
       'en-US': `${baseUrl}/en${path}`,
       'ar-AE': `${baseUrl}/ar${path}`,
-      'x-default': `${baseUrl}/ar${path}`,
+      'x-default': `${baseUrl}/en${path}`,
     },
   };
 }

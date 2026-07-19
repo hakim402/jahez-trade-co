@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { ClientHeader } from "./ClientHeader";
 import { DashboardStatsCards } from "./DashboardOverview/DashboardStats";
 import { SubscriptionCard } from "./DashboardOverview/SubscriptionCard";
+import { UnifiedTaskFeed } from "./UnifiedTaskFeed";
 
 // ── Actions & types ───────────────────────────────────────────────────────────
 import {
@@ -313,6 +314,9 @@ export function ClientDashboard({ stats }: ClientDashboardProps) {
 
         {/* ── Quick actions ────────────────────────────────────────────────── */}
         <QuickActions />
+
+        {/* ── Unified My Tasks feed ────────────────────────────────────────── */}
+        <UnifiedTaskFeed />
       </div>
     </div>
   );

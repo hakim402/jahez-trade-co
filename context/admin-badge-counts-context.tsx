@@ -3,11 +3,12 @@
 import { createContext, useContext, ReactNode } from 'react'
 
 type BadgeCounts = {
-  productRequests: number
-  videoBookings:   number
-  support:         number
-  notifications:   number
-  audit:           number
+  productRequests:   number
+  videoBookings:     number
+  consultingRequests: number
+  support:           number
+  notifications:     number
+  audit:             number
 }
 
 const BadgeCountsContext = createContext<BadgeCounts | undefined>(undefined)

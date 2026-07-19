@@ -7,6 +7,7 @@ import { requireAdmin }   from "@/lib/admin-guard"
 import { z }              from "zod"
 import { BookingStatus, MeetingProvider, Prisma } from "@prisma/client"
 import { revalidatePath } from "next/cache"
+import { notifyClientOnAdminAction } from "@/lib/notifications/notify"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -154,8 +155,16 @@ function serializeHistoryEntry(h: any): SerializedStatusHistory {
 }
 
 function serializeAdminBooking(b: any): SerializedAdminBooking {
+  // Build a safe client object for guest bookings where clientId is null
+  const safeClient = b.client ?? {
+    id: "",
+    email: b.guestEmail ?? "guest@unknown.com",
+    fullName: b.guestFullName ?? "Guest",
+  };
+
   return {
     ...b,
+    client: safeClient,
     scheduledAt:       b.scheduledAt       instanceof Date ? b.scheduledAt.toISOString()       : b.scheduledAt,
     clientConfirmedAt: b.clientConfirmedAt instanceof Date ? b.clientConfirmedAt.toISOString() : b.clientConfirmedAt,
     createdAt:         b.createdAt         instanceof Date ? b.createdAt.toISOString()         : b.createdAt,
@@ -169,14 +178,21 @@ function serializeAdminBooking(b: any): SerializedAdminBooking {
 // Shared include — used by all booking queries
 // ─────────────────────────────────────────────────────────────────────────────
 
-const bookingInclude = {
+const bookingSelect = {
+  id: true, clientId: true, type: true, requestNotes: true,
+  durationMinutes: true, status: true, handledById: true,
+  scheduledAt: true, meetingProvider: true, meetingLink: true,
+  meetingPassword: true, clientConfirmedAt: true, transcriptUrl: true,
+  aiSummary: true, isDeleted: true, slotId: true, createdAt: true, updatedAt: true,
+  guestFullName: true, guestEmail: true, guestPhone: true,
+
   client: { select: { id: true, email: true, fullName: true } },
-  slot:   true,
+  slot:   { include: { booking: { select: { id: true, status: true } } } },
   statusHistory: {
     include:  { changedBy: { select: { id: true, email: true, fullName: true } } },
     orderBy:  { changedAt: "desc" as const },
   },
-} as const
+} satisfies Prisma.VideoBookingSelect
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Revalidation helper
@@ -245,7 +261,6 @@ export async function getAllBookings(
 
     const where: Prisma.VideoBookingWhereInput = {
       isDeleted: false,
-      client:    { isDeleted: false, isActive: true },
     }
 
     if (status) where.status = status
@@ -268,7 +283,7 @@ export async function getAllBookings(
     const [bookings, totalCount] = await Promise.all([
       prisma.videoBooking.findMany({
         where,
-        include: bookingInclude,
+        select: bookingSelect,
         orderBy: { createdAt: "desc" },
         skip:    (page - 1) * pageSize,
         take:    pageSize,
@@ -298,7 +313,7 @@ export async function getBookingById(
 
     const booking = await prisma.videoBooking.findUnique({
       where:   { id: bookingId, isDeleted: false },
-      include: bookingInclude,
+      select: bookingSelect,
     })
     if (!booking) return { success: false, error: "Booking not found" }
 
@@ -539,7 +554,7 @@ export async function scheduleBooking(
 
       const booking = await tx.videoBooking.findUnique({
         where:   { id: validated.bookingId, isDeleted: false },
-        include: { client: { select: { id: true } } },
+        include: { client: { select: { id: true, email: true, phone: true, fullName: true } } },
       })
       if (!booking)                    throw new Error("Booking not found")
       if (booking.status !== "REQUESTED") throw new Error("Booking must be REQUESTED to schedule")
@@ -563,7 +578,7 @@ export async function scheduleBooking(
           handledById:     adminId,
           slotId:          validated.slotId,
         },
-        include: bookingInclude,
+        select: bookingSelect,
       })
 
       await tx.availabilitySlot.update({
@@ -575,15 +590,17 @@ export async function scheduleBooking(
         data: { bookingId: updated.id, oldStatus: "REQUESTED", newStatus: "PROPOSED", changedById: adminId },
       })
 
-      await tx.notification.create({
-        data: {
-          userId:    booking.client.id,
-          title:     "Video Call Scheduled",
-          message:   `Your video call has been scheduled for ${slot.startTime.toLocaleString()}. Please confirm.`,
-          type:      "BOOKING_SCHEDULED",
-          bookingId: updated.id,
-        },
-      })
+      if (booking.client) {
+        await tx.notification.create({
+          data: {
+            userId:    booking.client.id,
+            title:     "Video Call Scheduled",
+            message:   `Your video call has been scheduled for ${slot.startTime.toLocaleString()}. Please confirm.`,
+            type:      "BOOKING_SCHEDULED",
+            bookingId: updated.id,
+          },
+        })
+      }
 
       await tx.auditLog.create({
         data: {
@@ -604,6 +621,20 @@ export async function scheduleBooking(
     })
 
     revalidateBookings()
+    // Notify client via email + WhatsApp
+    const client = result.client as { id: string; email: string; phone: string | null; fullName: string | null } | null;
+    notifyClientOnAdminAction({
+      type: "booking_confirmed",
+      recipientEmail: client?.email || result.guestEmail || "",
+      recipientPhone: client?.phone || result.guestPhone || null,
+      userId: client?.id || null,
+      locale: "en",
+      customerName: client?.fullName || result.guestFullName || "Customer",
+      bookingType: result.type,
+      scheduledAt: result.scheduledAt?.toString(),
+      meetingLink: result.meetingLink ?? undefined,
+      meetingPassword: result.meetingPassword ?? undefined,
+    }).catch(() => {});
     return { success: true, data: serializeAdminBooking(result) }
   } catch (err) {
     if (err instanceof z.ZodError) return { success: false, error: err.issues[0].message }
@@ -672,7 +703,7 @@ export async function rescheduleBooking(
           slotId:           validated.slotId,
           clientConfirmedAt:null,   // reset confirmation
         },
-        include: bookingInclude,
+        select: bookingSelect,
       })
 
       await tx.availabilitySlot.update({
@@ -684,15 +715,17 @@ export async function rescheduleBooking(
         data: { bookingId: updated.id, oldStatus, newStatus: "RESCHEDULED", changedById: adminId },
       })
 
-      await tx.notification.create({
-        data: {
-          userId:    booking.client.id,
-          title:     "Video Call Rescheduled",
-          message:   `Your video call has been rescheduled to ${slot.startTime.toLocaleString()}. Please confirm the new time.`,
-          type:      "BOOKING_RESCHEDULED",
-          bookingId: updated.id,
-        },
-      })
+      if (booking.client) {
+        await tx.notification.create({
+          data: {
+            userId:    booking.client.id,
+            title:     "Video Call Rescheduled",
+            message:   `Your video call has been rescheduled to ${slot.startTime.toLocaleString()}. Please confirm the new time.`,
+            type:      "BOOKING_RESCHEDULED",
+            bookingId: updated.id,
+          },
+        })
+      }
 
       await tx.auditLog.create({
         data: {
@@ -763,22 +796,24 @@ export async function completeBooking(
           aiSummary:     validated.aiSummary     || null,
           slotId:        null,   // FK nullified — slot is released above
         },
-        include: bookingInclude,
+        select: bookingSelect,
       })
 
       await tx.bookingStatusHistory.create({
         data: { bookingId: updated.id, oldStatus, newStatus: "COMPLETED", changedById: adminId },
       })
 
-      await tx.notification.create({
-        data: {
-          userId:    booking.client.id,
-          title:     "Video Call Completed",
-          message:   "Your video call session has been completed.",
-          type:      "BOOKING_COMPLETED",
-          bookingId: updated.id,
-        },
-      })
+      if (booking.client) {
+        await tx.notification.create({
+          data: {
+            userId:    booking.client.id,
+            title:     "Video Call Completed",
+            message:   "Your video call session has been completed.",
+            type:      "BOOKING_COMPLETED",
+            bookingId: updated.id,
+          },
+        })
+      }
 
       await tx.auditLog.create({
         data: {
@@ -843,22 +878,24 @@ export async function cancelBookingByAdmin(
       const updated = await tx.videoBooking.update({
         where:   { id: validated.bookingId },
         data:    { status: "CANCELED", slotId: null },
-        include: bookingInclude,
+        select: bookingSelect,
       })
 
       await tx.bookingStatusHistory.create({
         data: { bookingId: updated.id, oldStatus, newStatus: "CANCELED", changedById: adminId },
       })
 
-      await tx.notification.create({
-        data: {
-          userId:    booking.client.id,
-          title:     "Video Call Cancelled",
-          message:   `Your video call has been cancelled.${validated.reason ? ` Reason: ${validated.reason}` : ""}`,
-          type:      "BOOKING_CANCELLED",
-          bookingId: updated.id,
-        },
-      })
+      if (booking.client) {
+        await tx.notification.create({
+          data: {
+            userId:    booking.client.id,
+            title:     "Video Call Cancelled",
+            message:   `Your video call has been cancelled.${validated.reason ? ` Reason: ${validated.reason}` : ""}`,
+            type:      "BOOKING_CANCELLED",
+            bookingId: updated.id,
+          },
+        })
+      }
 
       await tx.auditLog.create({
         data: {
@@ -922,22 +959,24 @@ export async function markNoShow(
       const updated = await tx.videoBooking.update({
         where:   { id: validated.bookingId },
         data:    { status: "NO_SHOW", slotId: null },
-        include: bookingInclude,
+        select: bookingSelect,
       })
 
       await tx.bookingStatusHistory.create({
         data: { bookingId: updated.id, oldStatus, newStatus: "NO_SHOW", changedById: adminId },
       })
 
-      await tx.notification.create({
-        data: {
-          userId:    booking.client.id,
-          title:     "Missed Video Call",
-          message:   "You missed your scheduled video call. Please contact us to reschedule.",
-          type:      "BOOKING_NO_SHOW",
-          bookingId: updated.id,
-        },
-      })
+      if (booking.client) {
+        await tx.notification.create({
+          data: {
+            userId:    booking.client.id,
+            title:     "Missed Video Call",
+            message:   "You missed your scheduled video call. Please contact us to reschedule.",
+            type:      "BOOKING_NO_SHOW",
+            bookingId: updated.id,
+          },
+        })
+      }
 
       await tx.auditLog.create({
         data: {

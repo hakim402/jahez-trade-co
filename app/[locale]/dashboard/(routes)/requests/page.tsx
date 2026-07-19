@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "My Requests | Dashboard" };
 
 interface PageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ page?: string; status?: string }>;
+  searchParams: Promise<{ page?: string; status?: string; search?: string }>;
 }
 
 export default async function RequestsPage({
@@ -29,8 +29,9 @@ export default async function RequestsPage({
   const pageSize = 10;
   const isAr = locale === "ar";
   const status = sp.status as RequestStatus | undefined;
+  const search = sp.search || undefined;
 
-  const result = await getDashboardSummary(page, pageSize, status);
+  const result = await getDashboardSummary(page, pageSize, status, search);
 
   let data = null;
   if (result.success) data = result.data;

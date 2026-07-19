@@ -3,10 +3,14 @@
     "home": "الرئيسية",
     "products": "منتجات",
     "service": "خدمات",
+    "track": "تتبع",
+    "bookings": "احجز مكالمة",
     "blogs": "مدونات",
     "about": "حول",
     "contact": "اتصل بنا",
-    "profile": "الملف الشخصي",
+    "dashboard": "لوحة التحكم",
+    "requestProduct": "طلب منتج",
+    "requestConsultation": "طلب استشارة",
     "login": "تسجيل الدخول",
     "signUp": "إنشاء حساب"
   },
@@ -25,6 +29,7 @@
     "memberSince": "عضو منذ {date}",
     "refresh": "تحديث",
     "updated": "آخر تحديث {relative}",
+    "myTasks": "مهامي",
     "quickActions": {
       "newRequest": "طلب جديد",
       "bookCall": "حجز مكالمة",
@@ -98,5 +103,193 @@
     "unlimited": "∞",
     "approachingLimit": "اقتربت من الحد",
     "limitReached": "تم الوصول إلى الحد"
+  },
+  "PublicPages": {
+    "ProductRequest": {
+      "heroTitle": "طلب منتج",
+      "heroDesc": "أخبرنا عما تبحث عنه وسنقوم بتوريده من موردين موثوقين في الصين. عروض أسعار سريعة وأسعار شفافة.",
+      "form": {
+        "title": "طلب منتج جديد",
+        "requiredHint": "الحقول المعلّمة بـ * إلزامية",
+        "fullName": "الاسم الكامل *",
+        "fullNamePlaceholder": "اسمك الكامل",
+        "email": "البريد الإلكتروني *",
+        "phone": "رقم الهاتف",
+        "productLink": "رابط المنتج",
+        "productLinkPlaceholder": "https://...",
+        "description": "وصف المنتج *",
+        "descriptionPlaceholder": "صف المنتج الذي تبحث عنه، المواصفات، الخ…",
+        "quantity": "الكمية",
+        "shippingCountry": "بلد الشحن *",
+        "customNotes": "ملاحظات إضافية",
+        "customNotesPlaceholder": "أي ملاحظات أو طلبات خاصة…",
+        "submit": "إرسال الطلب",
+        "sending": "جاري الإرسال…",
+        "privacyNote": "بإرسال هذا الطلب، توافق على تلقي رد على بريدك الإلكتروني.",
+        "validationRequired": "يرجى ملء الحقول المطلوبة",
+        "successTitle": "تم إرسال طلبك!",
+        "successMessage": "شكراً لك. سيرد فريقنا على بريدك الإلكتروني خلال ٢٤ ساعة مع عرض سعر."
+      }
+    },
+    "VideoBooking": {
+      "heroTitle": "احجز جلسة فيديو مباشرة",
+      "heroDesc": "شاهد المنتجات في الوقت الفعلي. سيقوم فريقنا في الصين بجولة في الأسواق أو المصانع أو استشارات مخصصة عبر مكالمة فيديو مباشرة.",
+      "form": {
+        "title": "حجز جلسة فيديو",
+        "requiredHint": "الحقول المعلّمة بـ * إلزامية",
+        "fullName": "الاسم الكامل *",
+        "fullNamePlaceholder": "اسمك الكامل",
+        "email": "البريد الإلكتروني *",
+        "phone": "رقم الهاتف",
+        "sessionType": "نوع الجلسة *",
+        "sessionTypes": {
+          "market": "جولة سوق",
+          "factory": "زيارة مصنع",
+          "custom": "استشارة مخصصة"
+        },
+        "preferredDate": "التاريخ المفضل",
+        "notes": "ملاحظات *",
+        "notesPlaceholder": "ما الذي تريد مناقشته في الجلسة؟",
+        "submit": "حجز الجلسة",
+        "sending": "جاري الإرسال…",
+        "privacyNote": "بعد تأكيد طلبك، سنرسل لك رابط الجلسة وكلمة المرور عبر البريد الإلكتروني.",
+        "validationRequired": "يرجى ملء الحقول المطلوبة",
+        "successTitle": "تم إرسال طلبك!",
+        "successMessage": "شكراً لك. سنتواصل معك قريباً لتأكيد موعد الجلسة."
+      },
+      "faq": {
+        "q1": "كيف تعمل جلسة الفيديو؟",
+        "a1": "بعد الحجز، يؤكد فريقنا الوقت. تتلقى رابط الجلسة عبر البريد الإلكتروني. في الوقت المحدد، انضم للمكالمة وسيعرض لك وكيلنا في الصين المنتجات أو المصانع أو الأسواق مباشرة.",
+        "q2": "ماذا أحتاج؟",
+        "a2": "فقط اتصال إنترنت مستقر وجهاز بكاميرا. لا حاجة لبرامج خاصة.",
+        "q3": "كم تكلفة الجلسة؟",
+        "a3": "الجلسات مشمولة في جميع الخطط المدفوعة. مستخدمو الخطة المجانية يحصلون على جلسة واحدة شهرياً."
+      }
+    },
+    "ConsultingRequest": {
+      "heroTitle": "طلب استشارة",
+      "heroDesc": "تحتاج إلى توجيه خبير في التوريد أو اللوجستيات أو الامتثال التجاري؟ فريقنا جاهز للمساعدة.",
+      "form": {
+        "title": "طلب استشارة: {service}",
+        "requiredHint": "الحقول المعلّمة بـ * إلزامية",
+        "fullName": "الاسم الكامل *",
+        "fullNamePlaceholder": "اسمك الكامل",
+        "email": "البريد الإلكتروني *",
+        "phone": "رقم الهاتف",
+        "company": "اسم الشركة",
+        "companyPlaceholder": "اختياري",
+        "budget": "الميزانية التقريبية",
+        "budgetPlaceholder": "مثلاً: 500-1000 دولار",
+        "description": "وصف احتياجك *",
+        "descriptionPlaceholder": "اشرح ما تحتاجه من هذه الخدمة…",
+        "submit": "إرسال الطلب",
+        "sending": "جاري الإرسال…",
+        "privacyNote": "بإرسال هذا الطلب، توافق على تلقي رد على بريدك الإلكتروني. لن نشارك معلوماتك مع أي طرف ثالث.",
+        "validationRequired": "يرجى ملء الحقول المطلوبة",
+        "successTitle": "تم إرسال طلبك!",
+        "successMessage": "شكراً لتواصلك. سيرد فريقنا على بريدك الإلكتروني خلال ٢٤ ساعة."
+      }
+    },
+    "countries": {
+      "SA": "السعودية",
+      "YE": "اليمن",
+      "AE": "الإمارات",
+      "US": "أمريكا",
+      "CN": "الصين",
+      "OTHER": "أخرى"
+    }
+  },
+  "ServiceDetail": {
+    "requestService": "طلب هذه الخدمة",
+    "contactTeam": "تواصل مع فريقنا",
+    "featured": "مميز",
+    "priceFrom": "يبدأ من",
+    "duration": "المدة",
+    "includes": "يشمل",
+    "relatedServices": "خدمات ذات صلة",
+    "deliveryFormat": "طريقة التقديم"
+  },
+  "Notifications": {
+    "email": {
+      "adminNewRequest_subject": "{type} جديد من {name}",
+      "clientQuoteReady_subject": "عرض السعر جاهز — {price}",
+      "clientBookingUpdate_subject": "تحديث الحجز: {status}",
+      "clientConsultingUpdate_subject": "تحديث الاستشارة: {service}"
+    }
+  },
+  "Admin": {
+    "Integrations": {
+      "title": "دمج API",
+      "subtitle": "ربط مزودي الخدمات الخارجيين لتفعيل التتبع التلقائي ورسائل واتساب وإشعارات البريد الإلكتروني.",
+      "backToShipments": "العودة إلى الشحنات",
+      "tabs": {
+        "17track": "17TRACK",
+        "twilio": "Twilio (واتساب)",
+        "email": "مزود البريد الإلكتروني"
+      },
+      "17track": {
+        "description": "تتبع متعدد الناقلين — أكثر من 3400 ناقل حول العالم، حصة مجانية مشمولة.",
+        "apiKey": "رمز API",
+        "apiKeyPlaceholderNew": "ألصق مفتاح 17TRACK API",
+        "apiKeyPlaceholderReplace": "أدخل مفتاحاً جديداً لاستبدال الحالي",
+        "apiKeyHint": "احصل على مفتاح مجاني من api.17track.net",
+        "apiKeyConnected": "مفتاح API متصل ({masked})",
+        "apiKeyNotConfigured": "لم يتم تكوين مفتاح API بعد",
+        "webhookSecret": "سر Webhook (اختياري)",
+        "webhookSecretPlaceholder": "الافتراضي هو مفتاح API إذا تُرك فارغاً",
+        "webhookSecretHint": "يستخدم للتحقق من إشعارات الدفع المرسلة إلى /api/webhooks/17track",
+        "webhookSecretSet": "مُعين حالياً ({masked})",
+        "enabled": "مفعل",
+        "save": "حفظ الإعدادات",
+        "checkQuota": "تحقق من الحصة",
+        "quotaTotal": "إجمالي الحصة",
+        "quotaUsed": "المستخدم",
+        "quotaRemaining": "المتبقي",
+        "saved": "تم حفظ إعدادات الدمج",
+        "saveFailed": "فشل حفظ الإعدادات"
+      },
+      "twilio": {
+        "description": "إرسال إشعارات واتساب للإداريين والعملاء. يتطلب حساب Twilio مع صندوق واتساب التجريبي أو قالب معتمد.",
+        "accountSid": "معرف الحساب (SID)",
+        "accountSidPlaceholder": "Twilio Account SID",
+        "authToken": "رمز المصادقة",
+        "authTokenPlaceholder": "Twilio Auth Token",
+        "whatsappFrom": "رقم واتساب المرسل",
+        "whatsappFromPlaceholder": "+14155238886",
+        "whatsappFromHint": "رقم واتساب المقدم من Twilio (صندوق تجريبي أو مرسل معتمد)",
+        "enabled": "تفعيل إشعارات واتساب",
+        "save": "حفظ الإعدادات",
+        "saved": "تم حفظ إعدادات Twilio",
+        "saveFailed": "فشل حفظ إعدادات Twilio",
+        "notConfigured": "لم يتم تكوين بيانات Twilio بعد"
+      },
+      "email": {
+        "description": "إرسال إشعارات البريد الإلكتروني عبر Gmail API أو SMTP (مثلاً: Hostinger، Brevo، SendGrid).",
+        "provider": "مزود البريد الإلكتروني",
+        "providerNone": "لا شيء (معطل)",
+        "providerGmail": "Gmail (OAuth2)",
+        "providerSmtp": "SMTP",
+        "host": "مضيف SMTP",
+        "hostPlaceholder": "smtp.hostinger.com",
+        "port": "منفذ SMTP",
+        "portPlaceholder": "465",
+        "user": "اسم مستخدم SMTP",
+        "userPlaceholder": "info@yourdomain.com",
+        "pass": "كلمة مرور SMTP",
+        "passPlaceholder": "كلمة مرور SMTP أو كلمة مرور التطبيق",
+        "fromName": "اسم المرسل",
+        "fromNamePlaceholder": "شركة جاهز للتجارة",
+        "fromAddress": "عنوان المرسل",
+        "fromAddressPlaceholder": "info@jahez.online",
+        "enabled": "تفعيل إشعارات البريد الإلكتروني",
+        "save": "حفظ الإعدادات",
+        "testConnection": "اختبار الاتصال",
+        "testing": "جاري الاختبار…",
+        "testSuccess": "تم إرسال بريد تجريبي! تحقق من صندوق الوارد.",
+        "testFailed": "فشل اختبار الاتصال",
+        "saved": "تم حفظ إعدادات البريد الإلكتروني",
+        "saveFailed": "فشل حفظ إعدادات البريد الإلكتروني"
+      }
+    }
   }
 }

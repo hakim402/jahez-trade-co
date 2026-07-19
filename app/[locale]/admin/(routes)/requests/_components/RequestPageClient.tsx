@@ -78,6 +78,7 @@ import {
   generateAIQuote,
   createShippingEstimateForRequest,
   getProductRequest,
+  sendRequestNotification,
 } from "../actions";
 import type { SerializedShippingEstimate } from "../actions";
 import Link from "next/link";
@@ -190,6 +191,9 @@ export type SerializedRequest = {
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
+  guestFullName: string | null;
+  guestEmail: string | null;
+  guestPhone: string | null;
   client: {
     id: string;
     email: string;
@@ -573,6 +577,7 @@ function FilterBar({
     search?: string;
     sortBy?: string;
     sortOrder?: string;
+    clientType?: string;
   };
   onApply: (patch: Record<string, string | undefined>) => void;
   isPending: boolean;
@@ -596,6 +601,7 @@ function FilterBar({
     filters.status,
     filters.priority !== undefined ? 1 : null,
     filters.search,
+    filters.clientType && filters.clientType !== "all" ? 1 : null,
   ].filter(Boolean).length;
 
   return (
@@ -800,6 +806,50 @@ function FilterBar({
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {/* User Type */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-9 rounded-xl gap-1.5 text-xs border-border/60",
+                filters.clientType && filters.clientType !== "all" &&
+                  "border-[#7b57fc]/50 text-[#7b57fc] bg-[#7b57fc]/5",
+              )}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              {filters.clientType === "registered"
+                ? "Registered"
+                : filters.clientType === "guest"
+                  ? "Guest"
+                  : "All Users"}
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-44">
+            <DropdownMenuItem
+              onClick={() => onApply({ clientType: "all", page: "1" })}
+              className="text-xs"
+            >
+              All Users
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onApply({ clientType: "registered", page: "1" })}
+              className="text-xs"
+            >
+              Registered
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onApply({ clientType: "guest", page: "1" })}
+              className="text-xs"
+            >
+              Guest
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {activeCount > 0 && (
           <Button
             variant="ghost"
@@ -811,6 +861,7 @@ function FilterBar({
                 status: undefined,
                 priority: undefined,
                 search: undefined,
+                clientType: undefined,
                 page: "1",
               });
             }}
@@ -923,6 +974,9 @@ function RequestDetailDialog({
     currency: "USD",
     transitDays: "",
   });
+
+  const [showNotifyForm, setShowNotifyForm] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState("");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -1089,6 +1143,21 @@ function RequestDetailDialog({
     });
   };
 
+  const handleNotify = () => {
+    if (!data) return;
+    start(async () => {
+      const r = await sendRequestNotification({
+        requestId: data.id,
+        message: notifyMessage || undefined,
+      });
+      if (r.success) {
+        toast.success("Notification sent to client");
+        setNotifyMessage("");
+        setShowNotifyForm(false);
+      } else toast.error(r.error);
+    });
+  };
+
   const sections: {
     id: DialogSection;
     label: string;
@@ -1151,6 +1220,11 @@ function RequestDetailDialog({
               <div className="min-w-0">
                 <DialogTitle className="text-sm font-bold text-foreground truncate leading-tight">
                   {data.client.fullName ?? data.client.email}
+                  {!data.clientId && (
+                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 border border-amber-200 align-middle">
+                      GUEST
+                    </span>
+                  )}
                 </DialogTitle>
                 <p className="text-[11px] text-muted-foreground truncate">
                   {data.client.email}
@@ -1227,6 +1301,18 @@ function RequestDetailDialog({
                 </DropdownMenu>
               </>
             )}
+            {/* Notify Client */}
+            {data && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-lg gap-1.5 text-[11px] border-border/60 hover:border-[#7b57fc]/50 hover:text-[#7b57fc] hover:bg-[#7b57fc]/5"
+                onClick={() => setShowNotifyForm((v) => !v)}
+              >
+                <MessageSquare className="w-3 h-3" />
+                Notify
+              </Button>
+            )}
             {/* Close */}
             <Button
               variant="ghost"
@@ -1238,6 +1324,62 @@ function RequestDetailDialog({
             </Button>
           </div>
         </DialogHeader>
+
+        {/* Notify form */}
+        <AnimatePresence>
+          {showNotifyForm && data && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="shrink-0 overflow-hidden border-b border-border/40 bg-muted/5"
+            >
+              <div className="px-6 py-3 flex items-end gap-3">
+                <div className="flex-1">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1 block">
+                    Message (optional)
+                  </Label>
+                  <Input
+                    value={notifyMessage}
+                    onChange={(e) => setNotifyMessage(e.target.value)}
+                    placeholder="Add a custom note for the client…"
+                    className="h-9 rounded-xl border-border/60 bg-background text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleNotify();
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 text-xs bg-[#7b57fc] hover:bg-[#6a48eb] text-white"
+                  onClick={handleNotify}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  )}
+                  Send
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 rounded-xl text-xs text-muted-foreground"
+                  onClick={() => {
+                    setShowNotifyForm(false);
+                    setNotifyMessage("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Section tabs */}
         <div className="shrink-0 flex border-b border-border/40 px-6 overflow-x-auto scrollbar-none">
@@ -2369,6 +2511,11 @@ function RequestsTable({
                         <div className="min-w-0">
                           <p className="text-xs font-semibold truncate max-w-27.5">
                             {req.client.fullName ?? "—"}
+                            {!req.clientId && (
+                              <span className="ml-1.5 inline-flex items-center px-1 py-px rounded-full text-[8px] font-bold bg-amber-100 text-amber-700 border border-amber-200 align-middle">
+                                GUEST
+                              </span>
+                            )}
                           </p>
                           <p className="text-[10px] text-muted-foreground truncate max-w-32.5">
                             {req.client.email}
@@ -2584,6 +2731,7 @@ interface Props {
     search?: string;
     sortBy?: string;
     sortOrder?: string;
+    clientType?: string;
   };
 }
 
@@ -2614,6 +2762,7 @@ export function RequestPageClient({
           search: filters.search,
           sortBy: filters.sortBy,
           sortOrder: filters.sortOrder,
+          clientType: filters.clientType,
           ...patch,
         };
         Object.entries(merged).forEach(([k, v]) => {

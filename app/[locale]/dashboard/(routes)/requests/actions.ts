@@ -10,6 +10,7 @@ import { writeFile, mkdir, unlink } from "fs/promises"
 import { existsSync }     from "fs"
 import path               from "path"
 import { revalidatePath } from "next/cache"
+import { notifyAdminsOnNewSubmission } from "@/lib/notifications/notify"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -329,6 +330,7 @@ const listSchema = z.object({
   page:     z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(100).default(20),
   status:   z.nativeEnum(RequestStatus).optional(),
+  search:   z.string().optional(),
 })
 
 /**
@@ -344,12 +346,19 @@ export async function getMyRequests(
 }>> {
   try {
     const user = await requireClient()
-    const { page, pageSize, status } = listSchema.parse(raw)
+    const { page, pageSize, status, search } = listSchema.parse(raw)
 
     const where: Prisma.ProductRequestWhereInput = {
       clientId:  user.id,
       isDeleted: false,
       ...(status && { status }),
+      ...(search?.trim() ? {
+        OR: [
+          { description: { contains: search, mode: "insensitive" } },
+          { productLink: { contains: search, mode: "insensitive" } },
+          { customNotes: { contains: search, mode: "insensitive" } },
+        ],
+      } : {}),
     }
 
     const [totalCount, requests] = await Promise.all([
@@ -399,6 +408,47 @@ export async function getMyRequest(
     if (err instanceof Error && ["UNAUTHORIZED", "USER_NOT_FOUND", "FORBIDDEN"].includes(err.message)) return authError(err)
     console.error("[getMyRequest]", err)
     return { success: false, error: "Failed to fetch request" }
+  }
+}
+
+/**
+ * Returns a summarized status timeline for the given request.
+ * Useful for displaying a visual stepper in the detail dialog.
+ */
+export async function getRequestTimeline(requestId: string) {
+  try {
+    const user = await requireClient()
+
+    const req = await prisma.productRequest.findUnique({
+      where: { id: requestId },
+      select: { clientId: true },
+    })
+    if (!req) return { success: false, error: "Request not found" }
+    if (req.clientId !== user.id) return { success: false, error: "Access denied" }
+
+    const history = await prisma.requestStatusHistory.findMany({
+      where: { requestId },
+      orderBy: { changedAt: "asc" },
+      select: {
+        id: true,
+        oldStatus: true,
+        newStatus: true,
+        changedAt: true,
+        changedBy: { select: { fullName: true, email: true } },
+      },
+    })
+
+    return {
+      success: true,
+      data: history.map((h) => ({
+        ...h,
+        changedAt: h.changedAt.toISOString(),
+      })),
+    }
+  } catch (err) {
+    if (err instanceof Error && ["UNAUTHORIZED", "USER_NOT_FOUND", "FORBIDDEN"].includes(err.message)) return authError(err)
+    console.error("[getRequestTimeline]", err)
+    return { success: false, error: "Failed to fetch timeline" }
   }
 }
 
@@ -458,22 +508,30 @@ export async function createProductRequest(
         },
       })
 
-      // Notify all admins
-      const adminIds = await getAdminIds()
-      if (adminIds.length > 0) {
-        await tx.notification.createMany({
-          data: adminIds.map((adminId) => ({
-            userId:    adminId,
-            title:     "New Product Request",
-            message:   `${user.fullName ?? user.email} submitted a new request: ${validated.description.slice(0, 80)}`,
-            type:      "REQUEST",
-            requestId: req.id,
-          })),
-        })
-      }
-
       return req
     })
+
+    // Fire-and-forget: notify admins via email + WhatsApp + in-app
+    notifyAdminsOnNewSubmission(
+      "product",
+      {
+        guestName: user.fullName ?? user.email,
+        guestEmail: user.email,
+        details: [
+          `Product: ${validated.description}`,
+          `Quantity: ${validated.quantity}`,
+          `Shipping to: ${validated.shippingCountry}`,
+          validated.productLink ? `Link: ${validated.productLink}` : "",
+          validated.customNotes ? `Notes: ${validated.customNotes}` : "",
+        ].filter(Boolean).join(" | "),
+        adminUrl: "/admin/requests",
+        productDesc: validated.description,
+        quantity: validated.quantity,
+        shippingCountry: validated.shippingCountry,
+        notes: validated.customNotes,
+      },
+      "en",
+    ).catch(() => {});
 
     revalidatePath("/dashboard/requests")
     return { success: true, data: { id: request.id } }
@@ -762,12 +820,20 @@ export async function getDashboardSummary(
   page     = 1,
   pageSize = 20,
   status?: RequestStatus,
+  search?: string,
 ): Promise<ActionResult<DashboardSummary>> {
   try {
     const user = await requireClient()
 
     const baseWhere: Prisma.ProductRequestWhereInput = {
       clientId: user.id, isDeleted: false,
+      ...(search?.trim() ? {
+        OR: [
+          { description: { contains: search, mode: "insensitive" } },
+          { productLink: { contains: search, mode: "insensitive" } },
+          { customNotes: { contains: search, mode: "insensitive" } },
+        ],
+      } : {}),
     }
 
     const [plan, totalCount, requests, byStatus] = await Promise.all([

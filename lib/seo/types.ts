@@ -1,6 +1,15 @@
 export type Locale = 'en' | 'ar';
 export type TargetCountry = 'USA' | 'UAE' | 'DUBAI' | 'YEMEN' | 'GLOBAL';
-export type PageType = 'home' | 'about' | 'service' | 'product' | 'blog' | 'contact';
+export type PageType =
+  | 'home'
+  | 'about'
+  | 'service'
+  | 'product'
+  | 'blog'
+  | 'contact'
+  | 'bookings'
+  | 'track'
+  | 'request';
 
 export interface SeoMetadataOptions {
   pageType: PageType;

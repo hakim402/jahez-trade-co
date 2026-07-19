@@ -10,6 +10,7 @@ import { Prisma, RequestStatus, QuoteStatus } from "@prisma/client"
 import { writeFile, mkdir, unlink } from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
+import { notifyClientOnAdminAction } from "@/lib/notifications/notify"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -65,8 +66,18 @@ function revalidateRequests() {
 }
 
 function serializeRequest(r: any): any {
+  // Build a safe client object for guest submissions where clientId is null
+  const safeClient = r.client ?? {
+    id: "",
+    email: r.guestEmail ?? "guest@unknown.com",
+    fullName: r.guestFullName ?? "Guest",
+    avatarUrl: null,
+    phone: r.guestPhone ?? null,
+  };
+
   return {
     ...r,
+    client: safeClient,
     aiEstimatedPrice: r.aiEstimatedPrice ? Number(r.aiEstimatedPrice) : null,
     createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
     updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
@@ -127,6 +138,7 @@ const requestSelect = {
   id: true, clientId: true, productLink: true, description: true,
   quantity: true, shippingCountry: true, customNotes: true,
   status: true, priority: true, acceptedQuoteId: true,
+  guestFullName: true, guestEmail: true, guestPhone: true,
   aiParsedData: true, aiEstimatedPrice: true, aiConfidence: true,
   isDeleted: true, createdAt: true, updatedAt: true,
 
@@ -223,6 +235,7 @@ const listRequestsSchema = z.object({
   status: z.nativeEnum(RequestStatus).optional(),
   priority: z.number().int().min(0).max(5).optional(),
   clientEmail: z.string().optional(),
+  clientType: z.enum(["all", "registered", "guest"]).default("all"),
   search: z.string().optional(),
   createdAtFrom: z.coerce.date().optional(),
   createdAtTo: z.coerce.date().optional(),
@@ -236,7 +249,7 @@ export async function getAllProductRequests(raw: z.infer<typeof listRequestsSche
   try {
     await requireAdmin()
     const {
-      page, pageSize, status, priority, clientEmail, search,
+      page, pageSize, status, priority, clientEmail, clientType, search,
       createdAtFrom, createdAtTo, shippingCountry, hasQuotes, sortBy, sortOrder,
     } = listRequestsSchema.parse(raw)
 
@@ -245,6 +258,13 @@ export async function getAllProductRequests(raw: z.infer<typeof listRequestsSche
     if (status) where.status = status
     if (priority !== undefined) where.priority = priority
     if (shippingCountry) where.shippingCountry = { equals: shippingCountry, mode: "insensitive" }
+
+    // Client type filter: registered = has clientId, guest = no clientId
+    if (clientType === "registered") {
+      where.clientId = { not: null }
+    } else if (clientType === "guest") {
+      where.clientId = null
+    }
 
     if (createdAtFrom || createdAtTo) {
       where.createdAt = {
@@ -359,18 +379,23 @@ export async function updateRequestStatus(
 
     const req = await prisma.productRequest.findUnique({
       where: { id: requestId },
-      select: { id: true, status: true, clientId: true },
+      select: {
+        id: true, status: true, clientId: true,
+        guestEmail: true, guestPhone: true, guestFullName: true,
+        description: true,
+        client: { select: { id: true, email: true, fullName: true, phone: true } },
+      },
     })
     if (!req) return { success: false, error: "Request not found" }
 
     const oldStatus = req.status
 
-    await prisma.$transaction([
-      prisma.productRequest.update({ where: { id: requestId }, data: { status: newStatus } }),
-      prisma.requestStatusHistory.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.productRequest.update({ where: { id: requestId }, data: { status: newStatus } })
+      await tx.requestStatusHistory.create({
         data: { requestId, oldStatus, newStatus, changedById: adminId },
-      }),
-      prisma.auditLog.create({
+      })
+      await tx.auditLog.create({
         data: {
           adminId,
           action: "UPDATE_REQUEST_STATUS",
@@ -378,23 +403,103 @@ export async function updateRequestStatus(
           entityId: requestId,
           changes: { oldStatus, newStatus, note } satisfies Prisma.InputJsonValue,
         },
-      }),
-      prisma.notification.create({
-        data: {
-          userId: req.clientId,
-          title: `Request status updated to ${newStatus}`,
-          message: note ?? `Your product request has been moved to ${newStatus}.`,
-          type: "REQUEST",
-          requestId,
-        },
-      }),
-    ])
+      })
+      if (req.clientId) {
+        await tx.notification.create({
+          data: {
+            userId: req.clientId,
+            title: `Request status updated to ${newStatus}`,
+            message: note ?? `Your product request has been moved to ${newStatus}.`,
+            type: "REQUEST",
+            requestId,
+          },
+        })
+      }
+    })
+
+    // Fire-and-forget: notify client via email + WhatsApp (both registered and guest)
+    const recipientEmail = req.client?.email || req.guestEmail || ""
+    const recipientPhone = req.client?.phone || req.guestPhone || null
+    const customerName = req.client?.fullName || req.guestFullName || "Customer"
+    const userId = req.clientId || null
+    const locale = "en" // admin panel is EN-only
+
+    if (recipientEmail) {
+      notifyClientOnAdminAction({
+        type: "request_status_update",
+        recipientEmail,
+        recipientPhone,
+        userId,
+        locale,
+        requestId: req.id,
+        status: newStatus,
+        requestDescription: req.description ?? undefined,
+        adminNotes: note,
+        customerName,
+      }).catch(() => {})
+    }
 
     revalidateRequests()
     return { success: true, data: { newStatus } }
   } catch (err) {
     console.error("[updateRequestStatus]", err)
     return { success: false, error: "Failed to update status" }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A3b. SEND MANUAL NOTIFICATION TO CLIENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+const sendNotificationSchema = z.object({
+  requestId: z.string().min(1),
+  message: z.string().optional(),
+})
+
+export async function sendRequestNotification(
+  raw: z.infer<typeof sendNotificationSchema>,
+): Promise<ActionResult<{ ok: boolean }>> {
+  try {
+    await requireAdmin()
+    const { requestId, message } = sendNotificationSchema.parse(raw)
+
+    const req = await prisma.productRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        id: true, status: true, clientId: true, description: true,
+        guestEmail: true, guestPhone: true, guestFullName: true,
+        client: { select: { id: true, email: true, fullName: true, phone: true } },
+      },
+    })
+    if (!req) return { success: false, error: "Request not found" }
+
+    const recipientEmail = req.client?.email || req.guestEmail || ""
+    const recipientPhone = req.client?.phone || req.guestPhone || null
+    const customerName = req.client?.fullName || req.guestFullName || "Customer"
+    const userId = req.clientId || null
+
+    if (!recipientEmail && !recipientPhone) {
+      return { success: false, error: "No contact info available for this client" }
+    }
+
+    // Fire-and-forget notification
+    notifyClientOnAdminAction({
+      type: "request_status_update",
+      recipientEmail,
+      recipientPhone,
+      userId,
+      locale: "en",
+      requestId: req.id,
+      status: req.status,
+      requestDescription: req.description ?? undefined,
+      adminNotes: message || undefined,
+      customerName,
+    }).catch(() => {})
+
+    return { success: true, data: { ok: true } }
+  } catch (err) {
+    console.error("[sendRequestNotification]", err)
+    return { success: false, error: "Failed to send notification" }
   }
 }
 
@@ -445,39 +550,65 @@ export async function bulkUpdateRequestStatus(
 
     const requests = await prisma.productRequest.findMany({
       where: { id: { in: requestIds }, isDeleted: false },
-      select: { id: true, status: true, clientId: true },
+      select: {
+        id: true, status: true, clientId: true, description: true,
+        guestEmail: true, guestPhone: true, guestFullName: true,
+        client: { select: { id: true, email: true, phone: true, fullName: true } },
+      },
     })
 
-    await prisma.$transaction([
-      prisma.productRequest.updateMany({
+    await prisma.$transaction(async (tx) => {
+      await tx.productRequest.updateMany({
         where: { id: { in: requestIds }, isDeleted: false },
         data: { status: newStatus },
-      }),
-      ...requests.map((r) =>
-        prisma.requestStatusHistory.create({
+      })
+      for (const r of requests) {
+        await tx.requestStatusHistory.create({
           data: { requestId: r.id, oldStatus: r.status, newStatus, changedById: adminId },
         })
-      ),
-      ...requests.map((r) =>
-        prisma.notification.create({
-          data: {
-            userId: r.clientId,
-            title: `Request status updated to ${newStatus}`,
-            message: `Your product request has been moved to ${newStatus}.`,
-            type: "REQUEST",
-            requestId: r.id,
-          },
-        })
-      ),
-      prisma.auditLog.create({
+        if (r.clientId) {
+          await tx.notification.create({
+            data: {
+              userId: r.clientId,
+              title: `Request status updated to ${newStatus}`,
+              message: `Your product request has been moved to ${newStatus}.`,
+              type: "REQUEST",
+              requestId: r.id,
+            },
+          })
+        }
+      }
+      await tx.auditLog.create({
         data: {
           adminId,
           action: "BULK_UPDATE_REQUEST_STATUS",
           entity: "ProductRequest",
           changes: { requestIds, newStatus, count: requests.length } satisfies Prisma.InputJsonValue,
         },
-      }),
-    ])
+      })
+    })
+
+    // Fire-and-forget: notify each client via email + WhatsApp
+    for (const r of requests) {
+      const recipientEmail = r.client?.email || r.guestEmail || ""
+      const recipientPhone = r.client?.phone || r.guestPhone || null
+      const customerName = r.client?.fullName || r.guestFullName || "Customer"
+      const userId = r.clientId || null
+
+      if (recipientEmail || recipientPhone) {
+        notifyClientOnAdminAction({
+          type: "request_status_update",
+          recipientEmail,
+          recipientPhone,
+          userId,
+          locale: "en",
+          requestId: r.id,
+          status: newStatus,
+          requestDescription: r.description ?? undefined,
+          customerName,
+        }).catch(() => {})
+      }
+    }
 
     revalidateRequests()
     return { success: true, data: { count: requests.length } }
@@ -568,7 +699,15 @@ export async function createQuote(raw: z.infer<typeof createQuoteSchema>): Promi
 
     const req = await prisma.productRequest.findUnique({
       where: { id: requestId },
-      select: { id: true, clientId: true, _count: { select: { quotes: true } } },
+      select: {
+        id: true,
+        clientId: true,
+        guestEmail: true,
+        guestPhone: true,
+        guestFullName: true,
+        client: { select: { id: true, email: true, phone: true, fullName: true } },
+        _count: { select: { quotes: true } },
+      },
     })
     if (!req) return { success: false, error: "Request not found" }
 
@@ -590,7 +729,7 @@ export async function createQuote(raw: z.infer<typeof createQuoteSchema>): Promi
           changes: { requestId, price, currency, status } satisfies Prisma.InputJsonValue,
         },
       })
-      if (status === "SENT") {
+      if (status === "SENT" && req.clientId) {
         await tx.notification.create({
           data: {
             userId: req.clientId,
@@ -604,6 +743,27 @@ export async function createQuote(raw: z.infer<typeof createQuoteSchema>): Promi
       }
       return q
     })
+
+    // Notify client via email + WhatsApp when quote is sent
+    if (status === "SENT") {
+      const clientEmail = req.client?.email || req.guestEmail || null;
+      const clientPhone = req.client?.phone || req.guestPhone || null;
+      const clientName = req.client?.fullName || req.guestFullName || "Customer";
+      const clientId = req.client?.id || null;
+
+      notifyClientOnAdminAction({
+        type: "quote_ready",
+        recipientEmail: clientEmail || "",
+        recipientPhone: clientPhone,
+        userId: clientId,
+        locale: "en",
+        requestId,
+        price: String(price),
+        currency,
+        validUntil: validUntil?.toISOString() ?? undefined,
+        customerName: clientName,
+      }).catch(() => {});
+    }
 
     revalidateRequests()
     return { success: true, data: { id: quote.id } }
@@ -666,18 +826,27 @@ export async function updateQuoteStatus(
 
     const quote = await prisma.quote.findUnique({
       where: { id: quoteId },
-      select: { id: true, status: true, requestId: true, price: true, currency: true, request: { select: { clientId: true } } },
+      select: {
+        id: true, status: true, requestId: true, price: true, currency: true, validUntil: true,
+        request: {
+          select: {
+            clientId: true,
+            guestEmail: true, guestPhone: true, guestFullName: true,
+            client: { select: { id: true, email: true, phone: true, fullName: true } },
+          },
+        },
+      },
     })
     if (!quote) return { success: false, error: "Quote not found" }
 
     const oldStatus = quote.status
 
-    await prisma.$transaction([
-      prisma.quote.update({ where: { id: quoteId }, data: { status: newStatus } }),
-      prisma.quoteStatusHistory.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.quote.update({ where: { id: quoteId }, data: { status: newStatus } })
+      await tx.quoteStatusHistory.create({
         data: { quoteId, oldStatus, newStatus, changedById: adminId },
-      }),
-      prisma.auditLog.create({
+      })
+      await tx.auditLog.create({
         data: {
           adminId,
           action: "UPDATE_QUOTE_STATUS",
@@ -685,9 +854,9 @@ export async function updateQuoteStatus(
           entityId: quoteId,
           changes: { oldStatus, newStatus } satisfies Prisma.InputJsonValue,
         },
-      }),
-      ...(newStatus === "SENT"
-        ? [prisma.notification.create({
+      })
+      if (newStatus === "SENT" && quote.request.clientId) {
+        await tx.notification.create({
           data: {
             userId: quote.request.clientId,
             title: "Quote updated",
@@ -696,15 +865,37 @@ export async function updateQuoteStatus(
             requestId: quote.requestId,
             quoteId,
           },
-        })]
-        : []),
-      ...(newStatus === "ACCEPTED"
-        ? [prisma.productRequest.update({
+        })
+      }
+      if (newStatus === "ACCEPTED") {
+        await tx.productRequest.update({
           where: { id: quote.requestId },
           data: { acceptedQuoteId: quoteId, status: "APPROVED" },
-        })]
-        : []),
-    ])
+        })
+      }
+    })
+
+    // Notify client via email + WhatsApp when quote status changes
+    if (newStatus === "SENT" || newStatus === "ACCEPTED") {
+      const request = quote.request;
+      const clientEmail = request.client?.email || request.guestEmail || null;
+      const clientPhone = request.client?.phone || request.guestPhone || null;
+      const clientName = request.client?.fullName || request.guestFullName || "Customer";
+      const clientId = request.client?.id || null;
+
+      notifyClientOnAdminAction({
+        type: "quote_ready",
+        recipientEmail: clientEmail || "",
+        recipientPhone: clientPhone,
+        userId: clientId,
+        locale: "en",
+        requestId: quote.requestId,
+        price: String(quote.price),
+        currency: quote.currency,
+        validUntil: quote.validUntil?.toISOString() ?? undefined,
+        customerName: clientName,
+      }).catch(() => {});
+    }
 
     revalidateRequests()
     return { success: true, data: { newStatus } }

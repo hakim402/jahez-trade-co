@@ -26,6 +26,7 @@ interface PageProps {
     sortOrder?: string;
     from?: string;
     to?: string;
+    clientType?: string;
   }>;
 }
 
@@ -62,6 +63,7 @@ export default async function RequestsPage({ searchParams }: PageProps) {
     sortOrder: (sp.sortOrder as "asc" | "desc") || "desc",
     createdAtFrom: sp.from ? new Date(sp.from) : undefined,
     createdAtTo: sp.to ? new Date(sp.to) : undefined,
+    clientType: (sp.clientType as "all" | "registered" | "guest") || "all",
   };
 
   const [listResult, statsResult] = await Promise.all([

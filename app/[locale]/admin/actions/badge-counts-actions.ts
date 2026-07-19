@@ -10,6 +10,7 @@ export async function getAdminBadgeCounts() {
     const [
       productRequestsNew,
       videoBookingsNew,
+      consultingRequestsNew,
       supportUnread,
       notificationsUnread,
     ] = await Promise.all([
@@ -23,7 +24,12 @@ export async function getAdminBadgeCounts() {
         where: { isDeleted: false, status: 'REQUESTED' },
       }),
 
-      // 3. Support – active sessions where the last message is from the user (unread)
+      // 3. Consulting requests – new (status = NEW)
+      prisma.consultingRequest.count({
+        where: { isDeleted: false, status: 'NEW' },
+      }),
+
+      // 4. Support – active sessions where the last message is from the user (unread)
       prisma.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(*) as count
         FROM (
@@ -36,22 +42,23 @@ export async function getAdminBadgeCounts() {
         WHERE role = 'user'
       `.then(res => Number(res[0]?.count || 0)),
 
-      // 4. Notifications – unread for this admin
+      // 5. Notifications – unread for this admin
       prisma.notification.count({
         where: { userId: adminId, isRead: false },
       }),
     ])
 
     return {
-      productRequests: productRequestsNew,
-      videoBookings:   videoBookingsNew,
-      support:         supportUnread,
-      notifications:   notificationsUnread,
+      productRequests:   productRequestsNew,
+      videoBookings:     videoBookingsNew,
+      consultingRequests: consultingRequestsNew,
+      support:           supportUnread,
+      notifications:     notificationsUnread,
       // audit logs – not needed for now
-      audit:           0,
+      audit:             0,
     }
   } catch (error) {
     console.error('Failed to fetch badge counts:', error)
-    return { productRequests: 0, videoBookings: 0, support: 0, notifications: 0, audit: 0 }
+    return { productRequests: 0, videoBookings: 0, consultingRequests: 0, support: 0, notifications: 0, audit: 0 }
   }
 }

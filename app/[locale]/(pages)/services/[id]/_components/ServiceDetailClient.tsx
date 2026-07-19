@@ -548,7 +548,7 @@ export function ServiceDetailClient({
                 {/* CTA */}
                 <div className="px-6 py-5 space-y-3">
                   <Link
-                    href={`/dashboard/consulting?serviceId=${service.id}`}
+                    href={`/${isAr ? "ar" : "en"}/services/${service.id}/request`}
                     className="block"
                   >
                     <Button className="w-full h-11 rounded-xl bg-[#7b57fc] hover:bg-[#6a48eb] text-white border-0 shadow-lg shadow-[#7b57fc]/25 gap-2 text-sm font-semibold">

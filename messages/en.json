@@ -3,10 +3,14 @@
     "home": "Home",
     "products": "Products",
     "service": "Services",
+    "track": "Track",
+    "bookings": "Book a Call",
     "blogs": "Blogs",
     "about": "About",
     "contact": "Contact",
-    "profile": "Profile",
+    "dashboard": "Dashboard",
+    "requestProduct": "Request a Product",
+    "requestConsultation": "Request Consultation",
     "login": "Login",
     "signUp": "Sign Up"
   },
@@ -25,6 +29,7 @@
     "memberSince": "Member since {date}",
     "refresh": "Refresh",
     "updated": "Updated {relative}",
+    "myTasks": "My Tasks",
     "quickActions": {
       "newRequest": "New Request",
       "bookCall": "Book a Call",
@@ -98,5 +103,193 @@
     "unlimited": "∞",
     "approachingLimit": "Approaching limit",
     "limitReached": "Limit reached"
+  },
+  "PublicPages": {
+    "ProductRequest": {
+      "heroTitle": "Request a Product",
+      "heroDesc": "Tell us what you're looking for and we'll source it from verified suppliers in China. Fast quotes, transparent pricing.",
+      "form": {
+        "title": "Request a Product",
+        "requiredHint": "Fields marked * are required",
+        "fullName": "Full name *",
+        "fullNamePlaceholder": "Your full name",
+        "email": "Email *",
+        "phone": "Phone",
+        "productLink": "Product link",
+        "productLinkPlaceholder": "https://...",
+        "description": "Product description *",
+        "descriptionPlaceholder": "Describe the product, specs, etc.",
+        "quantity": "Quantity",
+        "shippingCountry": "Shipping country *",
+        "customNotes": "Additional notes",
+        "customNotesPlaceholder": "Any special requests or notes…",
+        "submit": "Submit request",
+        "sending": "Sending…",
+        "privacyNote": "By submitting, you agree to receive a reply to your email.",
+        "validationRequired": "Please fill in all required fields",
+        "successTitle": "Request submitted!",
+        "successMessage": "Thank you! Our team will reply to your email within 24 hours with a quote."
+      }
+    },
+    "VideoBooking": {
+      "heroTitle": "Book a Live Video Session",
+      "heroDesc": "See products in real time. Our team in China will walk you through markets, factories, or custom consultations via live video call.",
+      "form": {
+        "title": "Book a Video Session",
+        "requiredHint": "Fields marked * are required",
+        "fullName": "Full name *",
+        "fullNamePlaceholder": "Your full name",
+        "email": "Email *",
+        "phone": "Phone",
+        "sessionType": "Session type *",
+        "sessionTypes": {
+          "market": "Market Tour",
+          "factory": "Factory Visit",
+          "custom": "Custom Consultation"
+        },
+        "preferredDate": "Preferred date",
+        "notes": "Notes *",
+        "notesPlaceholder": "What would you like to discuss in the session?",
+        "submit": "Book session",
+        "sending": "Sending…",
+        "privacyNote": "After confirming, we'll send you the session link and password via email.",
+        "validationRequired": "Please fill in all required fields",
+        "successTitle": "Booking request sent!",
+        "successMessage": "Thank you! We'll contact you soon to confirm the session time."
+      },
+      "faq": {
+        "q1": "How does a video session work?",
+        "a1": "After booking, our team confirms a time. You receive a meeting link via email. At the scheduled time, join the call and our agent in China will show you products, factories, or markets live.",
+        "q2": "What do I need?",
+        "a2": "Just a stable internet connection and a device with a camera. No special software required.",
+        "q3": "How much does it cost?",
+        "a3": "Sessions are included in all paid plans. Free plan users get 1 session per month."
+      }
+    },
+    "ConsultingRequest": {
+      "heroTitle": "Request a Consultation",
+      "heroDesc": "Need expert guidance on sourcing, logistics, or trade compliance? Our team is ready to help.",
+      "form": {
+        "title": "Request Consultation: {service}",
+        "requiredHint": "Fields marked * are required",
+        "fullName": "Full name *",
+        "fullNamePlaceholder": "Your full name",
+        "email": "Email *",
+        "phone": "Phone",
+        "company": "Company",
+        "companyPlaceholder": "Optional",
+        "budget": "Approximate budget",
+        "budgetPlaceholder": "e.g. $500-1000",
+        "description": "Describe your needs *",
+        "descriptionPlaceholder": "Explain what you need from this service…",
+        "submit": "Submit request",
+        "sending": "Sending…",
+        "privacyNote": "By submitting, you agree to receive a reply to your email. We never share your info with third parties.",
+        "validationRequired": "Please fill in all required fields",
+        "successTitle": "Request submitted!",
+        "successMessage": "Thank you! Our team will reply to your email within 24 hours."
+      }
+    },
+    "countries": {
+      "SA": "Saudi Arabia",
+      "YE": "Yemen",
+      "AE": "UAE",
+      "US": "USA",
+      "CN": "China",
+      "OTHER": "Other"
+    }
+  },
+  "ServiceDetail": {
+    "requestService": "Request this service",
+    "contactTeam": "Contact our team",
+    "featured": "Featured",
+    "priceFrom": "From",
+    "duration": "Duration",
+    "includes": "What's included",
+    "relatedServices": "Related services",
+    "deliveryFormat": "Delivery format"
+  },
+  "Notifications": {
+    "email": {
+      "adminNewRequest_subject": "New {type} from {name}",
+      "clientQuoteReady_subject": "Your quote is ready — {price}",
+      "clientBookingUpdate_subject": "Booking Update: {status}",
+      "clientConsultingUpdate_subject": "Consulting Update: {service}"
+    }
+  },
+  "Admin": {
+    "Integrations": {
+      "title": "API Integrations",
+      "subtitle": "Connect third-party providers to enable automated tracking, WhatsApp messaging, and email notifications.",
+      "backToShipments": "Back to Shipments",
+      "tabs": {
+        "17track": "17TRACK",
+        "twilio": "Twilio (WhatsApp)",
+        "email": "Email Provider"
+      },
+      "17track": {
+        "description": "Multi-carrier tracking — 3400+ carriers worldwide, free quota included.",
+        "apiKey": "API Token",
+        "apiKeyPlaceholderNew": "Paste your 17TRACK API key",
+        "apiKeyPlaceholderReplace": "Enter a new key to replace the current one",
+        "apiKeyHint": "Get a free key from api.17track.net",
+        "apiKeyConnected": "API key connected ({masked})",
+        "apiKeyNotConfigured": "No API key configured yet",
+        "webhookSecret": "Webhook Secret (optional)",
+        "webhookSecretPlaceholder": "Defaults to your API key if left blank",
+        "webhookSecretHint": "Used to verify push notifications sent to /api/webhooks/17track",
+        "webhookSecretSet": "Currently set ({masked})",
+        "enabled": "Enabled",
+        "save": "Save Settings",
+        "checkQuota": "Check Quota",
+        "quotaTotal": "Total quota",
+        "quotaUsed": "Used",
+        "quotaRemaining": "Remaining",
+        "saved": "Integration settings saved",
+        "saveFailed": "Failed to save settings"
+      },
+      "twilio": {
+        "description": "Send WhatsApp notifications to admins and clients. Requires a Twilio account with WhatsApp sandbox or approved template.",
+        "accountSid": "Account SID",
+        "accountSidPlaceholder": "Twilio Account SID",
+        "authToken": "Auth Token",
+        "authTokenPlaceholder": "Twilio Auth Token",
+        "whatsappFrom": "WhatsApp From Number",
+        "whatsappFromPlaceholder": "+14155238886",
+        "whatsappFromHint": "Twilio-provided WhatsApp number (sandbox or approved sender)",
+        "enabled": "Enable WhatsApp notifications",
+        "save": "Save Settings",
+        "saved": "Twilio settings saved",
+        "saveFailed": "Failed to save Twilio settings",
+        "notConfigured": "No Twilio credentials configured yet"
+      },
+      "email": {
+        "description": "Send email notifications via Gmail API or SMTP (e.g., Hostinger, Brevo, SendGrid).",
+        "provider": "Email Provider",
+        "providerNone": "None (disabled)",
+        "providerGmail": "Gmail (OAuth2)",
+        "providerSmtp": "SMTP",
+        "host": "SMTP Host",
+        "hostPlaceholder": "smtp.hostinger.com",
+        "port": "SMTP Port",
+        "portPlaceholder": "465",
+        "user": "SMTP Username",
+        "userPlaceholder": "info@yourdomain.com",
+        "pass": "SMTP Password",
+        "passPlaceholder": "Your SMTP password or app password",
+        "fromName": "From Name",
+        "fromNamePlaceholder": "Jahez Trade Co.",
+        "fromAddress": "From Address",
+        "fromAddressPlaceholder": "info@jahez.online",
+        "enabled": "Enable email notifications",
+        "save": "Save Settings",
+        "testConnection": "Test Connection",
+        "testing": "Testing…",
+        "testSuccess": "Test email sent! Check your inbox.",
+        "testFailed": "Connection test failed",
+        "saved": "Email settings saved",
+        "saveFailed": "Failed to save email settings"
+      }
+    }
   }
 }

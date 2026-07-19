@@ -74,7 +74,7 @@ export function UpcomingBookingsCard({ bookings }: UpcomingBookingsCardProps) {
               {bookings.map((b) => {
                 const cfg = getBookingStatus(b.status)
                 const typeLabel = b.type.charAt(0) + b.type.slice(1).toLowerCase()
-                const initials = (b.client.fullName ?? b.client.email).slice(0, 2).toUpperCase()
+                const initials = b.client ? (b.client.fullName ?? b.client.email).slice(0, 2).toUpperCase() : 'GU'
                 const isNear =
                   b.scheduledAt &&
                   new Date(b.scheduledAt).getTime() - Date.now() < 1000 * 60 * 60 * 24
@@ -99,7 +99,7 @@ export function UpcomingBookingsCard({ bookings }: UpcomingBookingsCardProps) {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-medium leading-snug truncate">
-                            {b.client.fullName ?? b.client.email}
+                            {b.client ? (b.client.fullName ?? b.client.email) : 'Guest'}
                             {isNear && (
                               <Badge
                                 variant="outline"

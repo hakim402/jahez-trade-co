@@ -1,20 +1,9 @@
 // lib/shipping/invoice-email.ts
 //
 // Emails an invoice (PDF attached + HTML body) to a client or guest client.
-// Reuses the same Gmail/nodemailer transport pattern as
-// app/[locale]/(pages)/contact/actions.ts.
+// Uses the shared multi-provider email transport from lib/email.ts.
 
-import nodemailer from "nodemailer";
-
-function createTransport() {
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.GMAIL_USER!,
-      pass: process.env.GMAIL_APP_PASSWORD!,
-    },
-  });
-}
+import { sendEmail } from "@/lib/email";
 
 export interface InvoiceEmailParams {
   to: string;
@@ -99,9 +88,7 @@ export async function sendInvoiceEmail(
   params: InvoiceEmailParams,
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
-    const transport = createTransport();
-    await transport.sendMail({
-      from: `"JAHEZ Trade Co." <${process.env.GMAIL_USER}>`,
+    const result = await sendEmail({
       to: params.to,
       subject: `Invoice ${params.invoiceNumber} — JAHEZ Trade Co.`,
       html: buildInvoiceEmailHtml(params),
@@ -113,6 +100,10 @@ export async function sendInvoiceEmail(
         },
       ],
     });
+
+    if (!result.success) {
+      return { success: false, error: result.error || "Email transport not available" };
+    }
     return { success: true };
   } catch (err: any) {
     console.error("[Invoice Email] Send failed:", err?.message ?? err);
